@@ -1,0 +1,9 @@
+
+.custom-datatable .p-datatable-thead th,
+.custom-datatable .p-datatable-tbody td {
+  width: 100px; /* Ajusta el valor según sea necesario */
+}
+
+.custom-password-input {
+  width: 40% !important; /* Ajusta el ancho según tus necesidades */
+}

@@ -1,0 +1,10 @@
+version: "3.8"
+services:
+  neurodxfront:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    container_name: neurodxfront
+    restart: always

@@ -1,0 +1,7 @@
+.warning-color {
+    color: orange; /* o el color deseado para la advertencia */
+  }
+  
+  .warning-color.warning {
+    color: red; /* o el color deseado para la advertencia si ha pasado más de 5 días */
+  }
