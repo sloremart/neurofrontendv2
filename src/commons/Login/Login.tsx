@@ -17,7 +17,7 @@ const ROLE_ROUTES: Record<string, string> = {
   Contador: "/documental_programacion_pagos",
   Financiera: "/documental_programacion_pagos",
   Administrativo: "/auditoriadashboard",
-  AdministrativoGerencia: "/auditoriadashboard",
+  AdministrativoGerencia: "/facturas_proveedores",
   Sistemas: "/auditoriadashboard",
 };
 

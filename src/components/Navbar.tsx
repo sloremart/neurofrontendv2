@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 
 const Navbar = () => {
   const { pathname } = useLocation();
+  const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+  const isAdminGerencia = userData?.cargo === 'AdministrativoGerencia';
 
   return (
     <nav style={{
@@ -15,48 +17,58 @@ const Navbar = () => {
       fontWeight: 600
     }}>
 
-
-      <Link
-        to="/informe_fact"
-        style={{
-          color: pathname === '/informe_fact' ? '#facc15' : 'white',
-          textDecoration: 'none'
-        }}
-      >
-        CARTERA
-      </Link>
-
-      <Link
-        to="/dashboard"
-        style={{
-          color: pathname === '/dashboard' ? '#facc15' : 'white',
-          textDecoration: 'none'
-        }}
-      >
-        FACTURACIÓN
-      </Link>
-      <Link
-        to="/dashboard_agendamiento"
-        style={{
-          color: pathname === '/dashboard_agendamiento' ? '#facc15' : 'white',
-          textDecoration: 'none'
-        }}
-      >
-        AGENDAMIENTO
-      </Link>
-      <Link
-        to="/recaudo"
-        style={{
-          color: pathname === '/recaudo' ? '#facc15' : 'white',
-          textDecoration: 'none'
-        }}
-      >
-        RECAUDO
-      </Link>
+      {!isAdminGerencia && (
         <Link
+          to="/informe_fact"
+          style={{
+            color: pathname === '/informe_fact' ? '#facc15' : 'white',
+            textDecoration: 'none'
+          }}
+        >
+          CARTERA
+        </Link>
+      )}
+
+      {!isAdminGerencia && (
+        <Link
+          to="/dashboard"
+          style={{
+            color: pathname === '/dashboard' ? '#facc15' : 'white',
+            textDecoration: 'none'
+          }}
+        >
+          FACTURACIÓN
+        </Link>
+      )}
+
+      {!isAdminGerencia && (
+        <Link
+          to="/dashboard_agendamiento"
+          style={{
+            color: pathname === '/dashboard_agendamiento' ? '#facc15' : 'white',
+            textDecoration: 'none'
+          }}
+        >
+          AGENDAMIENTO
+        </Link>
+      )}
+
+      {!isAdminGerencia && (
+        <Link
+          to="/recaudo"
+          style={{
+            color: pathname === '/recaudo' ? '#facc15' : 'white',
+            textDecoration: 'none'
+          }}
+        >
+          RECAUDO
+        </Link>
+      )}
+
+      <Link
         to="/facturas_proveedores"
         style={{
-          color: pathname === '/recaudo' ? '#facc15' : 'white',
+          color: pathname === '/facturas_proveedores' ? '#facc15' : 'white',
           textDecoration: 'none'
         }}
       >
