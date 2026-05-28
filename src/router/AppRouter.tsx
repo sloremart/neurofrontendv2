@@ -33,6 +33,7 @@ import EvaluacionEvaluarWrapper from '../commons/EvaluacionDesempeño/components
 import EvaluacionActividadesWrapper from '../commons/EvaluacionDesempeño/components/EvaluacionActividadesWrapper.tsx';
 import ResponderEvaluacionWrapper from '../commons/EvaluacionDesempeño/components/ResponderEvaluacionWrapper.tsx';
 import CajaFacturacion from '../commons/Gedocumental/Facturacion/components/CajaFacturacion.tsx';
+import { TablaProveedor } from '../commons/ProgramacionPagos/components/TablaIdRevisor.tsx';
 
 
 
@@ -67,6 +68,7 @@ export const AppRouter: React.FC = () => {
       <Route element={<ProtectedRoute allowedRoles={["Contador", "Financiera"]} />}>
         <Route path="/documental_programacion_pagos" element={<GeDocumentalProgramacion />} />
         <Route path="/tesoreria" element={<Tesoreria />} />
+        <Route path="/facturas_proveedores" element={<TablaProveedor />} />
       </Route>
 
 
@@ -103,3 +105,4 @@ export const AppRouter: React.FC = () => {
   );
 };
 
+ 

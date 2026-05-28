@@ -8,6 +8,7 @@ import { auditoria_dashboard_slice } from '../commons/Auditoria/store/slice/inde
 import { caja_facturacion_slice } from '../commons/Gedocumental/Facturacion/store/slice/CajaFacturacionSlice.tsx';
 import { dashboard_slice } from '../commons/Dashboard/store/slice/indexDashboard.tsx';
 import { riesgo_compartido_slice } from '../commons/Dashboard/store/slice/indexMrc.tsx';
+import { programacion_pagos_slice } from '../commons/ProgramacionPagos/store/slice/indexProgramacionPago.tsx';
 
 const store = configureStore({
   reducer: {
@@ -17,7 +18,8 @@ const store = configureStore({
     auditoria_dashboard: auditoria_dashboard_slice.reducer,
     caja_facturacion: caja_facturacion_slice.reducer,
     dashboard: dashboard_slice.reducer,
-    riesgo_compartido: riesgo_compartido_slice.reducer
+    riesgo_compartido: riesgo_compartido_slice.reducer,
+    programacion_pagos: programacion_pagos_slice.reducer,
 
   },
 });
