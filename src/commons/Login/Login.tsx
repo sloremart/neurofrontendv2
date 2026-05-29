@@ -12,13 +12,11 @@ import CONFIG from "../../config/api.js";
 const ROLE_ROUTES: Record<string, string> = {
   CuentasMedicas: "/talento_humano",
   LiderCuentasMedicas: "/talento_humano",
-  EstudiosSueÃ±o: "/ge_documental_resultados",
+  EstudiosSueño: "/ge_documental_resultados",
   Asistencial: "/ge_documental_resultados",
   Contador: "/documental_programacion_pagos",
   Financiera: "/documental_programacion_pagos",
-  Administrativo: "/ge_documental",
   AdministrativoGerencia: "/facturas_proveedores",
-  Sistemas: "/ge_documental",
 };
 
 const LoginForm = () => {
