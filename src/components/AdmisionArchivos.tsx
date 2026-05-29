@@ -124,7 +124,7 @@ export const AdmsionFacturacion = () => {
               justifyContent: "center",
             }}>
             {" "}
-            Número de admisión
+            Estudio
           </span>
           <span className="p-float-label">
             <InputText
