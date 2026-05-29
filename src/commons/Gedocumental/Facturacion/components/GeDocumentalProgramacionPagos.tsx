@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../../store/store";
 import { Title } from "../../../../components/Title.tsx";
@@ -56,10 +56,10 @@ const formatearFechaHora = (fechaString: string) => {
       if (isNaN(fecha.getTime())) return fechaString;
       const dia = fecha.getDate().toString().padStart(2, '0');
       const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
-      const año = fecha.getFullYear();
+      const aÃ±o = fecha.getFullYear();
       const hora = fecha.getHours().toString().padStart(2, '0');
       const minutos = fecha.getMinutes().toString().padStart(2, '0');
-      return `${dia}/${mes}/${año} ${hora}:${minutos}`;
+      return `${dia}/${mes}/${aÃ±o} ${hora}:${minutos}`;
     } catch (error) {
       return fechaString;
     }
@@ -95,7 +95,7 @@ const formatearFechaHora = (fechaString: string) => {
     };
 
     const handleVerDocumento = (idArchivo: number) => {
-        const url = `${API_ENDPOINT}/descargar/${idArchivo}/`;
+        const url = `${API_ENDPOINT}/gedocumental/descargar/${idArchivo}/`;
         window.open(url, "_blank");
     };
 
@@ -130,7 +130,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "FechaCreacionArchivo",
-            headerName: "Fecha Creación",
+            headerName: "Fecha CreaciÃ³n",
             width: 350,
             headerAlign: 'center',
             align: 'center',
@@ -143,12 +143,12 @@ const formatearFechaHora = (fechaString: string) => {
             headerAlign: 'center',
             align: 'center',
             renderCell: (params) => (
-                params.value && params.value !== 0 ? params.value : "—"
+                params.value && params.value !== 0 ? params.value : "â€”"
             ),
         },
         {
             field: "IdRevisor",
-            headerName: "Revisión 1",
+            headerName: "RevisiÃ³n 1",
             width: 300,
             renderCell: (params) => {
                 const user = users.find((u) => u.id === params.value);
@@ -159,7 +159,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "RevisionPrimera",
-            headerName: "Aprobación 1",
+            headerName: "AprobaciÃ³n 1",
             width: 100,
             renderCell: (params) => {
                 if (params.value) {
@@ -175,7 +175,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "FechaRevisionPrimera",
-            headerName: "Fecha Revisión 1",
+            headerName: "Fecha RevisiÃ³n 1",
             width: 350,
             headerAlign: 'center',
             align: 'center',
@@ -183,18 +183,18 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "IdRevisorTesoreria",
-            headerName: "Revisión 2",
+            headerName: "RevisiÃ³n 2",
             width: 300,
             renderCell: (params) => {
                 const user = users.find((u) => u.id === params.value);
-                return <span>{user?.nombre || user?.username || "—"}</span>;
+                return <span>{user?.nombre || user?.username || "â€”"}</span>;
             },
             headerAlign: "center",
             align: "center",
         },
         {
             field: "RevisionSegunda",
-            headerName: "Aprobación 2",
+            headerName: "AprobaciÃ³n 2",
             width: 100,
             renderCell: (params) => {
                 if (params.row.IdRevisorTesoreria) {
@@ -214,7 +214,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "FechaRevisionSegunda",
-            headerName: "Fecha Revisión 2",
+            headerName: "Fecha RevisiÃ³n 2",
             width: 350,
             headerAlign: 'center',
             align: 'center',
@@ -239,12 +239,12 @@ const formatearFechaHora = (fechaString: string) => {
                     const user = users.find((u) => u.id === params.value);
                     return <span>{user?.nombre || user?.username || `Usuario ${params.value}`}</span>;
                 }
-                return <span>—</span>;
+                return <span>â€”</span>;
             },
         },
         {
             field: "FechaRevisionTercera",
-            headerName: "Fecha Revisión 3",
+            headerName: "Fecha RevisiÃ³n 3",
             width: 350,
             headerAlign: 'center',
             align: 'center',
@@ -252,18 +252,18 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "UsuarioCuentasMedicas",
-            headerName: "Revisión 3",
+            headerName: "RevisiÃ³n 3",
             width: 300,
             renderCell: (params) => {
                 const user = users.find((u) => u.id === params.value);
-                return <span>{user?.nombre || user?.username || "—"}</span>;
+                return <span>{user?.nombre || user?.username || "â€”"}</span>;
             },
             headerAlign: "center",
             align: "center",
         },
         {
             field: "RevisionTercera",
-            headerName: "Aprobación 3",
+            headerName: "AprobaciÃ³n 3",
             width: 100,
             renderCell: (params) => {
                 if (params.row.UsuarioCuentasMedicas) {
@@ -377,7 +377,7 @@ const formatearFechaHora = (fechaString: string) => {
     return (
         <>
             <div className="myContainer" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: "80px" }}>
-                <Title title="GESTIÓN DOCUMENTAL - PROGRAMACIÓN DE PAGOS - NEURODX" />
+                <Title title="GESTIÃ“N DOCUMENTAL - PROGRAMACIÃ“N DE PAGOS - NEURODX" />
 
                 <div style={{ display: "flex", gap: "10px", marginTop: "40px", width: "100%", justifyContent: "center" }}>
                     <div style={{ width: "450px" }}>
@@ -439,7 +439,7 @@ const formatearFechaHora = (fechaString: string) => {
                             labelId="tesoreria-select-label"
                             value={revisorTesoreria ?? ""}
                             onChange={(e) => setRevisorTesoreria(e.target.value as number)}
-                            label="Revisor Tesorería"
+                            label="Revisor TesorerÃ­a"
                             disabled={userSeleccionado === null}
                         >
                             <MenuItem value=""><em>Sin segundo revisor</em></MenuItem>
@@ -458,7 +458,7 @@ const formatearFechaHora = (fechaString: string) => {
                             labelId="tesoreria-select-label2"
                             value={revisorTesoreriaSegundo ?? ""}
                             onChange={(e) => setRevisorTesoreriaSegundo(e.target.value as number)}
-                            label="Revisor Tesorería"
+                            label="Revisor TesorerÃ­a"
                             disabled={userSeleccionado === null}
                         >
                             <MenuItem value=""><em>Sin tercer revisor</em></MenuItem>
@@ -581,12 +581,12 @@ const formatearFechaHora = (fechaString: string) => {
                 </div>
 
                 <Dialog open={modalOpen} onClose={() => setModalOpen(false)}>
-                    <DialogTitle>Ingresar número de comprobante</DialogTitle>
+                    <DialogTitle>Ingresar nÃºmero de comprobante</DialogTitle>
                     <DialogContent>
                         <TextField
                             autoFocus
                             margin="dense"
-                            label="Número de documento"
+                            label="NÃºmero de documento"
                             fullWidth
                             value={documentoEgreso}
                             onChange={(e) => setDocumentoEgreso(e.target.value)}

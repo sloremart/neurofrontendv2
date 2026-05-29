@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import {
   Box, Button, TextField, Alert, CircularProgress,
   Paper, Typography, InputAdornment, IconButton,
@@ -12,13 +12,13 @@ import CONFIG from "../../config/api.js";
 const ROLE_ROUTES: Record<string, string> = {
   CuentasMedicas: "/talento_humano",
   LiderCuentasMedicas: "/talento_humano",
-  EstudiosSueño: "/ge_documental_resultados",
+  EstudiosSueÃ±o: "/ge_documental_resultados",
   Asistencial: "/ge_documental_resultados",
   Contador: "/documental_programacion_pagos",
   Financiera: "/documental_programacion_pagos",
-  Administrativo: "/auditoriadashboard",
+  Administrativo: "/ge_documental",
   AdministrativoGerencia: "/facturas_proveedores",
-  Sistemas: "/auditoriadashboard",
+  Sistemas: "/ge_documental",
 };
 
 const LoginForm = () => {
@@ -51,10 +51,10 @@ const LoginForm = () => {
         const route = ROLE_ROUTES[data.user.cargo] ?? "/ge_documental";
         navigate(route);
       } else {
-        setError(data.detail ?? "Usuario o contraseña incorrectos.");
+        setError(data.detail ?? "Usuario o contraseÃ±a incorrectos.");
       }
     } catch {
-      setError("Error de conexión. Intente de nuevo.");
+      setError("Error de conexiÃ³n. Intente de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -90,7 +90,7 @@ const LoginForm = () => {
           NEURODX
         </Typography>
         <Typography variant="body2" color="text.secondary" textAlign="center" mb={3.5}>
-          Su diagnóstico, nuestro compromiso
+          Su diagnÃ³stico, nuestro compromiso
         </Typography>
 
         <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2.5}>
@@ -106,7 +106,7 @@ const LoginForm = () => {
           />
 
           <TextField
-            label="Contraseña"
+            label="ContraseÃ±a"
             name="password"
             type={showPassword ? "text" : "password"}
             value={form.password}
@@ -133,7 +133,7 @@ const LoginForm = () => {
             disabled={loading}
             startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
           >
-            {loading ? "Ingresando..." : "Iniciar Sesión"}
+            {loading ? "Ingresando..." : "Iniciar SesiÃ³n"}
           </Button>
         </Box>
       </Paper>

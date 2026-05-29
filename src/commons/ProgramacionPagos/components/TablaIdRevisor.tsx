@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useDispatch, useSelector } from "react-redux";
 import { Tabs, Tab, Box } from '@mui/material';
@@ -17,7 +17,7 @@ import { IObjAdmision } from "../interface/ProgramacionPago";
 
 const API_ENDPOINT = CONFIG.API_ENDPOINT;
 
-// Función para formatear fecha y hora
+// FunciÃ³n para formatear fecha y hora
 const formatearFechaHora = (fechaString: string) => {
   if (!fechaString) return "";
   
@@ -28,11 +28,11 @@ const formatearFechaHora = (fechaString: string) => {
     // Formato: DD/MM/YYYY HH:MM
     const dia = fecha.getDate().toString().padStart(2, '0');
     const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
-    const año = fecha.getFullYear();
+    const aÃ±o = fecha.getFullYear();
     const hora = fecha.getHours().toString().padStart(2, '0');
     const minutos = fecha.getMinutes().toString().padStart(2, '0');
     
-    return `${dia}/${mes}/${año} ${hora}:${minutos}`;
+    return `${dia}/${mes}/${aÃ±o} ${hora}:${minutos}`;
   } catch (error) {
     return fechaString;
   }
@@ -43,7 +43,7 @@ export const TablaProveedor = () => {
   const { archivos } = useSelector((state: RootState) => state.programacion_pagos);
   const { users } = useSelector((state: RootState) => state.users);
 
-  // Función para obtener el nombre del usuario por ID
+  // FunciÃ³n para obtener el nombre del usuario por ID
   const obtenerNombreUsuario = (userId: number | null) => {
     if (!userId) return '';
     const user = users.find((u) => u.id === userId);
@@ -73,7 +73,7 @@ export const TablaProveedor = () => {
         .unwrap()
         .then((response) => {
           if (response.success) {
-            // El backend ya separa las facturas en pendientes e históricas
+            // El backend ya separa las facturas en pendientes e histÃ³ricas
             setArchivosPendientes(response.data.pendientes || []);
             setArchivosHistorial(response.data.historicas || []);
           }
@@ -103,15 +103,15 @@ export const TablaProveedor = () => {
       return;
     }
 
-    // Validar observación solo si es un rechazo
+    // Validar observaciÃ³n solo si es un rechazo
     if (modoAccion === "rechazar" && !observacion.trim()) {
-      toast.error("Debe escribir una observación al rechazar.");
+      toast.error("Debe escribir una observaciÃ³n al rechazar.");
       return;
     }
 
     const userDataString = localStorage.getItem("userData");
     if (!userDataString) {
-      toast.error("No se encontró información del usuario.");
+      toast.error("No se encontrÃ³ informaciÃ³n del usuario.");
       return;
     }
 
@@ -138,7 +138,7 @@ export const TablaProveedor = () => {
   };
 
   const handleVerDocumento = (idArchivo: number) => {
-    const url = `${API_ENDPOINT}/descargar/${idArchivo}/`;
+    const url = `${API_ENDPOINT}/gedocumental/descargar/${idArchivo}/`;
     window.open(url, "_blank");
   };
 
@@ -149,7 +149,7 @@ export const TablaProveedor = () => {
     dispatch(get_factura_pendiente_revisor(userData.id.toString()));
   }, [dispatch]);
 
-  // Función para determinar si el usuario puede revisar una factura
+  // FunciÃ³n para determinar si el usuario puede revisar una factura
   const puedeRevisar = (archivo: any) => {
     const usuarioActualId = parseInt(localStorage.getItem("userData") ? JSON.parse(localStorage.getItem("userData")!).id : "0");
     
@@ -158,14 +158,14 @@ export const TablaProveedor = () => {
       return true;
     }
     
-    // Si es el segundo revisor, el primero aprobó y no ha revisado
+    // Si es el segundo revisor, el primero aprobÃ³ y no ha revisado
     if (archivo.IdRevisorTesoreria === usuarioActualId && 
         archivo.RevisionPrimera === true && 
         !archivo.FechaRevisionSegunda) {
       return true;
     }
     
-    // Si es el tercer revisor, los dos primeros aprobaron y no ha revisado y no está rechazada
+    // Si es el tercer revisor, los dos primeros aprobaron y no ha revisado y no estÃ¡ rechazada
     if (archivo.UsuarioCuentasMedicas === usuarioActualId && 
         archivo.RevisionPrimera === true && 
         archivo.RevisionSegunda === true && 
@@ -180,7 +180,7 @@ export const TablaProveedor = () => {
   const columnsPendientes: GridColDef[] = [
     {
       field: 'FechaCreacionArchivo',
-      headerName: 'Fecha Creación',
+      headerName: 'Fecha CreaciÃ³n',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -224,16 +224,16 @@ export const TablaProveedor = () => {
         const archivo = params.row;
         if (archivo.FechaRevisionPrimera) {
           if (archivo.FechaRechazo && archivo.UsuarioRechazo === archivo.IdRevisor) {
-            return '❌ Rechazada';
+            return 'âŒ Rechazada';
           }
-          return archivo.RevisionPrimera ? '✅ Aprobada' : '⏳ No aprobada';
+          return archivo.RevisionPrimera ? 'âœ… Aprobada' : 'â³ No aprobada';
         }
-        return '⏳ Pendiente';
+        return 'â³ Pendiente';
       },
     },
     {
       field: 'FechaRevisionPrimera',
-      headerName: 'Fecha 1ª Revisión',
+      headerName: 'Fecha 1Âª RevisiÃ³n',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -255,7 +255,7 @@ export const TablaProveedor = () => {
       width: 150,
       sortable: false,
       renderCell: (params: any) => {
-        if (!params.value) return <span>—</span>;
+        if (!params.value) return <span>â€”</span>;
         const user = users.find((u) => u.id === params.value);
         return <span>{user?.nombre || user?.username || "Sin asignar"}</span>;
       },
@@ -269,14 +269,14 @@ export const TablaProveedor = () => {
       renderCell: (params: any) => {
         const archivo = params.row;
         if (archivo.FechaRevisionSegunda) {
-          return archivo.RevisionSegunda ? '✅ Aprobada' : '❌ Rechazada';
+          return archivo.RevisionSegunda ? 'âœ… Aprobada' : 'âŒ Rechazada';
         }
-        return '⏳ Pendiente';
+        return 'â³ Pendiente';
       },
     },
     {
       field: 'FechaRevisionSegunda',
-      headerName: 'Fecha 2ª Revisión',
+      headerName: 'Fecha 2Âª RevisiÃ³n',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -305,7 +305,7 @@ export const TablaProveedor = () => {
       width: 150,
       sortable: false,
       renderCell: (params: any) => {
-        if (!params.value) return <span>—</span>;
+        if (!params.value) return <span>â€”</span>;
         const user = users.find((u) => u.id === params.value);
         return <span>{user?.nombre || user?.username || "Sin asignar"}</span>;
       },
@@ -318,14 +318,14 @@ export const TablaProveedor = () => {
       renderCell: (params: any) => {
         const archivo = params.row;
         if (archivo.FechaRevisionTercera) {
-          return archivo.RevisionTercera ? '✅ Aprobada' : '❌ Rechazada';
+          return archivo.RevisionTercera ? 'âœ… Aprobada' : 'âŒ Rechazada';
         }
-        return '⏳ Pendiente';
+        return 'â³ Pendiente';
       },
     },
     {
       field: 'FechaRevisionTercera',
-      headerName: 'Fecha 3ª Revisión',
+      headerName: 'Fecha 3Âª RevisiÃ³n',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -389,7 +389,7 @@ export const TablaProveedor = () => {
   const columnsHistorial = [
     {
       field: 'FechaCreacionArchivo',
-      headerName: 'Fecha Creación',
+      headerName: 'Fecha CreaciÃ³n',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -423,7 +423,7 @@ export const TablaProveedor = () => {
     },
     {
       field: 'FechaRevisionPrimera',
-      headerName: 'Fecha 1ª Revisión',
+      headerName: 'Fecha 1Âª RevisiÃ³n',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -447,9 +447,9 @@ export const TablaProveedor = () => {
       renderCell: (params: any) => {
         const archivo = params.row;
         if (archivo.FechaRevisionPrimera) {
-          return archivo.RevisionPrimera ? '✅ Aprobada' : '❌ Rechazada';
+          return archivo.RevisionPrimera ? 'âœ… Aprobada' : 'âŒ Rechazada';
         }
-        return '⏳ Pendiente';
+        return 'â³ Pendiente';
       },
     },
     {
@@ -458,7 +458,7 @@ export const TablaProveedor = () => {
       width: 150,
       sortable: false,
       renderCell: (params: any) => {
-        if (!params.value) return <span>—</span>;
+        if (!params.value) return <span>â€”</span>;
         const user = users.find((u) => u.id === params.value);
         return <span>{user?.nombre || user?.username || "Sin asignar"}</span>;
       },
@@ -466,7 +466,7 @@ export const TablaProveedor = () => {
  
     {
       field: 'FechaRevisionSegunda',
-      headerName: 'Fecha 2ª Revisión',
+      headerName: 'Fecha 2Âª RevisiÃ³n',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -492,9 +492,9 @@ export const TablaProveedor = () => {
       renderCell: (params: any) => {
         const archivo = params.row;
         if (archivo.FechaRevisionSegunda) {
-          return archivo.RevisionSegunda ? '✅ Aprobada' : '❌ Rechazada';
+          return archivo.RevisionSegunda ? 'âœ… Aprobada' : 'âŒ Rechazada';
         }
-        return '⏳ Pendiente';
+        return 'â³ Pendiente';
       },
     },
    
@@ -505,7 +505,7 @@ export const TablaProveedor = () => {
       width: 150,
       sortable: false,
       renderCell: (params: any) => {
-        if (!params.value) return <span>—</span>;
+        if (!params.value) return <span>â€”</span>;
         const user = users.find((u) => u.id === params.value);
         return <span>{user?.nombre || user?.username || "Sin asignar"}</span>;
       },
@@ -518,14 +518,14 @@ export const TablaProveedor = () => {
       renderCell: (params: any) => {
         const archivo = params.row;
         if (archivo.FechaRevisionTercera) {
-          return archivo.RevisionTercera ? '✅ Aprobada' : '❌ Rechazada';
+          return archivo.RevisionTercera ? 'âœ… Aprobada' : 'âŒ Rechazada';
         }
-        return '⏳ Pendiente';
+        return 'â³ Pendiente';
       },
     },
     {
       field: 'FechaRevisionTercera',
-      headerName: 'Fecha 3ª Revisión',
+      headerName: 'Fecha 3Âª RevisiÃ³n',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -588,7 +588,7 @@ export const TablaProveedor = () => {
 
   return (
     <div className="myContainer" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <Title title="GESTIÓN DE FACTURAS - REVISIÓN Y APROBACIÓN" />
+      <Title title="GESTIÃ“N DE FACTURAS - REVISIÃ“N Y APROBACIÃ“N" />
       
       <Box sx={{ width: '95%', marginTop: 2 }}>
         <Tabs value={currentTab} onChange={(e, newValue) => setCurrentTab(newValue)} centered>
@@ -659,7 +659,7 @@ export const TablaProveedor = () => {
           <TextField
             autoFocus
             margin="dense"
-            label="Observación"
+            label="ObservaciÃ³n"
             fullWidth
             multiline
             minRows={3}

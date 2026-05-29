@@ -157,7 +157,7 @@ export const TalentoHumano = () => {
   };
 
   const DescargarArchivo = (idArchivo: number) => {
-    const url = `${API_ENDPOINT}/descargar/${idArchivo}/`;
+    const url = `${API_ENDPOINT}/gedocumental/descargar/${idArchivo}/`;
     window.open(url, "_blank");
   };
 
