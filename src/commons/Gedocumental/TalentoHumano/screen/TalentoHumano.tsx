@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { InputText } from "primereact/inputtext";
 import {
   Button,
@@ -68,7 +68,7 @@ export const TalentoHumano = () => {
       try {
         await dispatch(get_users()).unwrap();
       } catch (error) {
-        console.error("Error al obtener los códigos:", error);
+        console.error("Error al obtener los cÃ³digos:", error);
       }
     };
 
@@ -94,7 +94,7 @@ export const TalentoHumano = () => {
             ...archivo,
             EditorVisible: true,
             Observacion: "",
-            selectedHallazgo: null, // Añadido para manejo de hallazgo por archivo
+            selectedHallazgo: null, // AÃ±adido para manejo de hallazgo por archivo
           };
         }
         return archivo;
@@ -152,7 +152,7 @@ export const TalentoHumano = () => {
         determinarRegimenMayor(archivosActualizados);
       }
     } catch (error) {
-      console.error("Error al actualizar régimen:", error);
+      console.error("Error al actualizar rÃ©gimen:", error);
     }
   };
 
@@ -239,15 +239,15 @@ export const TalentoHumano = () => {
         if (alias.includes("CONTRIBUTIVO")) setRegimen("C");
         else if (alias.includes("SUBSIDIADO")) setRegimen("S");
       }
-      toast.success("Datos de admisión obtenidos correctamente", {
+      toast.success("Datos de admisiÃ³n obtenidos correctamente", {
         autoClose: 3000,
       });
     } catch (error) {
       console.error(
-        "Error al obtener la información de la admisión:",
+        "Error al obtener la informaciÃ³n de la admisiÃ³n:",
         error instanceof Error ? error.message : error
       );
-      toast.error("Error al obtener la información de la admisión", {
+      toast.error("Error al obtener la informaciÃ³n de la admisiÃ³n", {
         autoClose: 3000,
       });
     }
@@ -296,7 +296,7 @@ export const TalentoHumano = () => {
       : "";
 
     if (!descripcionObservacion) {
-      toast.warn("Seleccione una observación válida", { autoClose: 3000 });
+      toast.warn("Seleccione una observaciÃ³n vÃ¡lida", { autoClose: 3000 });
       return;
     }
 
@@ -330,8 +330,8 @@ export const TalentoHumano = () => {
       setUserSeleccionado(null);
       setSelectedHallazgoSinArchivo(null); // Limpiar el estado sin archivo
     } catch (error) {
-      console.error("Error al agregar observación sin archivo:", error instanceof Error ? error.message : error);
-      toast.error("Error al agregar observación sin archivo", {
+      console.error("Error al agregar observaciÃ³n sin archivo:", error instanceof Error ? error.message : error);
+      toast.error("Error al agregar observaciÃ³n sin archivo", {
         autoClose: 3000,
       });
     }
@@ -341,11 +341,11 @@ export const TalentoHumano = () => {
     try {
       const response = await eliminarArchivoFacturacion(archivoId);
 
-      if (!response || !response.ok) { // Verifica que response no sea undefined y que la petición fue exitosa
+      if (!response || !response.ok) { // Verifica que response no sea undefined y que la peticiÃ³n fue exitosa
         throw new Error(`Error al eliminar el archivo: ${response ? response.statusText : "Sin respuesta del servidor"}`);
       }
 
-      // Recargar archivos después de eliminar
+      // Recargar archivos despuÃ©s de eliminar
       await handleConsultaArchivos();
 
       console.log(`Archivo ${archivoId} eliminado y lista recargada.`);
@@ -364,7 +364,7 @@ export const TalentoHumano = () => {
 
   const handleActualizarRevisor = async () => {
     if (!consecutivoConsulta || !userSeleccionadoT) {
-      toast.warn("Debe seleccionar un usuario y una admisión", {
+      toast.warn("Debe seleccionar un usuario y una admisiÃ³n", {
         autoClose: 3000,
       });
       return;
@@ -381,7 +381,7 @@ export const TalentoHumano = () => {
   return (
     <>
       <div className="myContainer">
-        <Title title="MÓDULO DE GESTIÓN - CUENTAS MÉDICAS" />
+        <Title title="MÃ“DULO DE GESTIÃ“N - CUENTAS MÃ‰DICAS" />
         <div
           className="input-container"
           style={{
@@ -397,7 +397,7 @@ export const TalentoHumano = () => {
               marginTop: "10px",
               justifyContent: "center",
             }}>
-            Número de admisión
+            NÃºmero de admisiÃ³n
           </span>
           <span className="p-float-label">
             <InputText
@@ -405,7 +405,7 @@ export const TalentoHumano = () => {
               value={consecutivoConsulta}
               onChange={handleConsecutivoChangeConsulta}
             />
-            <label htmlFor="in">Consecutivo</label>
+            <label htmlFor="in">Estudio</label>
           </span>
           <Button
             startIcon={<SearchIcon />}
@@ -424,7 +424,7 @@ export const TalentoHumano = () => {
               fontWeight: "bold",
               marginTop: "10px",
             }}>
-            Régimen
+            RÃ©gimen
           </label>
 
           <Button
@@ -436,9 +436,9 @@ export const TalentoHumano = () => {
               height: "38px",
               marginTop: "2px",
               marginLeft: "10px",
-              backgroundColor: "#1E3A8A", // Azul más oscuro
+              backgroundColor: "#1E3A8A", // Azul mÃ¡s oscuro
               "&:hover": {
-                backgroundColor: "#1E3A8A", // Azul más oscuro en hover
+                backgroundColor: "#1E3A8A", // Azul mÃ¡s oscuro en hover
               },
             }}
             disabled={botonContributivoDisabled && regimen !== ""}>
@@ -453,9 +453,9 @@ export const TalentoHumano = () => {
               height: "38px",
               marginTop: "2px",
               marginLeft: "10px",
-              backgroundColor: "#1E3A8A", // Azul más oscuro
+              backgroundColor: "#1E3A8A", // Azul mÃ¡s oscuro
               "&:hover": {
-                backgroundColor: "#1E3A8A", // Azul más oscuro en hover
+                backgroundColor: "#1E3A8A", // Azul mÃ¡s oscuro en hover
               },
             }}
             disabled={botonSubsidiadoDisabled && regimen !== ""}>
@@ -472,7 +472,7 @@ export const TalentoHumano = () => {
               ) {
                 handleRegimenChange("S");
               } else {
-                console.error("Seleccione un régimen para cambiar");
+                console.error("Seleccione un rÃ©gimen para cambiar");
               }
             }}
             sx={{
@@ -567,7 +567,7 @@ export const TalentoHumano = () => {
                     width: "450px",
                     marginLeft: "20px",
                   }}>
-                  Número de identificación
+                  NÃºmero de identificaciÃ³n
                 </label>
               </span>
 
@@ -597,7 +597,7 @@ export const TalentoHumano = () => {
                     width: "450px",
                     marginLeft: "20px",
                   }}>
-                  Código CUV
+                  CÃ³digo CUV
                 </label>
               </span>
             </div>
@@ -658,7 +658,7 @@ export const TalentoHumano = () => {
                         marginLeft: "10px",
                       }}
                       onClick={() => handleAgregarObservacionClick(index)}>
-                      Observación
+                      ObservaciÃ³n
                     </Button>
 
                     {item.EditorVisible && (
@@ -811,7 +811,7 @@ export const TalentoHumano = () => {
             {observaciones.map((obs, index) => (
               <TextField
                 key={index}
-                label={`Observación ${index + 1}`}
+                label={`ObservaciÃ³n ${index + 1}`}
                 variant="outlined"
                 value={obs.Descripcion}
                 onChange={(e) => {
@@ -940,7 +940,7 @@ export const TalentoHumano = () => {
           marginRight: "10px"
         }}>
         <InputLabel id="hallazgo-sin-archivo-label">
-          Observación Sin Archivo
+          ObservaciÃ³n Sin Archivo
         </InputLabel>
         <Select
           labelId="hallazgo-sin-archivo-label"
@@ -948,7 +948,7 @@ export const TalentoHumano = () => {
           onChange={(e) =>
             setSelectedHallazgoSinArchivo(e.target.value as number)
           }
-          label="Observación Sin Archivo">
+          label="ObservaciÃ³n Sin Archivo">
           {hallazgo.map((hallazgo: Hallazgo) => (
             <MenuItem key={hallazgo.id} value={hallazgo.id}>
               {hallazgo.descripcion}
@@ -961,7 +961,7 @@ export const TalentoHumano = () => {
         color="primary"
         onClick={agregarObservacionSinArchivo}
         style={{ height: "55px", marginRight: "10px" }}>
-        Agregar Observación
+        Agregar ObservaciÃ³n
       </Button>
 
     </>

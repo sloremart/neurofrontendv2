@@ -1,4 +1,4 @@
-/* eslint-disable no-lone-blocks */
+﻿/* eslint-disable no-lone-blocks */
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from "react";
 import { Title } from "../../../components/Title.tsx";
@@ -71,7 +71,7 @@ export const GeDocumental = () => {
     }
   }, [archivos, enviarArchivos]);
 
-  // Inicializa el estado de los botones de guardar en base a la admisión
+  // Inicializa el estado de los botones de guardar en base a la admisiÃ³n
   useEffect(() => {
     if (admisionData) {
       const initialState = admisionData.TiposDocumentos.reduce(
@@ -85,7 +85,7 @@ export const GeDocumental = () => {
     }
   }, [admisionData]);
 
-  // Función para marcar una observación como revisada
+  // FunciÃ³n para marcar una observaciÃ³n como revisada
   const handleCheckboxChange = async (admisionId: number) => {
     if (!admisionId) {
       console.error("AdmisionId is undefined");
@@ -95,11 +95,11 @@ export const GeDocumental = () => {
       await ObservacionRevisada(admisionId);
       handleFetchObservaciones();
     } catch (error) {
-      console.error("Error al actualizar la observación:", error instanceof Error ? error.message : error);
+      console.error("Error al actualizar la observaciÃ³n:", error instanceof Error ? error.message : error);
     }
   };
 
-  // Buscar datos de admisión en base al consecutivo
+  // Buscar datos de admisiÃ³n en base al consecutivo
   const fetchData = async () => {
     try {
       const response = await fetch(`${API_ENDPOINT}/gedocumental/admisiones/${consecutivo}/`);
@@ -109,22 +109,22 @@ export const GeDocumental = () => {
       const responseData = await response.json();
       const data = responseData.data;
       setAdmisionData(data);
-      // Auto-seleccionar régimen según el contrato de la admisión
+      // Auto-seleccionar rÃ©gimen segÃºn el contrato de la admisiÃ³n
       if (data.ContratoRegimen === 1) {
         handleRegimenChange("C");
       } else if (data.ContratoRegimen === 2) {
         handleRegimenChange("S");
       } else {
-        // Si el alias contiene la palabra clave, inferir el régimen
+        // Si el alias contiene la palabra clave, inferir el rÃ©gimen
         const alias = (data.ContratoAlias || "").toUpperCase();
         if (alias.includes("CONTRIBUTIVO")) handleRegimenChange("C");
         else if (alias.includes("SUBSIDIADO")) handleRegimenChange("S");
       }
-      toast.success("Datos de admisión obtenidos correctamente", {
+      toast.success("Datos de admisiÃ³n obtenidos correctamente", {
         autoClose: 3000,
       });
     } catch (error) {
-      toast.error("Error al obtener la información de la admisión", {
+      toast.error("Error al obtener la informaciÃ³n de la admisiÃ³n", {
         autoClose: 3000,
       });
     }
@@ -139,12 +139,12 @@ export const GeDocumental = () => {
     }
   }, []);
 
-  // Cambia el consecutivo según el input
+  // Cambia el consecutivo segÃºn el input
   const handleConsecutivoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setConsecutivo(event.target.value);
   };
 
-  // Función para subir archivos
+  // FunciÃ³n para subir archivos
   const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>, tipoDocumento: string) => {
     const uploadedFiles: File[] = Array.from(event.target.files ?? []);
     setArchivos((prevArchivos) => [
@@ -164,7 +164,7 @@ export const GeDocumental = () => {
     }));
   };
 
-  // Función para eliminar un archivo cargado
+  // FunciÃ³n para eliminar un archivo cargado
   const handleEliminarArchivo = (tipoDocumento: string) => {
     setArchivos((prevArchivos) =>
       prevArchivos.filter((archivo) => archivo.tipoDocumento !== tipoDocumento)
@@ -179,7 +179,7 @@ export const GeDocumental = () => {
     });
   };
 
-  // Función para guardar los archivos
+  // FunciÃ³n para guardar los archivos
   const handleGuardarArchivos = async (archivosAGuardar: { file: File; tipoDocumento: string }[], tipoDocumento: string) => {
     try {
       if (archivosAGuardar.length === 0) {
@@ -220,7 +220,7 @@ export const GeDocumental = () => {
     }
   };
 
-  // Cambia el régimen (contributivo o subsidiado)
+  // Cambia el rÃ©gimen (contributivo o subsidiado)
   const handleRegimenChange = (regimen: string) => {
     setRegimen(regimen);
     if (regimen === "C") {
@@ -232,7 +232,7 @@ export const GeDocumental = () => {
     }
   };
 
-  // Función para buscar observaciones
+  // FunciÃ³n para buscar observaciones
   const handleFetchObservaciones = async () => {
     setLoading(true);
     try {
@@ -265,11 +265,11 @@ export const GeDocumental = () => {
       },
     },
     { field: "AdmisionId", headerName: "Admision ID", width: 100 },
-    { field: "Descripcion", headerName: "Descripción", width: 800 },
+    { field: "Descripcion", headerName: "DescripciÃ³n", width: 800 },
     { field: "TipoArchivo", headerName: "Tipo de Archivo", width: 150 },
     {
       field: "FechaObservacion",
-      headerName: "Fecha Observación",
+      headerName: "Fecha ObservaciÃ³n",
       width: 180,
       valueFormatter: (params: any) => {
         const date = new Date(params.value);
@@ -298,7 +298,7 @@ export const GeDocumental = () => {
   return (
     <>
       <div className="myContainer">
-        <Title title="MÓDULO DE GESTIÓN DOCUMENTAL FACTURACIÓN - NEURODX"></Title>
+        <Title title="MÃ“DULO DE GESTIÃ“N DOCUMENTAL FACTURACIÃ“N - NEURODX"></Title>
         <PrimeReactProvider>
           <div
             className="input-container"
@@ -316,7 +316,7 @@ export const GeDocumental = () => {
                 value={consecutivo}
                 onChange={handleConsecutivoChange}
               />
-              <label htmlFor="in">Consecutivo</label>
+              <label htmlFor="in">Estudio</label>
             </span>
 
             <Button
@@ -329,7 +329,7 @@ export const GeDocumental = () => {
                 marginLeft: "20px",
               }}
             >
-              Buscar Admisión
+              Buscar AdmisiÃ³n
             </Button>
 
             <label
@@ -339,7 +339,7 @@ export const GeDocumental = () => {
                 fontWeight: "bold",
               }}
             >
-              Seleccionar Régimen
+              Seleccionar RÃ©gimen
             </label>
 
             <Button
@@ -385,7 +385,7 @@ export const GeDocumental = () => {
                 },
               }}
             >
-              Caja Facturación
+              Caja FacturaciÃ³n
             </Button>
           </div>
           {admisionData ? (
@@ -436,7 +436,7 @@ export const GeDocumental = () => {
                   readOnly
                   style={{ width: "100%", fontSize: "15px" }}
                 />
-                <label htmlFor="idpacienteInput">Número de identificación</label>
+                <label htmlFor="idpacienteInput">NÃºmero de identificaciÃ³n</label>
               </span>
             </div>
           ) : (

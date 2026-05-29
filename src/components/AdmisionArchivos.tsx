@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { InputText } from "primereact/inputtext";
 import { Button } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
@@ -124,7 +124,7 @@ export const AdmsionFacturacion = () => {
               justifyContent: "center",
             }}>
             {" "}
-            Número de admisión
+            NÃºmero de admisiÃ³n
           </span>
           <span className="p-float-label">
             <InputText
@@ -132,7 +132,7 @@ export const AdmsionFacturacion = () => {
               value={consecutivoConsulta}
               onChange={handleConsecutivoChangeConsulta}
             />
-            <label htmlFor="in">Consecutivo</label>
+            <label htmlFor="in">Estudio</label>
           </span>
           <Button
             onClick={handleConsultaArchivos}
@@ -143,7 +143,7 @@ export const AdmsionFacturacion = () => {
               marginTop: "2px",
               marginLeft: "20px",
             }}>
-            Buscar Archivos de Admisión
+            Buscar Archivos de AdmisiÃ³n
           </Button>
         </div>
 

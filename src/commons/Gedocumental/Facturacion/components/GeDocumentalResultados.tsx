@@ -1,4 +1,4 @@
-/* eslint-disable no-lone-blocks */
+﻿/* eslint-disable no-lone-blocks */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useEffect } from "react";
 import { InputText } from "primereact/inputtext";
@@ -80,10 +80,10 @@ export const GeDocumentalResultados = () => {
       }
       const responseData = await response.json();
       setExamList(responseData); // Save exam list to state
-      toast.success("Lista de exámenes obtenida correctamente", { autoClose: 3000 });
+      toast.success("Lista de exÃ¡menes obtenida correctamente", { autoClose: 3000 });
     } catch (error: any) {
       console.error("Error fetching exam list:", error.message);
-      toast.error("Error al obtener la lista de exámenes", { autoClose: 3000 });
+      toast.error("Error al obtener la lista de exÃ¡menes", { autoClose: 3000 });
     }
   };
 
@@ -130,11 +130,11 @@ export const GeDocumentalResultados = () => {
         if (alias.includes("CONTRIBUTIVO")) handleRegimenChange("C");
         else if (alias.includes("SUBSIDIADO")) handleRegimenChange("S");
       }
-      toast.success("Datos de admisión obtenidos correctamente", {
+      toast.success("Datos de admisiÃ³n obtenidos correctamente", {
         autoClose: 3000,
       });
     } catch (error) {
-      toast.error("Error al obtener la información de la admisión", {
+      toast.error("Error al obtener la informaciÃ³n de la admisiÃ³n", {
         autoClose: 3000,
       });
     }
@@ -198,7 +198,7 @@ export const GeDocumentalResultados = () => {
     });
   };
 
-  // Función para guardar los archivos
+  // FunciÃ³n para guardar los archivos
   const handleGuardarArchivos = async (archivosAGuardar, tipoDocumento) => {
     try {
       if (archivosAGuardar.length === 0) {
@@ -240,7 +240,7 @@ export const GeDocumentalResultados = () => {
     }
   };
 
-  // Cambia el régimen (contributivo o subsidiado)
+  // Cambia el rÃ©gimen (contributivo o subsidiado)
   const handleRegimenChange = (regimen) => {
     setRegimen(regimen);
     if (regimen === "C") {
@@ -252,7 +252,7 @@ export const GeDocumentalResultados = () => {
     }
   };
   const handleUploadToServer = async () => {
-    // Validar que los campos necesarios están presentes
+    // Validar que los campos necesarios estÃ¡n presentes
     if (!admisionData || !selectedExam || !selectedDateInicio || !selectedDateFin || !uploadedPDF) {
       toast.error("Por favor, complete todos los campos antes de guardar.", { autoClose: 3000 });
       return;
@@ -268,8 +268,8 @@ export const GeDocumentalResultados = () => {
     formData.append("pnombre", admisionData?.Nombre1 || ""); // Primer nombre
     formData.append("snombre", admisionData?.Nombre2 || ""); // Segundo nombre
 
-    // Otros datos relacionados con la admisión y el archivo
-    formData.append("admision_data", JSON.stringify(admisionData)); // Datos de admisión completos
+    // Otros datos relacionados con la admisiÃ³n y el archivo
+    formData.append("admision_data", JSON.stringify(admisionData)); // Datos de admisiÃ³n completos
     formData.append("examen_id", selectedExam); // Examen seleccionado
     formData.append("fecha_examen", selectedDateFin.toISOString().split("T")[0]); // Fecha del examen
     formData.append("fecha_resultado", selectedDateInicio.toISOString().split("T")[0]); // Fecha del resultado
@@ -303,7 +303,7 @@ export const GeDocumentalResultados = () => {
   return (
     <>
       <div className="myContainer">
-        <Title title="MÓDULO DE GESTIÓN DOCUMENTAL CARGUE DE RESULTADOS - NEURODX"></Title>
+        <Title title="MÃ“DULO DE GESTIÃ“N DOCUMENTAL CARGUE DE RESULTADOS - NEURODX"></Title>
         <PrimeReactProvider>
           <div
             className="input-container"
@@ -321,7 +321,7 @@ export const GeDocumentalResultados = () => {
                 value={consecutivo}
                 onChange={handleConsecutivoChange}
               />
-              <label htmlFor="in">Consecutivo</label>
+              <label htmlFor="in">Estudio</label>
             </span>
 
             <Button
@@ -334,7 +334,7 @@ export const GeDocumentalResultados = () => {
                 marginLeft: "20px",
               }}
             >
-              Buscar Admisión
+              Buscar AdmisiÃ³n
             </Button>
 
             <label
@@ -344,7 +344,7 @@ export const GeDocumentalResultados = () => {
                 fontWeight: "bold",
               }}
             >
-              Seleccionar Régimen
+              Seleccionar RÃ©gimen
             </label>
 
             <Button
@@ -468,7 +468,7 @@ export const GeDocumentalResultados = () => {
                     width: "450px",
                     marginLeft: "20px",
                   }}>
-                  Número de identificación
+                  NÃºmero de identificaciÃ³n
                 </label>
               </span>
             </div>

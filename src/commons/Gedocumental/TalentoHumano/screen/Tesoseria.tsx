@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { InputText } from "primereact/inputtext";
 import { Button, FormControl, MenuItem, Select } from "@mui/material";
 import Divider from "@mui/material/Divider";
@@ -124,12 +124,12 @@ export const Tesoreria = () => {
       const responseData = await response.json();
       console.log(responseData);
 
-      // Mostrar notificación de éxito
+      // Mostrar notificaciÃ³n de Ã©xito
       toast.success(responseData.message, { autoClose: 3000 });
     } catch (error) {
       console.error("Error al enviar datos al backend:", error.message);
 
-      // Mostrar notificación de error utilizando control_error
+      // Mostrar notificaciÃ³n de error utilizando control_error
       control_error("Error al enviar datos al backend");
     }
   };
@@ -147,15 +147,15 @@ export const Tesoreria = () => {
       }
       const responseData = await response.json();
       setAdmisionData(responseData.data);
-      toast.success("Datos de admisión obtenidos correctamente", {
+      toast.success("Datos de admisiÃ³n obtenidos correctamente", {
         autoClose: 3000,
       });
     } catch (error) {
       console.error(
-        "Error al obtener la información de la admisión:",
+        "Error al obtener la informaciÃ³n de la admisiÃ³n:",
         error.message
       );
-      toast.error("Error al obtener la información de la admisión", {
+      toast.error("Error al obtener la informaciÃ³n de la admisiÃ³n", {
         autoClose: 3000,
       });
     }
@@ -187,7 +187,7 @@ export const Tesoreria = () => {
 
 
       <div className="myContainer">
-        <Title title="INFORMACIÓN DE LA ADMISIÓN" />
+        <Title title="INFORMACIÃ“N DE LA ADMISIÃ“N" />
 
         <div
           className="input-container"
@@ -204,7 +204,7 @@ export const Tesoreria = () => {
               marginTop: "10px",
               justifyContent: "center",
             }}>
-            Número de admisión
+            NÃºmero de admisiÃ³n
           </span>
           <span className="p-float-label">
             <InputText
@@ -212,7 +212,7 @@ export const Tesoreria = () => {
               value={consecutivoConsulta}
               onChange={handleConsecutivoChangeConsulta}
             />
-            <label htmlFor="in">Consecutivo</label>
+            <label htmlFor="in">Estudio</label>
           </span>
           <Button
             startIcon={<SearchIcon />}
@@ -234,7 +234,7 @@ export const Tesoreria = () => {
               marginTop: "2px",
               marginLeft: "20px",
             }}>
-            Ir a Programación de Pagos
+            Ir a ProgramaciÃ³n de Pagos
           </Button>
         </div>
 
@@ -276,7 +276,7 @@ export const Tesoreria = () => {
                 value={admisionData.CodigoEntidad}
                 readOnly
               />
-              <label htmlFor="codigoentidadInput">Código Entidad</label>
+              <label htmlFor="codigoentidadInput">CÃ³digo Entidad</label>
             </span>
             <span className="p-float-label">
               <InputText
@@ -315,7 +315,7 @@ export const Tesoreria = () => {
                   width: "450px",
                   marginLeft: "20px",
                 }}>
-                Número de identificación
+                NÃºmero de identificaciÃ³n
               </label>
             </span>
           </div>
@@ -374,7 +374,7 @@ export const Tesoreria = () => {
                         marginLeft: "10px",
                       }}
                       onClick={() => handleAgregarObservacionClick(index)}>
-                      Observación
+                      ObservaciÃ³n
                     </Button>
 
                     {item.EditorVisible && (
@@ -433,7 +433,7 @@ export const Tesoreria = () => {
                     type="text"
                     value={observacionAdicional}
                     onChange={(e) => setObservacionAdicional(e.target.value)}
-                    placeholder="Ingrese la observación"
+                    placeholder="Ingrese la observaciÃ³n"
                     style={{
                       marginBottom: "20px",
                       width: "1000px",
