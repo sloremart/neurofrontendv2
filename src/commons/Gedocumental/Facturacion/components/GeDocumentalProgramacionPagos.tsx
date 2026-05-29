@@ -56,10 +56,10 @@ const formatearFechaHora = (fechaString: string) => {
       if (isNaN(fecha.getTime())) return fechaString;
       const dia = fecha.getDate().toString().padStart(2, '0');
       const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
-      const aÃ±o = fecha.getFullYear();
+      const año = fecha.getFullYear();
       const hora = fecha.getHours().toString().padStart(2, '0');
       const minutos = fecha.getMinutes().toString().padStart(2, '0');
-      return `${dia}/${mes}/${aÃ±o} ${hora}:${minutos}`;
+      return `${dia}/${mes}/${año} ${hora}:${minutos}`;
     } catch (error) {
       return fechaString;
     }
@@ -130,7 +130,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "FechaCreacionArchivo",
-            headerName: "Fecha CreaciÃ³n",
+            headerName: "Fecha Creación",
             width: 350,
             headerAlign: 'center',
             align: 'center',
@@ -148,7 +148,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "IdRevisor",
-            headerName: "RevisiÃ³n 1",
+            headerName: "Revisión 1",
             width: 300,
             renderCell: (params) => {
                 const user = users.find((u) => u.id === params.value);
@@ -159,7 +159,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "RevisionPrimera",
-            headerName: "AprobaciÃ³n 1",
+            headerName: "Aprobación 1",
             width: 100,
             renderCell: (params) => {
                 if (params.value) {
@@ -175,7 +175,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "FechaRevisionPrimera",
-            headerName: "Fecha RevisiÃ³n 1",
+            headerName: "Fecha Revisión 1",
             width: 350,
             headerAlign: 'center',
             align: 'center',
@@ -183,7 +183,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "IdRevisorTesoreria",
-            headerName: "RevisiÃ³n 2",
+            headerName: "Revisión 2",
             width: 300,
             renderCell: (params) => {
                 const user = users.find((u) => u.id === params.value);
@@ -194,7 +194,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "RevisionSegunda",
-            headerName: "AprobaciÃ³n 2",
+            headerName: "Aprobación 2",
             width: 100,
             renderCell: (params) => {
                 if (params.row.IdRevisorTesoreria) {
@@ -214,7 +214,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "FechaRevisionSegunda",
-            headerName: "Fecha RevisiÃ³n 2",
+            headerName: "Fecha Revisión 2",
             width: 350,
             headerAlign: 'center',
             align: 'center',
@@ -244,7 +244,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "FechaRevisionTercera",
-            headerName: "Fecha RevisiÃ³n 3",
+            headerName: "Fecha Revisión 3",
             width: 350,
             headerAlign: 'center',
             align: 'center',
@@ -252,7 +252,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "UsuarioCuentasMedicas",
-            headerName: "RevisiÃ³n 3",
+            headerName: "Revisión 3",
             width: 300,
             renderCell: (params) => {
                 const user = users.find((u) => u.id === params.value);
@@ -263,7 +263,7 @@ const formatearFechaHora = (fechaString: string) => {
         },
         {
             field: "RevisionTercera",
-            headerName: "AprobaciÃ³n 3",
+            headerName: "Aprobación 3",
             width: 100,
             renderCell: (params) => {
                 if (params.row.UsuarioCuentasMedicas) {
@@ -439,7 +439,7 @@ const formatearFechaHora = (fechaString: string) => {
                             labelId="tesoreria-select-label"
                             value={revisorTesoreria ?? ""}
                             onChange={(e) => setRevisorTesoreria(e.target.value as number)}
-                            label="Revisor TesorerÃ­a"
+                            label="Revisor Tesorería"
                             disabled={userSeleccionado === null}
                         >
                             <MenuItem value=""><em>Sin segundo revisor</em></MenuItem>
@@ -458,7 +458,7 @@ const formatearFechaHora = (fechaString: string) => {
                             labelId="tesoreria-select-label2"
                             value={revisorTesoreriaSegundo ?? ""}
                             onChange={(e) => setRevisorTesoreriaSegundo(e.target.value as number)}
-                            label="Revisor TesorerÃ­a"
+                            label="Revisor Tesorería"
                             disabled={userSeleccionado === null}
                         >
                             <MenuItem value=""><em>Sin tercer revisor</em></MenuItem>
@@ -581,12 +581,12 @@ const formatearFechaHora = (fechaString: string) => {
                 </div>
 
                 <Dialog open={modalOpen} onClose={() => setModalOpen(false)}>
-                    <DialogTitle>Ingresar nÃºmero de comprobante</DialogTitle>
+                    <DialogTitle>Ingresar número de comprobante</DialogTitle>
                     <DialogContent>
                         <TextField
                             autoFocus
                             margin="dense"
-                            label="NÃºmero de documento"
+                            label="Número de documento"
                             fullWidth
                             value={documentoEgreso}
                             onChange={(e) => setDocumentoEgreso(e.target.value)}

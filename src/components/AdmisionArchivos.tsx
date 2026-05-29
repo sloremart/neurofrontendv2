@@ -124,7 +124,7 @@ export const AdmsionFacturacion = () => {
               justifyContent: "center",
             }}>
             {" "}
-            NÃºmero de admisiÃ³n
+            Número de admisión
           </span>
           <span className="p-float-label">
             <InputText
@@ -143,7 +143,7 @@ export const AdmsionFacturacion = () => {
               marginTop: "2px",
               marginLeft: "20px",
             }}>
-            Buscar Archivos de AdmisiÃ³n
+            Buscar Archivos de Admisión
           </Button>
         </div>
 

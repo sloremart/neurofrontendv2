@@ -124,12 +124,12 @@ export const Tesoreria = () => {
       const responseData = await response.json();
       console.log(responseData);
 
-      // Mostrar notificaciÃ³n de Ã©xito
+      // Mostrar notificación de éxito
       toast.success(responseData.message, { autoClose: 3000 });
     } catch (error) {
       console.error("Error al enviar datos al backend:", error.message);
 
-      // Mostrar notificaciÃ³n de error utilizando control_error
+      // Mostrar notificación de error utilizando control_error
       control_error("Error al enviar datos al backend");
     }
   };
@@ -147,15 +147,15 @@ export const Tesoreria = () => {
       }
       const responseData = await response.json();
       setAdmisionData(responseData.data);
-      toast.success("Datos de admisiÃ³n obtenidos correctamente", {
+      toast.success("Datos de admisión obtenidos correctamente", {
         autoClose: 3000,
       });
     } catch (error) {
       console.error(
-        "Error al obtener la informaciÃ³n de la admisiÃ³n:",
+        "Error al obtener la información de la admisión:",
         error.message
       );
-      toast.error("Error al obtener la informaciÃ³n de la admisiÃ³n", {
+      toast.error("Error al obtener la información de la admisión", {
         autoClose: 3000,
       });
     }
@@ -204,7 +204,7 @@ export const Tesoreria = () => {
               marginTop: "10px",
               justifyContent: "center",
             }}>
-            NÃºmero de admisiÃ³n
+            Número de admisión
           </span>
           <span className="p-float-label">
             <InputText
@@ -234,7 +234,7 @@ export const Tesoreria = () => {
               marginTop: "2px",
               marginLeft: "20px",
             }}>
-            Ir a ProgramaciÃ³n de Pagos
+            Ir a Programación de Pagos
           </Button>
         </div>
 
@@ -276,7 +276,7 @@ export const Tesoreria = () => {
                 value={admisionData.CodigoEntidad}
                 readOnly
               />
-              <label htmlFor="codigoentidadInput">CÃ³digo Entidad</label>
+              <label htmlFor="codigoentidadInput">Código Entidad</label>
             </span>
             <span className="p-float-label">
               <InputText
@@ -315,7 +315,7 @@ export const Tesoreria = () => {
                   width: "450px",
                   marginLeft: "20px",
                 }}>
-                NÃºmero de identificaciÃ³n
+                Número de identificación
               </label>
             </span>
           </div>
@@ -374,7 +374,7 @@ export const Tesoreria = () => {
                         marginLeft: "10px",
                       }}
                       onClick={() => handleAgregarObservacionClick(index)}>
-                      ObservaciÃ³n
+                      Observación
                     </Button>
 
                     {item.EditorVisible && (
@@ -433,7 +433,7 @@ export const Tesoreria = () => {
                     type="text"
                     value={observacionAdicional}
                     onChange={(e) => setObservacionAdicional(e.target.value)}
-                    placeholder="Ingrese la observaciÃ³n"
+                    placeholder="Ingrese la observación"
                     style={{
                       marginBottom: "20px",
                       width: "1000px",

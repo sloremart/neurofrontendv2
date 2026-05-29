@@ -17,7 +17,7 @@ import { IObjAdmision } from "../interface/ProgramacionPago";
 
 const API_ENDPOINT = CONFIG.API_ENDPOINT;
 
-// FunciÃ³n para formatear fecha y hora
+// Función para formatear fecha y hora
 const formatearFechaHora = (fechaString: string) => {
   if (!fechaString) return "";
   
@@ -28,11 +28,11 @@ const formatearFechaHora = (fechaString: string) => {
     // Formato: DD/MM/YYYY HH:MM
     const dia = fecha.getDate().toString().padStart(2, '0');
     const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
-    const aÃ±o = fecha.getFullYear();
+    const año = fecha.getFullYear();
     const hora = fecha.getHours().toString().padStart(2, '0');
     const minutos = fecha.getMinutes().toString().padStart(2, '0');
     
-    return `${dia}/${mes}/${aÃ±o} ${hora}:${minutos}`;
+    return `${dia}/${mes}/${año} ${hora}:${minutos}`;
   } catch (error) {
     return fechaString;
   }
@@ -43,7 +43,7 @@ export const TablaProveedor = () => {
   const { archivos } = useSelector((state: RootState) => state.programacion_pagos);
   const { users } = useSelector((state: RootState) => state.users);
 
-  // FunciÃ³n para obtener el nombre del usuario por ID
+  // Función para obtener el nombre del usuario por ID
   const obtenerNombreUsuario = (userId: number | null) => {
     if (!userId) return '';
     const user = users.find((u) => u.id === userId);
@@ -73,7 +73,7 @@ export const TablaProveedor = () => {
         .unwrap()
         .then((response) => {
           if (response.success) {
-            // El backend ya separa las facturas en pendientes e histÃ³ricas
+            // El backend ya separa las facturas en pendientes e históricas
             setArchivosPendientes(response.data.pendientes || []);
             setArchivosHistorial(response.data.historicas || []);
           }
@@ -103,15 +103,15 @@ export const TablaProveedor = () => {
       return;
     }
 
-    // Validar observaciÃ³n solo si es un rechazo
+    // Validar observación solo si es un rechazo
     if (modoAccion === "rechazar" && !observacion.trim()) {
-      toast.error("Debe escribir una observaciÃ³n al rechazar.");
+      toast.error("Debe escribir una observación al rechazar.");
       return;
     }
 
     const userDataString = localStorage.getItem("userData");
     if (!userDataString) {
-      toast.error("No se encontrÃ³ informaciÃ³n del usuario.");
+      toast.error("No se encontró información del usuario.");
       return;
     }
 
@@ -149,7 +149,7 @@ export const TablaProveedor = () => {
     dispatch(get_factura_pendiente_revisor(userData.id.toString()));
   }, [dispatch]);
 
-  // FunciÃ³n para determinar si el usuario puede revisar una factura
+  // Función para determinar si el usuario puede revisar una factura
   const puedeRevisar = (archivo: any) => {
     const usuarioActualId = parseInt(localStorage.getItem("userData") ? JSON.parse(localStorage.getItem("userData")!).id : "0");
     
@@ -158,14 +158,14 @@ export const TablaProveedor = () => {
       return true;
     }
     
-    // Si es el segundo revisor, el primero aprobÃ³ y no ha revisado
+    // Si es el segundo revisor, el primero aprobó y no ha revisado
     if (archivo.IdRevisorTesoreria === usuarioActualId && 
         archivo.RevisionPrimera === true && 
         !archivo.FechaRevisionSegunda) {
       return true;
     }
     
-    // Si es el tercer revisor, los dos primeros aprobaron y no ha revisado y no estÃ¡ rechazada
+    // Si es el tercer revisor, los dos primeros aprobaron y no ha revisado y no está rechazada
     if (archivo.UsuarioCuentasMedicas === usuarioActualId && 
         archivo.RevisionPrimera === true && 
         archivo.RevisionSegunda === true && 
@@ -180,7 +180,7 @@ export const TablaProveedor = () => {
   const columnsPendientes: GridColDef[] = [
     {
       field: 'FechaCreacionArchivo',
-      headerName: 'Fecha CreaciÃ³n',
+      headerName: 'Fecha Creación',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -233,7 +233,7 @@ export const TablaProveedor = () => {
     },
     {
       field: 'FechaRevisionPrimera',
-      headerName: 'Fecha 1Âª RevisiÃ³n',
+      headerName: 'Fecha 1Âª Revisión',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -276,7 +276,7 @@ export const TablaProveedor = () => {
     },
     {
       field: 'FechaRevisionSegunda',
-      headerName: 'Fecha 2Âª RevisiÃ³n',
+      headerName: 'Fecha 2Âª Revisión',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -325,7 +325,7 @@ export const TablaProveedor = () => {
     },
     {
       field: 'FechaRevisionTercera',
-      headerName: 'Fecha 3Âª RevisiÃ³n',
+      headerName: 'Fecha 3Âª Revisión',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -389,7 +389,7 @@ export const TablaProveedor = () => {
   const columnsHistorial = [
     {
       field: 'FechaCreacionArchivo',
-      headerName: 'Fecha CreaciÃ³n',
+      headerName: 'Fecha Creación',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -423,7 +423,7 @@ export const TablaProveedor = () => {
     },
     {
       field: 'FechaRevisionPrimera',
-      headerName: 'Fecha 1Âª RevisiÃ³n',
+      headerName: 'Fecha 1Âª Revisión',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -466,7 +466,7 @@ export const TablaProveedor = () => {
  
     {
       field: 'FechaRevisionSegunda',
-      headerName: 'Fecha 2Âª RevisiÃ³n',
+      headerName: 'Fecha 2Âª Revisión',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -525,7 +525,7 @@ export const TablaProveedor = () => {
     },
     {
       field: 'FechaRevisionTercera',
-      headerName: 'Fecha 3Âª RevisiÃ³n',
+      headerName: 'Fecha 3Âª Revisión',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -659,7 +659,7 @@ export const TablaProveedor = () => {
           <TextField
             autoFocus
             margin="dense"
-            label="ObservaciÃ³n"
+            label="Observación"
             fullWidth
             multiline
             minRows={3}

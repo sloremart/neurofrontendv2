@@ -49,10 +49,10 @@ const LoginForm = () => {
         const route = ROLE_ROUTES[data.user.cargo] ?? "/ge_documental";
         navigate(route);
       } else {
-        setError(data.detail ?? "Usuario o contraseÃ±a incorrectos.");
+        setError(data.detail ?? "Usuario o contraseña incorrectos.");
       }
     } catch {
-      setError("Error de conexiÃ³n. Intente de nuevo.");
+      setError("Error de conexión. Intente de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -88,7 +88,7 @@ const LoginForm = () => {
           NEURODX
         </Typography>
         <Typography variant="body2" color="text.secondary" textAlign="center" mb={3.5}>
-          Su diagnÃ³stico, nuestro compromiso
+          Su diagnóstico, nuestro compromiso
         </Typography>
 
         <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2.5}>
@@ -104,7 +104,7 @@ const LoginForm = () => {
           />
 
           <TextField
-            label="ContraseÃ±a"
+            label="Contraseña"
             name="password"
             type={showPassword ? "text" : "password"}
             value={form.password}
@@ -131,7 +131,7 @@ const LoginForm = () => {
             disabled={loading}
             startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
           >
-            {loading ? "Ingresando..." : "Iniciar SesiÃ³n"}
+            {loading ? "Ingresando..." : "Iniciar Sesión"}
           </Button>
         </Box>
       </Paper>
