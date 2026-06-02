@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
-import { TextField, Autocomplete, Button, debounce, Snackbar, Alert, FormControl, InputLabel, Select, MenuItem, DialogTitle, DialogContent, Dialog, DialogActions, IconButton, Tooltip, } from "@mui/material";
+import { TextField, Autocomplete, Button, Snackbar, Alert, FormControl, InputLabel, Select, MenuItem, DialogTitle, DialogContent, Dialog, DialogActions, IconButton, Tooltip, } from "@mui/material";
 
 import { DataGrid, GridColDef, GridToolbarContainer, GridToolbarExport } from "@mui/x-data-grid";
 import { Dayjs } from "dayjs";
@@ -19,15 +19,13 @@ import CONFIG from "../../../../config/api.js";
 import { get_users } from "../../../Login/store/thunks/ThunksLogin.tsx";
 import { Title } from "../../../../components/Title.tsx";
 import { AppDispatch, RootState } from "../../../../store/store.ts";
-import { actualizar_numero_egreso, eliminar_factura_proveedor, get_facturas_usuario_filtrado, get_nits, subir_facturas_proveedor } from "../store/thunks/CajaFacturacionThunks.tsx";
+import { actualizar_numero_egreso, eliminar_factura_proveedor, get_facturas_usuario_filtrado, subir_facturas_proveedor } from "../store/thunks/CajaFacturacionThunks.tsx";
 
 const API_ENDPOINT = CONFIG.API_ENDPOINT;
 
 export const CajaFacturacion = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch<AppDispatch>();
-
-    const nitsData = useSelector((state: RootState) => state.caja_facturacion.nits);
 
     const [userSeleccionado, setUserSeleccionado] = useState<number | null>(null);
     const [revisorTesoreria, setRevisorTesoreria] = useState<number | null>(null);
@@ -48,11 +46,11 @@ export const CajaFacturacion = () => {
     const [observacionesSeleccionadas, setObservacionesSeleccionadas] = useState<string[]>([]);
 
     const facturasCreadas = useSelector((state: RootState) => state.caja_facturacion.archivos);
-    const nitOptions = nitsData.map((nit) => ({
-        label: nit.NombreNit || "Sin nombre",
-        value: nit.CuentaNit.toString(),
-    }));
     const { users } = useSelector((state: RootState) => state.users);
+    const nitOptions = (users ?? []).map((u) => ({
+        label: u.nombre || u.username || `Usuario ${u.id}`,
+        value: u.id.toString(),
+    }));
 // Función para formatear fecha y hora
 const formatearFechaHora = (fechaString: string) => {
     if (!fechaString) return "";
@@ -86,11 +84,6 @@ const formatearFechaHora = (fechaString: string) => {
     }, [dispatch]);
 
 
-    const handleSearchNit = debounce(async (value) => {
-        if (value.length > 2) {
-            await dispatch(get_nits(value));
-        }
-    }, 500);
 
 
     const consultarFacturasUsuario = async () => {
@@ -468,13 +461,10 @@ const formatearFechaHora = (fechaString: string) => {
                             isOptionEqualToValue={(option, value) => option.value === value?.value}
                             value={selectedNit}
                             inputValue={inputValueNit}
-                            onInputChange={(_, newInputValue) => {
-                                setInputValueNit(newInputValue);
-                                handleSearchNit(newInputValue);
-                            }}
+                            onInputChange={(_, newInputValue) => setInputValueNit(newInputValue)}
                             onChange={(_, newValue) => setSelectedNit(newValue || null)}
                             renderInput={(params) => (
-                                <TextField {...params} label="Buscar y seleccionar NIT" variant="outlined" fullWidth />
+                                <TextField {...params} label="Seleccionar usuario" variant="outlined" fullWidth />
                             )}
                         />
 
