@@ -310,11 +310,11 @@ export const GeDocumental = () => {
 
   return (
     <>
-      <div className=”myContainer”>
-        <Title title=”MÓDULO DE GESTIÓN DOCUMENTAL FACTURACIÓN - NEURODX”></Title>
+      <div className="myContainer">
+        <Title title="MÓDULO DE GESTIÓN DOCUMENTAL FACTURACIÓN - NEURODX"></Title>
         <PrimeReactProvider>
           {isLider && (
-            <div style={{ display: “flex”, justifyContent: “center”, marginTop: “70px” }}>
+            <div style={{ display: "flex", justifyContent: "center", marginTop: "70px" }}>
               <Autocomplete
                 options={users}
                 getOptionLabel={(u) => u.nombre || u.username}
@@ -325,19 +325,19 @@ export const GeDocumental = () => {
                   setObservaciones([]);
                 }}
                 renderInput={(params) => (
-                  <TextField {...params} label=”Consultar como usuario” variant=”outlined” size=”small” />
+                  <TextField {...params} label="Consultar como usuario" variant="outlined" size="small" />
                 )}
               />
             </div>
           )}
           <div
-            className=”input-container”
+            className="input-container"
             style={{
-              display: “flex”,
-              marginLeft: “50px”,
-              marginTop: isLider ? “20px” : “60px”,
-              alignItems: “center”,
-              justifyContent: “center”,
+              display: "flex",
+              marginLeft: "50px",
+              marginTop: isLider ? "20px" : "60px",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             <span className="p-float-label">
