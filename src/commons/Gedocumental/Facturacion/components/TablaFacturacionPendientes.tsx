@@ -6,8 +6,10 @@ import {
   type GridColDef,
 } from "@mui/x-data-grid";
 import { useDispatch, useSelector } from "react-redux";
+import { Autocomplete, TextField } from "@mui/material";
 import { RootState } from "../../../../store/store.ts";
 import { Title } from "../../../../components/Title.tsx";
+import { IObjUsuarios } from "../../../Login/interface/InterfaceLogin.ts";
 import {
   actualizarModificadoRevisor,
   get_admision_pendiente,
@@ -20,9 +22,13 @@ import { PrimeReactProvider } from "primereact/api";
 
 interface TablaFacturacionPendientesProps {
   userId?: string | number;
+  isLider?: boolean;
+  users?: IObjUsuarios[];
+  selectedUserId?: string;
+  onUserChange?: (id: string) => void;
 }
 
-export const TablaFacturacionPendientes = ({ userId: userIdProp }: TablaFacturacionPendientesProps) => {
+export const TablaFacturacionPendientes = ({ userId: userIdProp, isLider, users = [], selectedUserId, onUserChange }: TablaFacturacionPendientesProps) => {
   const { admision_pendientes_facturacion } = useSelector(
     (state: RootState) => state.talento_humano
   );
@@ -179,20 +185,27 @@ export const TablaFacturacionPendientes = ({ userId: userIdProp }: TablaFacturac
       }}>
       <PrimeReactProvider>
         <Title title="LISTADO DE ADMISIONES PENDIENTES" />
-        <div style={{ marginTop: "20px", textAlign: "center" }}>
-        <Button
-          variant="contained"
-          color="primary"
-          sx={{
-            backgroundColor: "#1E3A8A",
-            "&:hover": {
-              backgroundColor: "#1E3A8A",
-            },
-          }}
-          onClick={fetchData} // Asignamos la función al evento onClick
-          style={{ marginBottom: "20px" }}>
-          Consultar Observaciones
-        </Button>
+        <div style={{ marginTop: "20px", display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", flexWrap: "wrap" }}>
+          {isLider && (
+            <Autocomplete
+              options={users}
+              getOptionLabel={(u) => u.nombre || u.username}
+              style={{ width: 280 }}
+              value={users.find((u) => String(u.id) === String(selectedUserId)) || null}
+              onChange={(_, newValue) => onUserChange?.(newValue ? String(newValue.id) : "")}
+              renderInput={(params) => (
+                <TextField {...params} label="Consultar como usuario" variant="outlined" size="small" />
+              )}
+            />
+          )}
+          <Button
+            variant="contained"
+            color="primary"
+            sx={{ backgroundColor: "#1E3A8A", "&:hover": { backgroundColor: "#1E3A8A" } }}
+            onClick={fetchData}
+            style={{ marginBottom: "0px", height: "40px" }}>
+            Consultar Observaciones
+          </Button>
         </div>
         <div
           style={{

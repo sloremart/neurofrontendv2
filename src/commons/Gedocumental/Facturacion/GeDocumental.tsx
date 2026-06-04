@@ -6,7 +6,7 @@ import { Title } from "../../../components/Title.tsx";
 import { InputText } from "primereact/inputtext";
 import { PrimeReactProvider } from "primereact/api";
 import { IAdmisiones } from "../../interfaces/GeDocumental.ts";
-import { Button, Checkbox, TextField, Autocomplete } from "@mui/material";
+import { Button, Checkbox, TextField } from "@mui/material";
 import { AdmsionFacturacion } from "../../../components/AdmisionArchivos.tsx";
 import CONFIG from "../../../config/api.js";
 import SaveIcon from "@mui/icons-material/Save";
@@ -313,29 +313,12 @@ export const GeDocumental = () => {
       <div className="myContainer">
         <Title title="MÓDULO DE GESTIÓN DOCUMENTAL FACTURACIÓN - NEURODX"></Title>
         <PrimeReactProvider>
-          {isLider && (
-            <div style={{ display: "flex", justifyContent: "center", marginTop: "70px" }}>
-              <Autocomplete
-                options={users}
-                getOptionLabel={(u) => u.nombre || u.username}
-                style={{ width: 350 }}
-                value={users.find((u) => String(u.id) === String(selectedUserId)) || null}
-                onChange={(_, newValue) => {
-                  setSelectedUserId(newValue ? String(newValue.id) : userId);
-                  setObservaciones([]);
-                }}
-                renderInput={(params) => (
-                  <TextField {...params} label="Consultar como usuario" variant="outlined" size="small" />
-                )}
-              />
-            </div>
-          )}
           <div
             className="input-container"
             style={{
               display: "flex",
               marginLeft: "50px",
-              marginTop: isLider ? "20px" : "60px",
+              marginTop: "60px",
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -564,7 +547,13 @@ export const GeDocumental = () => {
           )}
         </PrimeReactProvider>
 
-        <TablaFacturacionPendientes userId={isLider ? selectedUserId : undefined} />
+        <TablaFacturacionPendientes
+          userId={isLider ? selectedUserId : undefined}
+          isLider={isLider}
+          users={users}
+          selectedUserId={selectedUserId}
+          onUserChange={(id) => { setSelectedUserId(id); setObservaciones([]); }}
+        />
 
         <div
           className="myContainer"
