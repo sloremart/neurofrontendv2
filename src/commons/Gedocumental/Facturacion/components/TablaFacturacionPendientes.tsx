@@ -18,12 +18,22 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import HighlightOffIcon from "@mui/icons-material/HighlightOff";
 import { PrimeReactProvider } from "primereact/api";
 
-export const TablaFacturacionPendientes = () => {
+interface TablaFacturacionPendientesProps {
+  userId?: string | number;
+}
+
+export const TablaFacturacionPendientes = ({ userId: userIdProp }: TablaFacturacionPendientesProps) => {
   const { admision_pendientes_facturacion } = useSelector(
     (state: RootState) => state.talento_humano
   );
   const dispatch = useDispatch();
   const [loading, setLoading] = useState<boolean>(false);
+
+  const getEffectiveUserId = () => {
+    if (userIdProp) return String(userIdProp);
+    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+    return userData.id;
+  };
 
   const handleCheckboxChange = async (row, type) => {
     if (type === "cuentas_medicas") {
@@ -34,13 +44,7 @@ export const TablaFacturacionPendientes = () => {
     } else if (type === "tesoreria") {
       await actualizarModificadoRevisor(row.Consecutivo, "tesoreria")(dispatch);
     }
-
-    // Actualizar la lista después de realizar las modificaciones
-    const userDataString = localStorage.getItem("userData");
-    if (userDataString) {
-      const userData = JSON.parse(userDataString);
-      dispatch(get_admision_pendiente(userData.id));
-    }
+    dispatch(get_admision_pendiente(getEffectiveUserId()));
   };
 
   const columns: GridColDef[] = [
@@ -152,27 +156,16 @@ export const TablaFacturacionPendientes = () => {
     },
   ];
 
-  // Esta función se llamará al hacer clic en el botón "Cargar Admisiones"
   const fetchData = async () => {
-    setLoading(true); // Inicia el estado de carga
+    setLoading(true);
     try {
-      const userDataString = localStorage.getItem("userData");
-      if (!userDataString) {
-        console.error(
-          "Datos del usuario no encontrados en el almacenamiento local."
-        );
-        setLoading(false); // Detiene el estado de carga en caso de error
-        return;
-      }
-      const userData = JSON.parse(userDataString);
-      console.log(userData);
-
-      // Llamar al servicio para obtener las admisiones pendientes del usuario logueado
-      await dispatch(get_admision_pendiente(userData.id));
+      const id = getEffectiveUserId();
+      if (!id) { setLoading(false); return; }
+      await dispatch(get_admision_pendiente(id));
     } catch (error) {
       console.error("Error al cargar las admisiones pendientes:", error);
     } finally {
-      setLoading(false); // Asegura que loading se detenga
+      setLoading(false);
     }
   };
 

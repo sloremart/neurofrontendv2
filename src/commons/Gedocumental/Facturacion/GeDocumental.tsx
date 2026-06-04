@@ -1,11 +1,12 @@
 ﻿/* eslint-disable no-lone-blocks */
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { Title } from "../../../components/Title.tsx";
 import { InputText } from "primereact/inputtext";
 import { PrimeReactProvider } from "primereact/api";
 import { IAdmisiones } from "../../interfaces/GeDocumental.ts";
-import { Button, Checkbox, TextField } from "@mui/material";
+import { Button, Checkbox, TextField, Autocomplete } from "@mui/material";
 import { AdmsionFacturacion } from "../../../components/AdmisionArchivos.tsx";
 import CONFIG from "../../../config/api.js";
 import SaveIcon from "@mui/icons-material/Save";
@@ -14,6 +15,8 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { TablaFacturacionPendientes } from "./components/TablaFacturacionPendientes.tsx";
 import { ObservacionRevisada } from "../TalentoHumano/store/thunks/TalentoHumanoThunks.tsx";
+import { get_users } from "../../Login/store/thunks/ThunksLogin.tsx";
+import { AppDispatch, RootState } from "../../../store/store.ts";
 import {
   DataGrid,
   GridRenderCellParams,
@@ -33,6 +36,8 @@ interface Observacion {
 
 export const GeDocumental = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
+  const { users } = useSelector((state: RootState) => state.users);
   const [consecutivo, setConsecutivo] = useState<string>("");
   const [admisionData, setAdmisionData] = useState<IAdmisiones | null>(null);
   const [archivos, setArchivos] = useState<{ file: File; tipoDocumento: any }[]>(
@@ -54,6 +59,8 @@ export const GeDocumental = () => {
   const [botonSubsidiadoDisabled, setBotonSubsidiadoDisabled] = useState(false);
   const [observaciones, setObservaciones] = useState<Observacion[]>([]);
   const [userId, setUserId] = useState<string>("");
+  const [isLider, setIsLider] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
   const API_ENDPOINT = CONFIG.API_ENDPOINT;
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -136,6 +143,11 @@ export const GeDocumental = () => {
     if (userDataString) {
       const userData = JSON.parse(userDataString);
       setUserId(userData.id);
+      setSelectedUserId(userData.id);
+      if (userData.cargo === "LIDERFACTURACION") {
+        setIsLider(true);
+        dispatch(get_users());
+      }
     }
   }, []);
 
@@ -236,7 +248,8 @@ export const GeDocumental = () => {
   const handleFetchObservaciones = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_ENDPOINT}/gedocumental/observaciones/${userId}/`);
+      const targetId = selectedUserId || userId;
+      const response = await fetch(`${API_ENDPOINT}/gedocumental/observaciones/${targetId}/`);
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
@@ -297,17 +310,34 @@ export const GeDocumental = () => {
 
   return (
     <>
-      <div className="myContainer">
-        <Title title="MÃ“DULO DE GESTIÃ“N DOCUMENTAL FACTURACIÃ“N - NEURODX"></Title>
+      <div className=”myContainer”>
+        <Title title=”MÓDULO DE GESTIÓN DOCUMENTAL FACTURACIÓN - NEURODX”></Title>
         <PrimeReactProvider>
+          {isLider && (
+            <div style={{ display: “flex”, justifyContent: “center”, marginTop: “70px” }}>
+              <Autocomplete
+                options={users}
+                getOptionLabel={(u) => u.nombre || u.username}
+                style={{ width: 350 }}
+                value={users.find((u) => String(u.id) === String(selectedUserId)) || null}
+                onChange={(_, newValue) => {
+                  setSelectedUserId(newValue ? String(newValue.id) : userId);
+                  setObservaciones([]);
+                }}
+                renderInput={(params) => (
+                  <TextField {...params} label=”Consultar como usuario” variant=”outlined” size=”small” />
+                )}
+              />
+            </div>
+          )}
           <div
-            className="input-container"
+            className=”input-container”
             style={{
-              display: "flex",
-              marginLeft: "50px",
-              marginTop: "60px",
-              alignItems: "center",
-              justifyContent: "center",
+              display: “flex”,
+              marginLeft: “50px”,
+              marginTop: isLider ? “20px” : “60px”,
+              alignItems: “center”,
+              justifyContent: “center”,
             }}
           >
             <span className="p-float-label">
@@ -534,7 +564,7 @@ export const GeDocumental = () => {
           )}
         </PrimeReactProvider>
 
-        <TablaFacturacionPendientes />
+        <TablaFacturacionPendientes userId={isLider ? selectedUserId : undefined} />
 
         <div
           className="myContainer"
