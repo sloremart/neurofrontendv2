@@ -143,7 +143,7 @@ const formatearFechaHora = (fechaString: string) => {
             headerAlign: 'center',
             align: 'center',
             renderCell: (params) => (
-                params.value && params.value !== 0 ? params.value : "â€”"
+                params.value && params.value !== 0 ? params.value : "—"
             ),
         },
         {
@@ -187,7 +187,7 @@ const formatearFechaHora = (fechaString: string) => {
             width: 300,
             renderCell: (params) => {
                 const user = users.find((u) => u.id === params.value);
-                return <span>{user?.nombre || user?.username || "â€”"}</span>;
+                return <span>{user?.nombre || user?.username || "—"}</span>;
             },
             headerAlign: "center",
             align: "center",
@@ -239,7 +239,7 @@ const formatearFechaHora = (fechaString: string) => {
                     const user = users.find((u) => u.id === params.value);
                     return <span>{user?.nombre || user?.username || `Usuario ${params.value}`}</span>;
                 }
-                return <span>â€”</span>;
+                return <span>—</span>;
             },
         },
         {
@@ -256,7 +256,7 @@ const formatearFechaHora = (fechaString: string) => {
             width: 300,
             renderCell: (params) => {
                 const user = users.find((u) => u.id === params.value);
-                return <span>{user?.nombre || user?.username || "â€”"}</span>;
+                return <span>{user?.nombre || user?.username || "—"}</span>;
             },
             headerAlign: "center",
             align: "center",
@@ -377,7 +377,7 @@ const formatearFechaHora = (fechaString: string) => {
     return (
         <>
             <div className="myContainer" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: "80px" }}>
-                <Title title="GESTIÃ“N DOCUMENTAL - PROGRAMACIÃ“N DE PAGOS - NEURODX" />
+                <Title title="GESTIÓN DOCUMENTAL - PROGRAMACIÓN DE PAGOS - NEURODX" />
 
                 <div style={{ display: "flex", gap: "10px", marginTop: "40px", width: "100%", justifyContent: "center" }}>
                     <div style={{ width: "450px" }}>
