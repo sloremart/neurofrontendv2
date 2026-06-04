@@ -233,7 +233,7 @@ export const TablaProveedor = () => {
     },
     {
       field: 'FechaRevisionPrimera',
-      headerName: 'Fecha 1Âª Revisión',
+      headerName: 'Fecha 1ª Revisión',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -255,7 +255,7 @@ export const TablaProveedor = () => {
       width: 150,
       sortable: false,
       renderCell: (params: any) => {
-        if (!params.value) return <span>â</span>;
+        if (!params.value) return <span>—</span>;
         const user = users.find((u) => u.id === params.value);
         return <span>{user?.nombre || user?.username || "Sin asignar"}</span>;
       },
@@ -276,7 +276,7 @@ export const TablaProveedor = () => {
     },
     {
       field: 'FechaRevisionSegunda',
-      headerName: 'Fecha 2Âª Revisión',
+      headerName: 'Fecha 2ª Revisión',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -305,7 +305,7 @@ export const TablaProveedor = () => {
       width: 150,
       sortable: false,
       renderCell: (params: any) => {
-        if (!params.value) return <span>â</span>;
+        if (!params.value) return <span>—</span>;
         const user = users.find((u) => u.id === params.value);
         return <span>{user?.nombre || user?.username || "Sin asignar"}</span>;
       },
@@ -325,7 +325,7 @@ export const TablaProveedor = () => {
     },
     {
       field: 'FechaRevisionTercera',
-      headerName: 'Fecha 3Âª Revisión',
+      headerName: 'Fecha 3ª Revisión',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -423,7 +423,7 @@ export const TablaProveedor = () => {
     },
     {
       field: 'FechaRevisionPrimera',
-      headerName: 'Fecha 1Âª Revisión',
+      headerName: 'Fecha 1ª Revisión',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -458,7 +458,7 @@ export const TablaProveedor = () => {
       width: 150,
       sortable: false,
       renderCell: (params: any) => {
-        if (!params.value) return <span>â</span>;
+        if (!params.value) return <span>—</span>;
         const user = users.find((u) => u.id === params.value);
         return <span>{user?.nombre || user?.username || "Sin asignar"}</span>;
       },
@@ -466,7 +466,7 @@ export const TablaProveedor = () => {
  
     {
       field: 'FechaRevisionSegunda',
-      headerName: 'Fecha 2Âª Revisión',
+      headerName: 'Fecha 2ª Revisión',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
@@ -505,7 +505,7 @@ export const TablaProveedor = () => {
       width: 150,
       sortable: false,
       renderCell: (params: any) => {
-        if (!params.value) return <span>â</span>;
+        if (!params.value) return <span>—</span>;
         const user = users.find((u) => u.id === params.value);
         return <span>{user?.nombre || user?.username || "Sin asignar"}</span>;
       },
@@ -525,7 +525,7 @@ export const TablaProveedor = () => {
     },
     {
       field: 'FechaRevisionTercera',
-      headerName: 'Fecha 3Âª Revisión',
+      headerName: 'Fecha 3ª Revisión',
       width: 150,
       sortable: false,
       valueFormatter: (params: any) => {
