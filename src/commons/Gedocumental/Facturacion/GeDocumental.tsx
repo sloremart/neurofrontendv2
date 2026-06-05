@@ -250,17 +250,19 @@ export const GeDocumental = () => {
     try {
       const targetId = selectedUserId || userId;
       const response = await fetch(`${API_ENDPOINT}/gedocumental/observaciones/${targetId}/`);
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
       const responseData = await response.json();
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}`);
+      }
       setObservaciones(responseData);
-      toast.success("Observaciones obtenidas correctamente", {
-        autoClose: 3000,
-      });
-      setLoading(false);
+      if (responseData.length === 0) {
+        toast.info("No se encontraron observaciones pendientes.", { autoClose: 3000 });
+      } else {
+        toast.success(`${responseData.length} observación(es) encontrada(s).`, { autoClose: 3000 });
+      }
     } catch (error) {
-      toast.error("Error al obtener las observaciones", { autoClose: 3000 });
+      toast.error("Error al obtener las observaciones.", { autoClose: 3000 });
+    } finally {
       setLoading(false);
     }
   };

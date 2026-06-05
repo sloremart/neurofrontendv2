@@ -185,7 +185,7 @@ export const TablaFacturacionPendientes = ({ userId: userIdProp, isLider, users 
       }}>
       <PrimeReactProvider>
         <Title title="LISTADO DE ADMISIONES PENDIENTES" />
-        <div style={{ marginTop: "20px", display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", flexWrap: "wrap" }}>
+        <div style={{ marginTop: "20px", marginBottom: "24px", display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", flexWrap: "wrap" }}>
           {isLider && (
             <Autocomplete
               options={users}
