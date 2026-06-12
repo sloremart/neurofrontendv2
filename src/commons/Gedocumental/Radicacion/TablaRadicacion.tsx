@@ -189,6 +189,7 @@ export const TablaRadicacion = () => {
         case "AIR LIQUIDE COLOMBIA":
         case "ARL POSITIVA":
         case "AXA COLPATRIA SEGUROS S.A.":
+        case "EQUIPO INTERDISCIPLINARIO PARA EL MEJORAMIENTO DE LA CALIDAD":
         case "BOLIVAR POLIZA":
         case "BOLIVAR SOAT":
         case "EQUIVIDA":
