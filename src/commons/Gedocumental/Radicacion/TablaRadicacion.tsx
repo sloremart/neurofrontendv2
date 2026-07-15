@@ -219,7 +219,7 @@ export const TablaRadicacion = () => {
           break;
 
         default:
-          console.error("Código de entidad no válido:", codigoEntidad);
+          if (idusuario) { await dispatch(renombrar_otros(admisionId, idusuario)); } else { console.error("idusuario no disponible"); }
       }
     } catch (error) {
       console.error("Error al ejecutar el servicio:", error);
