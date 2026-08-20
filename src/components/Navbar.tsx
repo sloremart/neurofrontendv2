@@ -65,6 +65,30 @@ const Navbar = () => {
         </Link>
       )}
 
+      {!isAdminGerencia && (
+        <Link
+          to="/dashboard_produccion"
+          style={{
+            color: pathname === '/dashboard_produccion' ? '#facc15' : 'white',
+            textDecoration: 'none'
+          }}
+        >
+          PRODUCCIÓN
+        </Link>
+      )}
+
+      {!isAdminGerencia && (
+        <Link
+          to="/dashboard_resultados"
+          style={{
+            color: pathname === '/dashboard_resultados' ? '#facc15' : 'white',
+            textDecoration: 'none'
+          }}
+        >
+          RESULTADOS
+        </Link>
+      )}
+
       <Link
         to="/facturas_proveedores"
         style={{

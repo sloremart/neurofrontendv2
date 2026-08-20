@@ -20,6 +20,8 @@ import DashboardLayout from '../components/DashboardLayout.tsx';
 import AgendamientoDashboard from '../commons/Dashboard/components/DashBoardAgendamiento.tsx';
 import RecaudoDashboard from '../commons/Dashboard/components/DashboardRecaudo.tsx';
 import DashboardMedicos from '../commons/Dashboard/components/DashboardMedicos.tsx';
+import DashboardProduccion from '../commons/Dashboard/components/DashboardProduccion.tsx';
+import DashboardResultados from '../commons/Dashboard/components/DashboardResultados.tsx';
 import { ProtectedRoute } from '../components/ProtectedRoute.tsx';
 import NoAutorizado from '../pages/Unauthorized.tsx';
 import RevisionCitasFacturas from '../commons/Auditoria/components/OrdenesMedicas.tsx';
@@ -89,6 +91,8 @@ export const AppRouter: React.FC = () => {
           <Route path="/dashboard_agendamiento" element={<AgendamientoDashboard />} />
           <Route path="/dashboard_medicos" element={<DashboardMedicos />} />
           <Route path="/dashboard" element={<FacturacionDashboard />} />
+          <Route path="/dashboard_produccion" element={<DashboardProduccion />} />
+          <Route path="/dashboard_resultados" element={<DashboardResultados />} />
         </Route>
       </Route>
 

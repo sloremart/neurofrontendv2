@@ -6,7 +6,7 @@ import { ToastContent } from "react-toastify";
 import CONFIG from "../../../../config/api";
 
 import { AppDispatch } from "../../../../store/store";
-import { setAgendamientoSuccess, setDashboardError, setDashboardStart, setFacturacionSuccess, setRecaudoSuccess, setMedicosSuccess, setCitasSuccess } from "../slice/indexDashboard.tsx";
+import { setAgendamientoSuccess, setDashboardError, setDashboardStart, setFacturacionSuccess, setRecaudoSuccess, setMedicosSuccess, setCitasSuccess, setProduccionSuccess, setResultadosSuccess } from "../slice/indexDashboard.tsx";
 import { getRiesgoError, getRiesgoStart, getRiesgoSuccess } from "../slice/indexMrc.tsx";
 import { RiesgoCompartidoResponse } from "../../interfaces/Mrc.ts";
 
@@ -224,6 +224,44 @@ export const get_medicos = () => {
 };
 
 // Thunk para obtener citas por médico
+export const get_produccion_mensual = (meses: number = 12, ufuncional?: number) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      dispatch(setDashboardStart());
+      const params = new URLSearchParams({ meses: String(meses) });
+      if (ufuncional !== undefined) params.append('ufuncional', String(ufuncional));
+      const url = `${API_ENDPOINT}/dashboard/produccion-mensual/?${params.toString()}`;
+      const response = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+      if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Error del servidor');
+      dispatch(setProduccionSuccess(data));
+      control_success('Producción cargada exitosamente.');
+    } catch (error: any) {
+      dispatch(setDashboardError(error.message));
+      control_error('Error al cargar la producción, intente de nuevo.');
+    }
+  };
+};
+
+export const get_resultados_estudios = (meses: number = 3) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      dispatch(setDashboardStart());
+      const url = `${API_ENDPOINT}/dashboard/resultados-estudios/?meses=${meses}`;
+      const response = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+      if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Error del servidor');
+      dispatch(setResultadosSuccess(data));
+      control_success('Resultados cargados exitosamente.');
+    } catch (error: any) {
+      dispatch(setDashboardError(error.message));
+      control_error('Error al cargar los resultados, intente de nuevo.');
+    }
+  };
+};
+
 export const get_citas_medico = (
   cedula_medico: string,
   fecha?: string,

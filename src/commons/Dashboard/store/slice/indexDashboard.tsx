@@ -1,6 +1,10 @@
 
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { DocumentoRecaudo, EntidadFacturacion, EntidadResumenAgendada, Servicio, UsuarioAgendamiento, Medico, CitaMedico, EstadisticasCitas, ResponseMedicos, ResponseCitasMedico } from "../../interfaces/Dashboard";
+import {
+  DocumentoRecaudo, EntidadFacturacion, EntidadResumenAgendada, Servicio, UsuarioAgendamiento,
+  Medico, CitaMedico, EstadisticasCitas, ResponseMedicos, ResponseCitasMedico,
+  ProduccionMensualData, ResultadosEstudiosData,
+} from "../../interfaces/Dashboard";
 
 interface DashboardState {
   facturacion: EntidadFacturacion[];
@@ -12,6 +16,8 @@ interface DashboardState {
   medicos: Medico[];
   citas: CitaMedico[];
   estadisticasCitas: EstadisticasCitas | null;
+  produccionMensual: ProduccionMensualData | null;
+  resultadosEstudios: ResultadosEstudiosData | null;
   loading: boolean;
   error: string | null;
 }
@@ -26,10 +32,12 @@ const initialState: DashboardState = {
   agendamientoServicios: [],
   agendamientoEntidades: [],
   usuariosAgendamiento: [],
-  recaudo: [], 
+  recaudo: [],
   medicos: [],
   citas: [],
   estadisticasCitas: null,
+  produccionMensual: null,
+  resultadosEstudios: null,
   loading: false,
   error: null,
 };
@@ -72,6 +80,14 @@ export const dashboard_slice = createSlice({
       state.estadisticasCitas = action.payload.estadisticas;
       state.loading = false;
     },
+    setProduccionSuccess(state, action: PayloadAction<ProduccionMensualData>) {
+      state.produccionMensual = action.payload;
+      state.loading = false;
+    },
+    setResultadosSuccess(state, action: PayloadAction<ResultadosEstudiosData>) {
+      state.resultadosEstudios = action.payload;
+      state.loading = false;
+    },
     setDashboardError(state, action: PayloadAction<string>) {
       state.loading = false;
       state.error = action.payload;
@@ -86,7 +102,9 @@ export const {
   setRecaudoSuccess,
   setMedicosSuccess,
   setCitasSuccess,
-  setDashboardError, 
+  setProduccionSuccess,
+  setResultadosSuccess,
+  setDashboardError,
 } = dashboard_slice.actions;
 
 export default dashboard_slice.reducer;
