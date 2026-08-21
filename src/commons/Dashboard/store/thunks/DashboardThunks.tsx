@@ -83,31 +83,23 @@ export const get_facturacion = (fecha_inicio: string, fecha_fin: string) => {
 
 
 
-export const get_agenda_diaria = () => {
+export const get_agenda_diaria = (fecha_inicio?: string, fecha_fin?: string) => {
   return async (dispatch: AppDispatch) => {
     try {
       dispatch(setDashboardStart());
 
-      const url = `${API_ENDPOINT}/dashboard/agendadas`;
+      const params = new URLSearchParams();
+      if (fecha_inicio) params.append('fecha_inicio', fecha_inicio);
+      if (fecha_fin)    params.append('fecha_fin',    fecha_fin);
+      const url = `${API_ENDPOINT}/dashboard/agendadas/?${params.toString()}`;
 
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await fetch(url, { method: "GET", headers: { "Content-Type": "application/json" } });
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
 
       const data = await response.json();
 
-      if (
-        !data ||
-        !Array.isArray(data.servicios) ||
-        !Array.isArray(data.entidades)
-      ) {
+      if (!data || !Array.isArray(data.servicios) || !Array.isArray(data.entidades)) {
         control_error("La respuesta del servidor no es válida.");
         return;
       }
@@ -115,7 +107,9 @@ export const get_agenda_diaria = () => {
       dispatch(setAgendamientoSuccess({
         servicios: data.servicios,
         entidades: data.entidades,
-        usuarios: data.usuarios,
+        usuarios: data.usuarios ?? [],
+        timeline: data.timeline ?? [],
+        total: data.total ?? 0,
       }));
 
       control_success("Datos cargados exitosamente.");

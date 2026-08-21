@@ -3,7 +3,7 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import {
   DocumentoRecaudo, EntidadFacturacion, EntidadResumenAgendada, Servicio, UsuarioAgendamiento,
   Medico, CitaMedico, EstadisticasCitas, ResponseMedicos, ResponseCitasMedico,
-  ProduccionMensualData, ResultadosEstudiosData,
+  ProduccionMensualData, ResultadosEstudiosData, AgendamientoTimeline,
 } from "../../interfaces/Dashboard";
 
 interface DashboardState {
@@ -12,6 +12,8 @@ interface DashboardState {
   agendamientoServicios: Servicio[];
   usuariosAgendamiento: UsuarioAgendamiento[];
   agendamientoEntidades: EntidadResumenAgendada[];
+  agendamientoTimeline: AgendamientoTimeline[];
+  agendamientoTotal: number;
   recaudo: DocumentoRecaudo[];
   medicos: Medico[];
   citas: CitaMedico[];
@@ -32,6 +34,8 @@ const initialState: DashboardState = {
   agendamientoServicios: [],
   agendamientoEntidades: [],
   usuariosAgendamiento: [],
+  agendamientoTimeline: [],
+  agendamientoTotal: 0,
   recaudo: [],
   medicos: [],
   citas: [],
@@ -60,11 +64,13 @@ export const dashboard_slice = createSlice({
     },
     setAgendamientoSuccess(
       state,
-      action: PayloadAction<{ servicios: Servicio[]; entidades: EntidadResumenAgendada[] ; usuarios: UsuarioAgendamiento[] }>
+      action: PayloadAction<{ servicios: Servicio[]; entidades: EntidadResumenAgendada[]; usuarios: UsuarioAgendamiento[]; timeline: AgendamientoTimeline[]; total: number }>
     ) {
       state.agendamientoServicios = action.payload.servicios;
       state.agendamientoEntidades = action.payload.entidades;
       state.usuariosAgendamiento = action.payload.usuarios;
+      state.agendamientoTimeline = action.payload.timeline;
+      state.agendamientoTotal = action.payload.total;
       state.loading = false;
     },
     setRecaudoSuccess(state, action: PayloadAction<DocumentoRecaudo[]>) {

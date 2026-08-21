@@ -71,6 +71,12 @@ export interface ResponseCitasMedico {
   estadisticas: EstadisticasCitas;
 }
 
+// ── Agendamiento ──────────────────────────────────────────────────────────
+export interface AgendamientoTimeline {
+  fecha: string;
+  citas: number;
+}
+
 // ── Producción mensual ─────────────────────────────────────────────────────
 export interface ProduccionDatoMes {
   mes: string;
