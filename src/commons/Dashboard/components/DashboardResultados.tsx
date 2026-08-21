@@ -1,19 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import Chart from 'react-apexcharts';
+import { Button } from '@mui/material';
 import { AppDispatch, RootState } from '../../../store/store';
 import { get_resultados_estudios } from '../store/thunks/DashboardThunks.tsx';
+import { Title } from '../../../components/Title.tsx';
 
-const MESES_OPCIONES = [1, 3, 6, 12];
+const CHART_COLORS = ['#7e22ce', '#6d28d9', '#4f46e5', '#1d4ed8', '#0e7490', '#155e75', '#334155', '#3b0764', '#0f172a', '#083344'];
 
 const fmtNum = (n: number) => new Intl.NumberFormat('es-CO').format(n);
-
-const pct = (a: number, b: number) =>
-  b === 0 ? '0%' : `${Math.round((a / b) * 100)}%`;
+const pct = (a: number, b: number) => (b === 0 ? '0%' : `${Math.round((a / b) * 100)}%`);
 
 const DashboardResultados: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { resultadosEstudios, loading } = useSelector((s: RootState) => s.dashboard);
+  const { resultadosEstudios, loading, error } = useSelector((s: RootState) => s.dashboard);
 
   const [meses, setMeses] = useState(3);
 
@@ -23,219 +23,147 @@ const DashboardResultados: React.FC = () => {
 
   const d = resultadosEstudios;
 
-  // Gráfica de líneas: entregados vs realizados por mes
-  const timelineSeries = d
-    ? [
-        { name: 'Con resultado', data: d.timeline.map((t) => t.entregados) },
-        { name: 'Realizados', data: d.timeline.map((t) => t.realizados) },
-      ]
-    : [];
-
   const timelineOptions: ApexCharts.ApexOptions = {
-    chart: { type: 'area', toolbar: { show: false }, background: 'transparent', fontFamily: 'inherit' },
-    colors: ['#6C3FC5', '#0d9488'],
-    fill: { type: 'gradient', gradient: { opacityFrom: 0.35, opacityTo: 0.05 } },
-    xaxis: {
-      categories: d?.timeline.map((t) => t.mes) ?? [],
-      labels: { style: { colors: '#94a3b8', fontSize: '12px' } },
-    },
-    yaxis: { labels: { style: { colors: '#94a3b8' }, formatter: (v) => fmtNum(v) } },
-    legend: { position: 'bottom', labels: { colors: '#94a3b8' } },
-    dataLabels: { enabled: false },
+    chart: { type: 'area', toolbar: { show: false }, animations: { enabled: true, easing: 'easeinout', speed: 800 } },
+    colors: ['#7e22ce', '#0e7490'],
+    fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.05 } },
     stroke: { curve: 'smooth', width: 2 },
-    tooltip: { theme: 'dark', y: { formatter: (v) => `${fmtNum(v)} estudios` } },
-    grid: { borderColor: '#334155' },
+    xaxis: { categories: d?.timeline.map((t) => t.mes) ?? [], labels: { style: { fontSize: '12px' } } },
+    yaxis: { labels: { formatter: (v) => fmtNum(v) } },
+    legend: { position: 'bottom', fontSize: '12px' },
+    dataLabels: { enabled: false },
+    tooltip: { y: { formatter: (v) => `${fmtNum(v)} estudios` } },
+    grid: { borderColor: '#E5E7EB', strokeDashArray: 4 },
   };
 
-  // Gráfica de barras: por tipo de examen
-  const tipoSeries = d ? [{ name: 'Estudios', data: d.por_tipo_examen.map((t) => t.cantidad) }] : [];
   const tipoOptions: ApexCharts.ApexOptions = {
-    chart: { type: 'bar', toolbar: { show: false }, background: 'transparent', fontFamily: 'inherit' },
-    colors: ['#2563eb'],
+    chart: { type: 'bar', toolbar: { show: false }, animations: { enabled: true, easing: 'easeinout', speed: 800 } },
+    colors: CHART_COLORS,
     xaxis: {
       categories: d?.por_tipo_examen.map((t) => t.tipo) ?? [],
-      labels: { style: { colors: '#94a3b8', fontSize: '11px' }, rotate: -30 },
+      labels: { style: { fontSize: '11px' }, rotate: -30 },
     },
-    yaxis: { labels: { style: { colors: '#94a3b8' }, formatter: (v) => fmtNum(v) } },
-    plotOptions: { bar: { borderRadius: 4, horizontal: false, columnWidth: '55%' } },
+    yaxis: { labels: { formatter: (v) => fmtNum(v) } },
+    plotOptions: { bar: { borderRadius: 4, columnWidth: '55%', distributed: true } },
     dataLabels: { enabled: false },
+    legend: { show: false },
     tooltip: {
-      theme: 'dark',
       custom: ({ dataPointIndex }: { dataPointIndex: number }) => {
         if (!d) return '';
         const t = d.por_tipo_examen[dataPointIndex];
-        return `<div style="padding:8px 12px;background:#1e293b;color:#e2e8f0;border-radius:6px;font-size:13px">
-          <strong>${t.tipo}</strong><br/>
-          ${fmtNum(t.cantidad)} estudios<br/>
-          ${t.dias_promedio.toFixed(1)} días prom.
-        </div>`;
+        return `<div style="padding:8px 12px;font-size:13px"><strong>${t.tipo}</strong><br/>${fmtNum(t.cantidad)} estudios<br/>${t.dias_promedio.toFixed(1)} días prom.</div>`;
       },
     },
-    grid: { borderColor: '#334155' },
+    grid: { borderColor: '#E5E7EB', strokeDashArray: 4 },
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0f172a', color: '#e2e8f0', padding: '0 0 40px' }}>
-      {/* Header */}
-      <div style={{
-        background: 'linear-gradient(to right, #381A73, #1e3a8a, #0f766e)',
-        padding: '28px 32px',
-        marginBottom: '32px',
-      }}>
-        <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 700, letterSpacing: '-0.02em' }}>
-          Resultados de Estudios
-        </h1>
-        <p style={{ margin: '6px 0 0', color: '#93c5fd', fontSize: '0.9rem' }}>
-          Entrega de resultados vs estudios realizados · SIESA
-        </p>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '10px' }}>
+      <h2 style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>
+        📋 Dashboard Resultados
+      </h2>
+
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '20px', marginTop: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <span style={{ fontWeight: 600, color: '#374151' }}>Período:</span>
+        {[1, 3, 6, 12].map((m) => (
+          <Button
+            key={m}
+            variant={meses === m ? 'contained' : 'outlined'}
+            color="primary"
+            size="small"
+            onClick={() => setMeses(m)}
+          >
+            {m} {m === 1 ? 'mes' : 'meses'}
+          </Button>
+        ))}
       </div>
 
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
-        {/* Filtro período */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
-          <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 8 }}>
-            Período
-          </span>
-          {MESES_OPCIONES.map((m) => (
-            <button
-              key={m}
-              onClick={() => setMeses(m)}
-              style={{
-                padding: '6px 16px',
-                borderRadius: 6,
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                background: meses === m ? '#6C3FC5' : '#1e293b',
-                color: meses === m ? '#fff' : '#94a3b8',
-                transition: 'background 0.15s',
-              }}
-            >
-              {m}m
-            </button>
-          ))}
-        </div>
+      {loading && <p>Cargando datos...</p>}
+      {error && <p style={{ color: 'red' }}>Error: {error}</p>}
 
-        {/* KPI cards */}
-        {d && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
-            <div style={{ background: '#1e293b', borderRadius: 10, padding: '20px 24px', borderLeft: '4px solid #6C3FC5' }}>
-              <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Total resultados
-              </p>
-              <p style={{ margin: '8px 0 0', fontSize: '2rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                {fmtNum(d.total_resultados)}
-              </p>
+      {d && !loading && (
+        <div style={{ width: '100%', maxWidth: '1400px' }}>
+          {/* Tarjetas resumen */}
+          <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '30px', flexWrap: 'wrap', gap: '20px', marginTop: '10px' }}>
+            <div style={{ backgroundColor: '#3c0b79', color: 'white', padding: '15px 30px', borderRadius: 12 }}>
+              <strong>Total resultados</strong><br />
+              <span style={{ fontSize: '24px', fontWeight: 700 }}>{fmtNum(d.total_resultados)}</span>
             </div>
-            <div style={{ background: '#1e293b', borderRadius: 10, padding: '20px 24px', borderLeft: '4px solid #4ade80' }}>
-              <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Con resultado entregado
-              </p>
-              <p style={{ margin: '8px 0 0', fontSize: '2rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#4ade80' }}>
-                {pct(d.admisiones_con_resultado, d.total_resultados)}
-              </p>
-              <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-                {fmtNum(d.admisiones_con_resultado)} estudios
-              </p>
+            <div style={{ backgroundColor: '#de497a', color: 'white', padding: '15px 30px', borderRadius: 12 }}>
+              <strong>Con resultado entregado</strong><br />
+              <span style={{ fontSize: '24px', fontWeight: 700 }}>{pct(d.admisiones_con_resultado, d.total_resultados)}</span>
+              <br /><span style={{ fontSize: '13px' }}>{fmtNum(d.admisiones_con_resultado)} estudios</span>
             </div>
-            <div style={{ background: '#1e293b', borderRadius: 10, padding: '20px 24px', borderLeft: '4px solid #f59e0b' }}>
-              <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Pendientes (últ. 30 días)
-              </p>
-              <p style={{ margin: '8px 0 0', fontSize: '2rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#f59e0b' }}>
-                {fmtNum(d.pendientes_30d_total)}
-              </p>
+            <div style={{ backgroundColor: '#4A90E2', color: 'white', padding: '15px 30px', borderRadius: 12 }}>
+              <strong>Pendientes (últ. 30 días)</strong><br />
+              <span style={{ fontSize: '24px', fontWeight: 700 }}>{fmtNum(d.pendientes_30d_total)}</span>
             </div>
           </div>
-        )}
 
-        {/* Gráfica: timeline */}
-        <div style={{ background: '#1e293b', borderRadius: 12, padding: '24px', marginBottom: 24 }}>
-          <h2 style={{ margin: '0 0 20px', fontSize: '1rem', fontWeight: 600, color: '#e2e8f0' }}>
-            Evolución mensual
-          </h2>
-          {loading ? (
-            <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-              Cargando...
+          {/* Gráficas */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '20px', marginTop: '10px' }}>
+            {/* Timeline */}
+            <div style={{ flex: '1 1 600px', maxWidth: '900px', backgroundColor: '#fff', padding: 24, borderRadius: 12 }}>
+              <Title title="EVOLUCIÓN MENSUAL: CON RESULTADO VS REALIZADOS" />
+              {d.timeline.length > 0 ? (
+                <Chart
+                  options={timelineOptions}
+                  series={[
+                    { name: 'Con resultado', data: d.timeline.map((t) => t.entregados) },
+                    { name: 'Realizados', data: d.timeline.map((t) => t.realizados) },
+                  ]}
+                  type="area"
+                  height={320}
+                />
+              ) : (
+                <p style={{ textAlign: 'center', color: '#6b7280', marginTop: 40 }}>Sin datos para el período seleccionado</p>
+              )}
             </div>
-          ) : timelineSeries.length > 0 && d!.timeline.length > 0 ? (
-            <Chart options={timelineOptions} series={timelineSeries} type="area" height={280} />
-          ) : (
-            <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-              Sin datos para el período seleccionado
-            </div>
-          )}
-        </div>
 
-        {/* Fila: tipo examen + pendientes */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 24 }}>
-          {/* Por tipo de examen */}
-          <div style={{ background: '#1e293b', borderRadius: 12, padding: '24px' }}>
-            <h2 style={{ margin: '0 0 20px', fontSize: '1rem', fontWeight: 600, color: '#e2e8f0' }}>
-              Por tipo de examen
-            </h2>
-            {d && d.por_tipo_examen.length > 0 ? (
-              <Chart options={tipoOptions} series={tipoSeries} type="bar" height={260} />
-            ) : (
-              <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-                Sin datos
-              </div>
-            )}
+            {/* Por tipo de examen */}
+            <div style={{ flex: '1 1 400px', maxWidth: '600px', backgroundColor: '#fff', padding: 24, borderRadius: 12 }}>
+              <Title title="POR TIPO DE EXAMEN" />
+              {d.por_tipo_examen.length > 0 ? (
+                <Chart
+                  options={tipoOptions}
+                  series={[{ name: 'Estudios', data: d.por_tipo_examen.map((t) => t.cantidad) }]}
+                  type="bar"
+                  height={320}
+                />
+              ) : (
+                <p style={{ textAlign: 'center', color: '#6b7280', marginTop: 40 }}>Sin datos</p>
+              )}
+            </div>
           </div>
 
-          {/* Estudios pendientes */}
-          <div style={{ background: '#1e293b', borderRadius: 12, padding: '24px', overflowY: 'auto', maxHeight: 340 }}>
-            <h2 style={{ margin: '0 0 20px', fontSize: '1rem', fontWeight: 600, color: '#e2e8f0' }}>
-              Pendientes últimos 30 días
-            </h2>
-            {d && d.pendientes_30d.length > 0 ? (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+          {/* Tabla pendientes */}
+          {d.pendientes_30d.length > 0 && (
+            <div style={{ backgroundColor: '#fff', padding: 24, borderRadius: 12, marginTop: '20px', overflowX: 'auto' }}>
+              <Title title="ESTUDIOS SIN RESULTADO — ÚLTIMOS 30 DÍAS" />
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', marginTop: '16px' }}>
                 <thead>
-                  <tr>
+                  <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
                     {['Estudio', 'Fecha', 'Servicio', 'Entidad'].map((h) => (
-                      <th
-                        key={h}
-                        style={{
-                          textAlign: 'left',
-                          padding: '6px 10px',
-                          color: '#64748b',
-                          fontWeight: 600,
-                          borderBottom: '1px solid #334155',
-                          fontSize: '0.7rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                          position: 'sticky',
-                          top: 0,
-                          background: '#1e293b',
-                        }}
-                      >
-                        {h}
-                      </th>
+                      <th key={h} style={{ textAlign: 'left', padding: '10px 16px', color: '#374151', fontWeight: 700 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {d.pendientes_30d.map((p, i) => (
-                    <tr key={p.estudio} style={{ background: i % 2 === 0 ? 'transparent' : '#0f172a' }}>
-                      <td style={{ padding: '7px 10px', fontVariantNumeric: 'tabular-nums', color: '#93c5fd', fontWeight: 600 }}>
-                        {p.estudio}
-                      </td>
-                      <td style={{ padding: '7px 10px', color: '#94a3b8' }}>{p.fecha}</td>
-                      <td style={{ padding: '7px 10px', color: '#e2e8f0' }}>{p.servicio}</td>
-                      <td style={{ padding: '7px 10px', color: '#94a3b8' }}>{p.entidad}</td>
+                    <tr key={p.estudio} style={{ borderBottom: '1px solid #f3f4f6', backgroundColor: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                      <td style={{ padding: '10px 16px', fontWeight: 600, color: '#4f46e5' }}>{p.estudio}</td>
+                      <td style={{ padding: '10px 16px', color: '#6b7280' }}>{p.fecha}</td>
+                      <td style={{ padding: '10px 16px' }}>{p.servicio}</td>
+                      <td style={{ padding: '10px 16px', color: '#6b7280' }}>{p.entidad}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#64748b' }}>
-                No hay estudios pendientes
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };
