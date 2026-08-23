@@ -1,6 +1,8 @@
 export interface Servicio {
   nombre: string;
   total: number;
+  valor?: number;
+  categoria?: string;
 }
 
 export interface UsuarioAgendamiento {
@@ -11,6 +13,7 @@ export interface UsuarioAgendamiento {
 export interface EntidadResumenAgendada {
   nombre: string;
   citas: number;
+  valor?: number;
 }
 
 export interface EntidadFacturacion {

@@ -14,6 +14,9 @@ interface DashboardState {
   agendamientoEntidades: EntidadResumenAgendada[];
   agendamientoTimeline: AgendamientoTimeline[];
   agendamientoTotal: number;
+  agendamientoValorConsultas: number;
+  agendamientoCopago: number;
+  agendamientoPagado: number;
   recaudo: DocumentoRecaudo[];
   medicos: Medico[];
   citas: CitaMedico[];
@@ -36,6 +39,9 @@ const initialState: DashboardState = {
   usuariosAgendamiento: [],
   agendamientoTimeline: [],
   agendamientoTotal: 0,
+  agendamientoValorConsultas: 0,
+  agendamientoCopago: 0,
+  agendamientoPagado: 0,
   recaudo: [],
   medicos: [],
   citas: [],
@@ -64,13 +70,16 @@ export const dashboard_slice = createSlice({
     },
     setAgendamientoSuccess(
       state,
-      action: PayloadAction<{ servicios: Servicio[]; entidades: EntidadResumenAgendada[]; usuarios: UsuarioAgendamiento[]; timeline: AgendamientoTimeline[]; total: number }>
+      action: PayloadAction<{ servicios: Servicio[]; entidades: EntidadResumenAgendada[]; usuarios: UsuarioAgendamiento[]; timeline: AgendamientoTimeline[]; total: number; total_valor_consultas: number; total_copago: number; total_pagado: number }>
     ) {
       state.agendamientoServicios = action.payload.servicios;
       state.agendamientoEntidades = action.payload.entidades;
       state.usuariosAgendamiento = action.payload.usuarios;
       state.agendamientoTimeline = action.payload.timeline;
       state.agendamientoTotal = action.payload.total;
+      state.agendamientoValorConsultas = action.payload.total_valor_consultas ?? 0;
+      state.agendamientoCopago = action.payload.total_copago ?? 0;
+      state.agendamientoPagado = action.payload.total_pagado ?? 0;
       state.loading = false;
     },
     setRecaudoSuccess(state, action: PayloadAction<DocumentoRecaudo[]>) {

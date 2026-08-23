@@ -110,6 +110,9 @@ export const get_agenda_diaria = (fecha_inicio?: string, fecha_fin?: string) => 
         usuarios: data.usuarios ?? [],
         timeline: data.timeline ?? [],
         total: data.total ?? 0,
+        total_valor_consultas: data.total_valor_consultas ?? 0,
+        total_copago: data.total_copago ?? 0,
+        total_pagado: data.total_pagado ?? 0,
       }));
 
       control_success("Datos cargados exitosamente.");

@@ -73,7 +73,9 @@ export const AppRouter: React.FC = () => {
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={["Contador", "Financiera", "AdministrativoGerencia"]} />}>
-        <Route path="/facturas_proveedores" element={<TablaProveedor />} />
+        <Route element={<DashboardLayout />}>
+          <Route path="/facturas_proveedores" element={<TablaProveedor />} />
+        </Route>
       </Route>
 
 
