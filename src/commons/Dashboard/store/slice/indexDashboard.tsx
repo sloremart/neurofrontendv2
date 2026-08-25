@@ -6,6 +6,23 @@ import {
   ProduccionMensualData, ResultadosEstudiosData, AgendamientoTimeline,
 } from "../../interfaces/Dashboard";
 
+interface AgendamientoEstados {
+  total: number;
+  atendidas: number;
+  programadas: number;
+  incumplidas: number;
+  canceladas: number;
+  sin_estado: number;
+}
+
+interface AgendamientoMedico {
+  medico: string;
+  total: number;
+  atendidas: number;
+  incumplidas: number;
+  canceladas: number;
+}
+
 interface DashboardState {
   facturacion: EntidadFacturacion[];
   totalFacturado: number;
@@ -17,6 +34,8 @@ interface DashboardState {
   agendamientoValorConsultas: number;
   agendamientoCopago: number;
   agendamientoPagado: number;
+  agendamientoEstados: AgendamientoEstados;
+  agendamientoMedicos: AgendamientoMedico[];
   recaudo: DocumentoRecaudo[];
   medicos: Medico[];
   citas: CitaMedico[];
@@ -42,6 +61,8 @@ const initialState: DashboardState = {
   agendamientoValorConsultas: 0,
   agendamientoCopago: 0,
   agendamientoPagado: 0,
+  agendamientoEstados: { total: 0, atendidas: 0, programadas: 0, incumplidas: 0, canceladas: 0, sin_estado: 0 },
+  agendamientoMedicos: [],
   recaudo: [],
   medicos: [],
   citas: [],
@@ -70,7 +91,7 @@ export const dashboard_slice = createSlice({
     },
     setAgendamientoSuccess(
       state,
-      action: PayloadAction<{ servicios: Servicio[]; entidades: EntidadResumenAgendada[]; usuarios: UsuarioAgendamiento[]; timeline: AgendamientoTimeline[]; total: number; total_valor_consultas: number; total_copago: number; total_pagado: number }>
+      action: PayloadAction<{ servicios: Servicio[]; entidades: EntidadResumenAgendada[]; usuarios: UsuarioAgendamiento[]; timeline: AgendamientoTimeline[]; total: number; total_valor_consultas: number; total_copago: number; total_pagado: number; estados?: AgendamientoEstados; medicos?: AgendamientoMedico[] }>
     ) {
       state.agendamientoServicios = action.payload.servicios;
       state.agendamientoEntidades = action.payload.entidades;
@@ -80,6 +101,8 @@ export const dashboard_slice = createSlice({
       state.agendamientoValorConsultas = action.payload.total_valor_consultas ?? 0;
       state.agendamientoCopago = action.payload.total_copago ?? 0;
       state.agendamientoPagado = action.payload.total_pagado ?? 0;
+      if (action.payload.estados) state.agendamientoEstados = action.payload.estados;
+      if (action.payload.medicos) state.agendamientoMedicos = action.payload.medicos;
       state.loading = false;
     },
     setRecaudoSuccess(state, action: PayloadAction<DocumentoRecaudo[]>) {

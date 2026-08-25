@@ -113,6 +113,8 @@ export const get_agenda_diaria = (fecha_inicio?: string, fecha_fin?: string) => 
         total_valor_consultas: data.total_valor_consultas ?? 0,
         total_copago: data.total_copago ?? 0,
         total_pagado: data.total_pagado ?? 0,
+        estados: data.estados,
+        medicos: data.medicos,
       }));
 
       control_success("Datos cargados exitosamente.");
