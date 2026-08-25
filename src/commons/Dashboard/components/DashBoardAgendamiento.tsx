@@ -9,48 +9,19 @@ import { Button } from "@mui/material";
 import { AppDispatch, RootState } from "../../../store/store.tsx";
 import { get_agenda_diaria } from "../store/thunks/DashboardThunks.tsx";
 
-// ── colores del sistema ────────────────────────────────────────────────────────
-const C = {
-    atendidas:  "#22c55e",
-    programadas:"#3b82f6",
-    canceladas: "#ef4444",
-    incumplidas:"#f59e0b",
-    sin_estado: "#8b5cf6",
-    bg:         "#0f172a",
-    bgCard:     "#1e293b",
-    bgCard2:    "#0f2744",
-    purple:     "#7c3aed",
-    teal:       "#0e7490",
-    pink:       "#be185d",
-    blue:       "#1d4ed8",
-    text:       "#f1f5f9",
-    muted:      "#94a3b8",
-};
+const CHART_COLORS = ['#7e22ce','#6d28d9','#4f46e5','#1d4ed8','#0e7490','#155e75','#334155','#3b0764','#0f172a','#083344'];
 
-const CHART_COLORS_MULTI = ['#7e22ce','#6d28d9','#4f46e5','#1d4ed8','#0e7490','#155e75','#334155','#3b0764','#0f172a','#083344'];
-
-// ── cabecera de sección (gradiente oscuro como el otro dashboard) ──────────────
-const SectionTitle = ({ title }: { title: string }) => (
-    <div style={{
-        background: "linear-gradient(90deg, #3b0764 0%, #0e7490 100%)",
-        borderRadius: "8px 8px 0 0",
-        padding: "10px 20px",
-        color: "#fff",
-        fontWeight: 700,
-        fontSize: 14,
-        letterSpacing: "0.05em",
-        textTransform: "uppercase" as const,
-        marginBottom: 0,
-    }}>
-        {title}
-    </div>
-);
-
-// ── tarjeta de sección ────────────────────────────────────────────────────────
+// ── cabecera de sección ───────────────────────────────────────────────────────
 const Panel = ({ title, children, style = {} }: { title: string; children: React.ReactNode; style?: React.CSSProperties }) => (
-    <div style={{ borderRadius: 10, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", ...style }}>
-        <SectionTitle title={title} />
-        <div style={{ padding: "16px 20px", background: "#fff" }}>
+    <div style={{ borderRadius: 10, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.09)", border: "1px solid #e2e8f0", ...style }}>
+        <div style={{
+            background: "linear-gradient(90deg, #3b0764 0%, #0e7490 100%)",
+            padding: "9px 18px", color: "#fff", fontWeight: 700,
+            fontSize: 13, letterSpacing: "0.05em", textTransform: "uppercase" as const,
+        }}>
+            {title}
+        </div>
+        <div style={{ padding: "16px 18px", background: "#fff" }}>
             {children}
         </div>
     </div>
@@ -59,10 +30,10 @@ const Panel = ({ title, children, style = {} }: { title: string; children: React
 type Tab = 'resumen' | 'medicos' | 'convenios' | 'timeline';
 
 const TABS: { key: Tab; label: string }[] = [
-    { key: 'resumen',   label: '📊 Resumen'     },
-    { key: 'medicos',   label: '👩‍⚕️ Por Médico'  },
-    { key: 'convenios', label: '🏢 Por Convenio' },
-    { key: 'timeline',  label: '📅 Por Día'      },
+    { key: 'resumen',   label: 'Resumen'      },
+    { key: 'medicos',   label: 'Por Médico'   },
+    { key: 'convenios', label: 'Por Convenio' },
+    { key: 'timeline',  label: 'Por Día'      },
 ];
 
 const AgendamientoDashboard = () => {
@@ -76,7 +47,7 @@ const AgendamientoDashboard = () => {
 
     const hoy = dayjs();
     const [fechaInicio, setFechaInicio] = useState<dayjs.Dayjs | null>(hoy);
-    const [fechaFin, setFechaFin] = useState<dayjs.Dayjs | null>(hoy);
+    const [fechaFin,    setFechaFin]    = useState<dayjs.Dayjs | null>(hoy);
     const [tab, setTab] = useState<Tab>('resumen');
 
     useEffect(() => {
@@ -93,130 +64,93 @@ const AgendamientoDashboard = () => {
     const topServicio = agendamientoServicios[0];
     const est = agendamientoEstados ?? { total: 0, atendidas: 0, programadas: 0, incumplidas: 0, canceladas: 0, sin_estado: 0 };
     const topMedicos  = (agendamientoMedicos ?? []).slice(0, 12);
+    const hasData     = agendamientoEntidades.length > 0;
 
-    // ── gráfica timeline ────────────────────────────────────────────────────
-    const timelineOpts: ApexCharts.ApexOptions = {
-        chart: { type: "area", toolbar: { show: false }, animations: { enabled: true, easing: "easeinout", speed: 700 }, background: "transparent" },
-        colors: [C.purple],
-        fill: { type: "gradient", gradient: { opacityFrom: 0.45, opacityTo: 0.05 } },
-        stroke: { curve: "smooth", width: 2 },
-        xaxis: { categories: agendamientoTimeline.map(t => t.fecha), labels: { style: { fontSize: "11px", colors: "#6b7280" }, rotate: -30 } },
-        yaxis: { labels: { formatter: (v: number) => String(Math.round(v)), style: { colors: "#6b7280" } } },
-        dataLabels: { enabled: agendamientoTimeline.length <= 10 },
-        tooltip: { y: { formatter: (v) => `${v} citas` } },
-        grid: { borderColor: "#f1f5f9", strokeDashArray: 4 },
-        legend: { show: false },
-    };
-
-    // ── gráfica médicos (barras apiladas, 5 series) ─────────────────────────
+    // ── gráficas ──────────────────────────────────────────────────────────────
     const medicosOpts: ApexCharts.ApexOptions = {
-        chart: { type: "bar", stacked: true, toolbar: { show: false }, background: "transparent" },
-        plotOptions: { bar: { horizontal: true, barHeight: "60%", borderRadius: 3 } },
-        colors: [C.atendidas, C.programadas, C.canceladas, C.incumplidas, C.sin_estado],
+        chart: { type: "bar", stacked: true, toolbar: { show: false } },
+        plotOptions: { bar: { horizontal: true, barHeight: "62%", borderRadius: 3 } },
+        colors: ["#22c55e", "#3b82f6", "#ef4444", "#f59e0b", "#8b5cf6"],
         xaxis: {
-            categories: topMedicos.map(m => m.medico.length > 28 ? m.medico.substring(0, 28) + '…' : m.medico),
-            labels: { style: { fontSize: "11px", colors: "#6b7280" } },
+            categories: topMedicos.map(m => m.medico.length > 26 ? m.medico.slice(0, 26) + '…' : m.medico),
+            labels: { style: { fontSize: "11px" } },
         },
-        yaxis: { labels: { style: { fontSize: "11px", colors: "#475569" }, maxWidth: 230 } },
+        yaxis: { labels: { style: { fontSize: "11px" }, maxWidth: 220 } },
         dataLabels: { enabled: false },
         tooltip: { y: { formatter: (v) => `${v} citas` } },
-        legend: {
-            position: "bottom" as const,
-            fontSize: "12px",
-            labels: { colors: "#374151" },
-            markers: { size: 8 },
-        },
+        legend: { position: "bottom" as const, fontSize: "12px", markers: { size: 8 } },
         grid: { borderColor: "#f1f5f9", strokeDashArray: 3 },
     };
 
-    // ── gráfica convenios ───────────────────────────────────────────────────
     const conveniosOpts: ApexCharts.ApexOptions = {
-        chart: { type: "bar", toolbar: { show: false }, background: "transparent" },
-        colors: CHART_COLORS_MULTI,
+        chart: { type: "bar", toolbar: { show: false } },
+        colors: CHART_COLORS,
         plotOptions: { bar: { borderRadius: 4, horizontal: true, barHeight: "58%", distributed: true } },
         xaxis: {
-            categories: agendamientoEntidades.map(e => e.nombre.length > 32 ? e.nombre.substring(0, 32) + '…' : e.nombre),
-            labels: { style: { fontSize: "11px", colors: "#6b7280" } },
+            categories: agendamientoEntidades.slice(0, 10).map(e => e.nombre.length > 30 ? e.nombre.slice(0, 30) + '…' : e.nombre),
+            labels: { style: { fontSize: "11px" } },
         },
-        yaxis: { labels: { style: { fontSize: "11px", colors: "#475569" }, maxWidth: 200 } },
+        yaxis: { labels: { style: { fontSize: "11px" }, maxWidth: 200 } },
         dataLabels: { enabled: true, formatter: (v) => `${v}`, style: { fontSize: "11px" } },
         tooltip: { y: { formatter: (v) => `${v} citas` } },
         legend: { show: false },
         grid: { borderColor: "#f1f5f9", strokeDashArray: 3 },
     };
 
-    // ── donut estado ────────────────────────────────────────────────────────
-    const donutLabels  = ["Atendidas", "Programadas", "Canceladas", "Incumplidas", "Sin Estado"];
-    const donutValues  = [est.atendidas, est.programadas, est.canceladas, est.incumplidas, est.sin_estado];
-    const donutColors  = [C.atendidas, C.programadas, C.canceladas, C.incumplidas, C.sin_estado];
+    const timelineOpts: ApexCharts.ApexOptions = {
+        chart: { type: "area", toolbar: { show: false }, animations: { enabled: true, easing: "easeinout", speed: 700 } },
+        colors: ["#7c3aed"],
+        fill: { type: "gradient", gradient: { opacityFrom: 0.45, opacityTo: 0.05 } },
+        stroke: { curve: "smooth", width: 2 },
+        xaxis: { categories: agendamientoTimeline.map(t => t.fecha), labels: { style: { fontSize: "11px" }, rotate: -30 } },
+        yaxis: { labels: { formatter: (v: number) => String(Math.round(v)) } },
+        dataLabels: { enabled: agendamientoTimeline.length <= 10 },
+        tooltip: { y: { formatter: (v) => `${v} citas` } },
+        grid: { borderColor: "#f1f5f9", strokeDashArray: 4 },
+        legend: { show: false },
+    };
+
     const donutOpts: ApexCharts.ApexOptions = {
-        chart: { type: "donut", background: "transparent" },
-        labels: donutLabels,
-        colors: donutColors,
+        chart: { type: "donut" },
+        labels: ["Atendidas", "Programadas", "Canceladas", "Incumplidas", "Sin Estado"],
+        colors: ["#22c55e", "#3b82f6", "#ef4444", "#f59e0b", "#8b5cf6"],
         dataLabels: { enabled: true, formatter: (val: number) => `${Math.round(val)}%` },
-        legend: { position: "bottom" as const, fontSize: "12px", labels: { colors: "#374151" } },
-        plotOptions: { pie: { donut: { size: "65%", labels: { show: true, total: { show: true, label: "Total", color: "#374151", formatter: () => est.total.toLocaleString("es-CO") } } } } },
+        legend: { position: "bottom" as const, fontSize: "12px" },
+        plotOptions: { pie: { donut: { size: "60%", labels: { show: true, total: {
+            show: true, label: "Total", color: "#374151",
+            formatter: () => est.total.toLocaleString("es-CO"),
+        } } } } },
         tooltip: { y: { formatter: (v) => `${v} citas` } },
     };
 
-    const hasData = agendamientoEntidades.length > 0;
-
-    // ── KPI inferior (valor, entidad, servicio) ─────────────────────────────
-    const kpiCards = [
-        { label: "Total Citas", value: agendamientoTotal.toLocaleString("es-CO"), sub: "", color: C.purple, wide: false },
-        ...(agendamientoValorConsultas > 0 ? [{
-            label: "Valor Estimado",
-            value: agendamientoValorConsultas.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }),
-            sub: "Consultas exacto · Imágenes aprox.",
-            color: C.blue, wide: true,
-        }] : []),
-        ...(agendamientoCopago > 0 ? [{
-            label: "Copagos Esperados",
-            value: agendamientoCopago.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }),
-            sub: `Recaudado: ${agendamientoPagado.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })} (${Math.round((agendamientoPagado / agendamientoCopago) * 100)}%)`,
-            color: C.teal, wide: false,
-        }] : []),
-        ...(topEntidad ? [{ label: "Entidad Principal", value: topEntidad.nombre, sub: `${topEntidad.citas} citas`, color: C.pink, wide: false }] : []),
-        ...(topServicio ? [{ label: "Servicio Principal", value: topServicio.nombre, sub: `${topServicio.total} citas`, color: "#6d28d9", wide: false }] : []),
-        { label: "Convenios", value: agendamientoEntidades.length.toString(), sub: "", color: "#0369a1", wide: false },
-    ];
-
-    // ── estado badge cards ──────────────────────────────────────────────────
-    const estadoBadges = [
-        { label: "ASISTENCIA TOTAL",      value: est.total,       bg: "#3c0b79", fg: "#c084fc" },
-        { label: "ATENDIDAS · CONFIRMADAS",value: est.atendidas,  bg: "#064e3b", fg: "#34d399", sub: "Atendidas en Diagnóstico / Estudio" },
-        { label: "PROGRAMADAS",            value: est.programadas, bg: "#1e3a5f", fg: "#60a5fa", sub: "Pendientes de atender" },
-        { label: "INCUMPLIDAS",            value: est.incumplidas, bg: "#292524", fg: "#d6d3d1" },
-        { label: "CANCELADAS",             value: est.canceladas,  bg: "#450a0a", fg: "#fca5a5", sub: "Pérdidas reales" },
-        { label: "SIN ESTADO",             value: est.sin_estado,  bg: "#1e1b4b", fg: "#a5b4fc" },
-    ];
-
     return (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 10, padding: "0 8px" }}>
-            <h2 style={{ fontSize: "26px", fontWeight: 700, color: "#0f172a", marginBottom: 10, textAlign: "center" }}>
-                📅 Dashboard de Agendamiento
-            </h2>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 8, padding: "0 8px" }}>
 
-            {/* ── filtro ── */}
-            <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap", justifyContent: "center" }}>
-                <LocalizationProvider dateAdapter={AdapterDayjs}>
-                    <DatePicker label="Fecha inicio" value={fechaInicio} onChange={(d) => setFechaInicio(d)} slotProps={{ textField: { size: "small" } }} />
-                </LocalizationProvider>
-                <LocalizationProvider dateAdapter={AdapterDayjs}>
-                    <DatePicker label="Fecha fin" value={fechaFin} onChange={(d) => setFechaFin(d)} slotProps={{ textField: { size: "small" } }} />
-                </LocalizationProvider>
-                <Button variant="contained" color="primary" onClick={handleBuscar} size="small">BUSCAR</Button>
-                {[
-                    { label: "HOY",       inicio: hoy,                    fin: hoy },
-                    { label: "7 DÍAS",    inicio: hoy.subtract(6, 'day'), fin: hoy },
-                    { label: "30 DÍAS",   inicio: hoy.subtract(29,'day'), fin: hoy },
-                    { label: "ESTE MES",  inicio: hoy.startOf('month'),   fin: hoy },
-                ].map(({ label, inicio, fin }) => (
-                    <Button key={label} variant="outlined" color="primary" size="small"
-                        onClick={() => { setFechaInicio(inicio); setFechaFin(fin); dispatch(get_agenda_diaria(inicio.format("YYYY-MM-DD"), fin.format("YYYY-MM-DD"))); }}>
-                        {label}
-                    </Button>
-                ))}
+            {/* ── título + filtro en una sola barra ── */}
+            <div style={{ width: "100%", maxWidth: "1600px", marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "center", marginBottom: 12 }}>
+                    <span style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", whiteSpace: "nowrap" }}>📅 Dashboard de Agendamiento</span>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <DatePicker label="Fecha inicio" value={fechaInicio} onChange={(d) => setFechaInicio(d)} slotProps={{ textField: { size: "small" } }} />
+                    </LocalizationProvider>
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <DatePicker label="Fecha fin" value={fechaFin} onChange={(d) => setFechaFin(d)} slotProps={{ textField: { size: "small" } }} />
+                    </LocalizationProvider>
+                    <Button variant="contained" color="primary" size="small" onClick={handleBuscar}>BUSCAR</Button>
+                    {[
+                        { label: "HOY",      inicio: hoy,                    fin: hoy },
+                        { label: "7 DÍAS",   inicio: hoy.subtract(6,'day'),  fin: hoy },
+                        { label: "30 DÍAS",  inicio: hoy.subtract(29,'day'), fin: hoy },
+                        { label: "ESTE MES", inicio: hoy.startOf('month'),   fin: hoy },
+                    ].map(({ label, inicio, fin }) => (
+                        <Button key={label} variant="outlined" size="small"
+                            onClick={() => { setFechaInicio(inicio); setFechaFin(fin); dispatch(get_agenda_diaria(inicio.format("YYYY-MM-DD"), fin.format("YYYY-MM-DD"))); }}>
+                            {label}
+                        </Button>
+                    ))}
+                </div>
             </div>
 
             {loading && <p style={{ color: "#6b7280" }}>Cargando datos...</p>}
@@ -225,49 +159,84 @@ const AgendamientoDashboard = () => {
             {!loading && hasData && (
                 <div style={{ width: "100%", maxWidth: "1600px" }}>
 
-                    {/* ── estado badges ── */}
-                    {est.total > 0 && (
-                        <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-                            {estadoBadges.map(b => (
-                                <div key={b.label} style={{ flex: "1 1 140px", backgroundColor: b.bg, borderRadius: 10, padding: "12px 16px", minWidth: 130 }}>
-                                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", color: b.fg, opacity: 0.75, textTransform: "uppercase" as const, marginBottom: 5 }}>
-                                        {b.label}
-                                    </div>
-                                    <div style={{ fontSize: 30, fontWeight: 800, color: b.fg, lineHeight: 1 }}>
-                                        {b.value.toLocaleString("es-CO")}
-                                    </div>
-                                    {b.sub && (
-                                        <div style={{ fontSize: 9, color: b.fg, opacity: 0.6, marginTop: 4 }}>{b.sub}</div>
-                                    )}
+                    {/* ── fila de estado (6 tarjetas compactas) ── */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginBottom: 14 }}>
+                        {[
+                            { label: "ASISTENCIA TOTAL",       value: est.total,        bg: "#3c0b79", fg: "#c084fc" },
+                            { label: "ATENDIDAS",              value: est.atendidas,    bg: "#064e3b", fg: "#34d399", sub: "Confirmadas / En estudio" },
+                            { label: "PROGRAMADAS",            value: est.programadas,  bg: "#1e3a5f", fg: "#60a5fa", sub: "Pendientes de atender" },
+                            { label: "INCUMPLIDAS",            value: est.incumplidas,  bg: "#1c1917", fg: "#a8a29e" },
+                            { label: "CANCELADAS",             value: est.canceladas,   bg: "#450a0a", fg: "#fca5a5", sub: "Pérdidas reales" },
+                            { label: "SIN ESTADO",             value: est.sin_estado,   bg: "#1e1b4b", fg: "#a5b4fc" },
+                        ].map(b => (
+                            <div key={b.label} style={{ backgroundColor: b.bg, borderRadius: 10, padding: "12px 14px" }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", color: b.fg, opacity: 0.7, textTransform: "uppercase" as const, marginBottom: 4 }}>
+                                    {b.label}
                                 </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* ── KPI cards ── */}
-                    <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
-                        {kpiCards.map(k => (
-                            <div key={k.label} style={{
-                                flex: k.wide ? "2 1 240px" : "1 1 150px",
-                                backgroundColor: k.color, color: "#fff",
-                                padding: "12px 18px", borderRadius: 10, textAlign: "center",
-                            }}>
-                                <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.85, marginBottom: 4 }}>{k.label}</div>
-                                <div style={{ fontSize: k.wide ? 18 : 22, fontWeight: 700 }}>{k.value}</div>
-                                {k.sub && <div style={{ fontSize: 10, opacity: 0.75, marginTop: 3 }}>{k.sub}</div>}
+                                <div style={{ fontSize: 28, fontWeight: 800, color: b.fg, lineHeight: 1 }}>
+                                    {b.value.toLocaleString("es-CO")}
+                                </div>
+                                {(b as any).sub && <div style={{ fontSize: 9, color: b.fg, opacity: 0.55, marginTop: 4 }}>{(b as any).sub}</div>}
                             </div>
                         ))}
                     </div>
 
+                    {/* ── franja de métricas de negocio (compacta, una sola línea) ── */}
+                    <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
+                        <div style={{ flex: "0 0 auto", background: "#7c3aed", color: "#fff", borderRadius: 8, padding: "8px 16px", textAlign: "center" }}>
+                            <div style={{ fontSize: 10, opacity: 0.8, fontWeight: 600 }}>TOTAL CITAS</div>
+                            <div style={{ fontSize: 22, fontWeight: 800 }}>{agendamientoTotal.toLocaleString("es-CO")}</div>
+                        </div>
+                        {agendamientoValorConsultas > 0 && (
+                            <div style={{ flex: "1 1 200px", background: "#1d4ed8", color: "#fff", borderRadius: 8, padding: "8px 16px" }}>
+                                <div style={{ fontSize: 10, opacity: 0.8, fontWeight: 600 }}>VALOR ESTIMADO</div>
+                                <div style={{ fontSize: 18, fontWeight: 800 }}>{agendamientoValorConsultas.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })}</div>
+                                <div style={{ fontSize: 9, opacity: 0.7 }}>Consultas: exacto · Imágenes: aprox.</div>
+                            </div>
+                        )}
+                        {agendamientoCopago > 0 && (
+                            <div style={{ flex: "1 1 160px", background: "#0e7490", color: "#fff", borderRadius: 8, padding: "8px 16px" }}>
+                                <div style={{ fontSize: 10, opacity: 0.8, fontWeight: 600 }}>COPAGOS ESPERADOS</div>
+                                <div style={{ fontSize: 16, fontWeight: 800 }}>{agendamientoCopago.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })}</div>
+                                <div style={{ fontSize: 9, opacity: 0.7 }}>Recaudado: {Math.round((agendamientoPagado / agendamientoCopago) * 100)}%</div>
+                            </div>
+                        )}
+                        {topEntidad && (
+                            <div style={{ flex: "1 1 160px", background: "#be185d", color: "#fff", borderRadius: 8, padding: "8px 16px", overflow: "hidden" }}>
+                                <div style={{ fontSize: 10, opacity: 0.8, fontWeight: 600 }}>ENTIDAD PRINCIPAL</div>
+                                <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topEntidad.nombre}</div>
+                                <div style={{ fontSize: 10, opacity: 0.75 }}>{topEntidad.citas} citas</div>
+                            </div>
+                        )}
+                        {topServicio && (
+                            <div style={{ flex: "1 1 140px", background: "#6d28d9", color: "#fff", borderRadius: 8, padding: "8px 16px", overflow: "hidden" }}>
+                                <div style={{ fontSize: 10, opacity: 0.8, fontWeight: 600 }}>SERVICIO PRINCIPAL</div>
+                                <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topServicio.nombre}</div>
+                                <div style={{ fontSize: 10, opacity: 0.75 }}>{topServicio.total} citas</div>
+                            </div>
+                        )}
+                        <div style={{ flex: "0 0 auto", background: "#0369a1", color: "#fff", borderRadius: 8, padding: "8px 16px", textAlign: "center" }}>
+                            <div style={{ fontSize: 10, opacity: 0.8, fontWeight: 600 }}>CONVENIOS</div>
+                            <div style={{ fontSize: 22, fontWeight: 800 }}>{agendamientoEntidades.length}</div>
+                        </div>
+                    </div>
+
                     {/* ── pestañas ── */}
-                    <div style={{ display: "flex", borderBottom: "2px solid #e2e8f0", marginBottom: 20, gap: 0 }}>
+                    <div style={{
+                        display: "flex", borderBottom: "2px solid #e2e8f0", marginBottom: 20,
+                        backgroundColor: "#f8fafc", borderRadius: "10px 10px 0 0",
+                        padding: "0 4px",
+                    }}>
                         {TABS.map(t => (
                             <button key={t.key} onClick={() => setTab(t.key)} style={{
-                                padding: "10px 20px", fontWeight: tab === t.key ? 700 : 500, fontSize: 13,
-                                border: "none", cursor: "pointer", background: "transparent",
+                                padding: "12px 24px", fontWeight: tab === t.key ? 700 : 500,
+                                fontSize: 14, border: "none", cursor: "pointer",
+                                background: tab === t.key ? "#fff" : "transparent",
                                 borderBottom: tab === t.key ? "3px solid #7c3aed" : "3px solid transparent",
-                                color: tab === t.key ? "#7c3aed" : "#6b7280",
+                                color: tab === t.key ? "#7c3aed" : "#64748b",
+                                borderRadius: "8px 8px 0 0",
                                 transition: "all 0.15s",
+                                boxShadow: tab === t.key ? "0 -2px 8px rgba(124,58,237,0.08)" : "none",
                             }}>
                                 {t.label}
                             </button>
@@ -288,28 +257,27 @@ const AgendamientoDashboard = () => {
                             valor: agendamientoServicios.filter(s => s.categoria === c.key).reduce((a, s) => a + (s.valor ?? 0), 0),
                         })).filter(c => c.citas > 0);
                         const maxVal = Math.max(...catData.map(c => c.valor), 1);
-
                         return (
                             <>
-                                {/* categorías */}
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 20 }}>
+                                {/* categorías en 4 cards */}
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 20 }}>
                                     {catData.map(c => (
-                                        <div key={c.key} style={{ borderRadius: 10, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0" }}>
-                                            <div style={{ background: c.color, padding: "14px 18px", color: "#fff" }}>
-                                                <div style={{ fontSize: 20, marginBottom: 4 }}>{c.icon}</div>
-                                                <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.9 }}>{c.label}</div>
+                                        <div key={c.key} style={{ borderRadius: 10, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", border: "1px solid #e2e8f0" }}>
+                                            <div style={{ background: c.color, padding: "14px 16px", color: "#fff" }}>
+                                                <span style={{ fontSize: 18 }}>{c.icon}</span>
+                                                <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.9, marginTop: 4 }}>{c.label}</div>
                                                 <div style={{ fontSize: 28, fontWeight: 800 }}>{c.citas.toLocaleString("es-CO")} <span style={{ fontSize: 13, fontWeight: 400, opacity: 0.75 }}>citas</span></div>
                                             </div>
-                                            <div style={{ padding: "12px 18px", background: "#fff" }}>
-                                                <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 3 }}>Valor estimado</div>
-                                                <div style={{ fontSize: 15, fontWeight: 700, color: c.color }}>
+                                            <div style={{ padding: "10px 16px", background: "#fff" }}>
+                                                <div style={{ fontSize: 10, color: "#9ca3af", marginBottom: 2 }}>Valor estimado</div>
+                                                <div style={{ fontSize: 14, fontWeight: 700, color: c.color }}>
                                                     {c.valor > 0
                                                         ? c.valor.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })
-                                                        : <span style={{ color: "#9ca3af", fontWeight: 400, fontSize: 12 }}>Sin tarifa</span>}
+                                                        : <span style={{ color: "#d1d5db", fontWeight: 400, fontSize: 12 }}>Sin tarifa</span>}
                                                 </div>
                                                 {c.valor > 0 && (
-                                                    <div style={{ marginTop: 8, height: 5, backgroundColor: "#e5e7eb", borderRadius: 4 }}>
-                                                        <div style={{ height: 5, backgroundColor: c.color, borderRadius: 4, width: `${Math.round((c.valor / maxVal) * 100)}%`, transition: "width 0.6s" }} />
+                                                    <div style={{ marginTop: 6, height: 4, background: "#e5e7eb", borderRadius: 4 }}>
+                                                        <div style={{ height: 4, background: c.color, borderRadius: 4, width: `${Math.round((c.valor / maxVal) * 100)}%`, transition: "width 0.6s" }} />
                                                     </div>
                                                 )}
                                             </div>
@@ -317,33 +285,38 @@ const AgendamientoDashboard = () => {
                                     ))}
                                 </div>
 
-                                {/* donut estado + detalle servicios en 2 columnas */}
-                                <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 16, marginBottom: 20 }}>
+                                {/* donut + servicios en 2 columnas */}
+                                <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 14, marginBottom: 20 }}>
                                     {est.total > 0 && (
                                         <Panel title="Estado de Citas">
-                                            <Chart options={donutOpts} series={donutValues} type="donut" height={300} />
+                                            <Chart
+                                                options={donutOpts}
+                                                series={[est.atendidas, est.programadas, est.canceladas, est.incumplidas, est.sin_estado]}
+                                                type="donut"
+                                                height={280}
+                                            />
                                         </Panel>
                                     )}
                                     <Panel title="Detalle por Servicio">
-                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                                             {agendamientoServicios.map((s, i) => {
-                                                const color = CHART_COLORS_MULTI[i % CHART_COLORS_MULTI.length];
+                                                const color = CHART_COLORS[i % CHART_COLORS.length];
                                                 return (
-                                                    <div key={s.nombre} style={{ flex: "1 1 200px", maxWidth: 260, border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
-                                                        <div style={{ height: 5, backgroundColor: color }} />
-                                                        <div style={{ padding: "12px 14px" }}>
-                                                            <div style={{ fontSize: 11, fontWeight: 700, color, textTransform: "uppercase" as const, letterSpacing: "0.04em", marginBottom: 6 }}>{s.nombre}</div>
+                                                    <div key={s.nombre} style={{ flex: "1 1 180px", maxWidth: 250, border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
+                                                        <div style={{ height: 4, background: color }} />
+                                                        <div style={{ padding: "10px 12px" }}>
+                                                            <div style={{ fontSize: 10, fontWeight: 700, color, textTransform: "uppercase" as const, letterSpacing: "0.04em", marginBottom: 4 }}>{s.nombre}</div>
                                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
                                                                 <div>
-                                                                    <div style={{ fontSize: 10, color: "#9ca3af" }}>Citas</div>
-                                                                    <div style={{ fontSize: 22, fontWeight: 700, color: "#111" }}>{s.total.toLocaleString("es-CO")}</div>
+                                                                    <div style={{ fontSize: 9, color: "#9ca3af" }}>Citas</div>
+                                                                    <div style={{ fontSize: 20, fontWeight: 700, color: "#111" }}>{s.total.toLocaleString("es-CO")}</div>
                                                                 </div>
                                                                 <div style={{ textAlign: "right" }}>
-                                                                    <div style={{ fontSize: 10, color: "#9ca3af" }}>Valor</div>
-                                                                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1d4ed8" }}>
+                                                                    <div style={{ fontSize: 9, color: "#9ca3af" }}>Valor</div>
+                                                                    <div style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8" }}>
                                                                         {(s.valor ?? 0) > 0
                                                                             ? s.valor!.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })
-                                                                            : <span style={{ color: "#d1d5db", fontSize: 11, fontWeight: 400 }}>Sin tarifa</span>}
+                                                                            : <span style={{ color: "#d1d5db", fontSize: 10, fontWeight: 400 }}>Sin tarifa</span>}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -360,7 +333,7 @@ const AgendamientoDashboard = () => {
 
                     {/* ──────────── POR MÉDICO ──────────── */}
                     {tab === 'medicos' && (
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
                             <Panel title="Citas por Médico">
                                 {topMedicos.length > 0 ? (
                                     <Chart
@@ -373,19 +346,18 @@ const AgendamientoDashboard = () => {
                                             { name: "Sin Estado",              data: topMedicos.map(m => m.sin_estado) },
                                         ]}
                                         type="bar"
-                                        height={Math.max(320, topMedicos.length * 48)}
+                                        height={Math.max(320, topMedicos.length * 50)}
                                     />
                                 ) : (
-                                    <p style={{ color: "#6b7280" }}>Sin datos.</p>
+                                    <p style={{ color: "#6b7280", textAlign: "center", padding: 20 }}>Sin datos de médicos.</p>
                                 )}
                             </Panel>
-
                             <Panel title="Top 10 Convenios">
                                 <Chart
                                     options={conveniosOpts}
                                     series={[{ name: "Citas", data: agendamientoEntidades.slice(0, 10).map(e => e.citas) }]}
                                     type="bar"
-                                    height={Math.max(320, Math.min(agendamientoEntidades.length, 10) * 48)}
+                                    height={Math.max(320, Math.min(agendamientoEntidades.length, 10) * 50)}
                                 />
                             </Panel>
                         </div>
@@ -395,10 +367,10 @@ const AgendamientoDashboard = () => {
                     {tab === 'convenios' && (
                         <Panel title="Citas por Convenio / Entidad">
                             <Chart
-                                options={conveniosOpts}
+                                options={{ ...conveniosOpts, xaxis: { ...conveniosOpts.xaxis, categories: agendamientoEntidades.map(e => e.nombre.length > 30 ? e.nombre.slice(0,30)+'…' : e.nombre) } }}
                                 series={[{ name: "Citas", data: agendamientoEntidades.map(e => e.citas) }]}
                                 type="bar"
-                                height={Math.max(320, agendamientoEntidades.length * 40)}
+                                height={Math.max(320, agendamientoEntidades.length * 42)}
                             />
                         </Panel>
                     )}
@@ -415,7 +387,7 @@ const AgendamientoDashboard = () => {
                                 />
                             ) : (
                                 <p style={{ color: "#6b7280", textAlign: "center", padding: 30 }}>
-                                    Selecciona un rango de fechas mayor a 1 día para ver la evolución.
+                                    Selecciona un rango mayor a 1 día para ver la evolución.
                                 </p>
                             )}
                         </Panel>
