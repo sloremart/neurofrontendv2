@@ -19,8 +19,10 @@ interface AgendamientoMedico {
   medico: string;
   total: number;
   atendidas: number;
-  incumplidas: number;
+  programadas: number;
   canceladas: number;
+  incumplidas: number;
+  sin_estado: number;
 }
 
 interface DashboardState {
