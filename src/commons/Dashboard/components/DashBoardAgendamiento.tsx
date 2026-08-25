@@ -159,84 +159,77 @@ const AgendamientoDashboard = () => {
             {!loading && hasData && (
                 <div style={{ width: "100%", maxWidth: "1600px" }}>
 
-                    {/* ── fila de estado (6 tarjetas compactas) ── */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginBottom: 14 }}>
+                    {/* ── tarjetas de estado ── */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 12 }}>
                         {[
-                            { label: "ASISTENCIA TOTAL",       value: est.total,        bg: "#3c0b79", fg: "#c084fc" },
-                            { label: "ATENDIDAS",              value: est.atendidas,    bg: "#064e3b", fg: "#34d399", sub: "Confirmadas / En estudio" },
-                            { label: "PROGRAMADAS",            value: est.programadas,  bg: "#1e3a5f", fg: "#60a5fa", sub: "Pendientes de atender" },
-                            { label: "INCUMPLIDAS",            value: est.incumplidas,  bg: "#1c1917", fg: "#a8a29e" },
-                            { label: "CANCELADAS",             value: est.canceladas,   bg: "#450a0a", fg: "#fca5a5", sub: "Pérdidas reales" },
-                            { label: "SIN ESTADO",             value: est.sin_estado,   bg: "#1e1b4b", fg: "#a5b4fc" },
+                            { label: "Asistencia Total",    value: est.total,       bg: "#3c0b79", fg: "#e9d5ff", icon: "📋" },
+                            { label: "Atendidas",           value: est.atendidas,   bg: "#064e3b", fg: "#6ee7b7", icon: "✅", sub: "Confirmadas / En estudio" },
+                            { label: "Programadas",         value: est.programadas, bg: "#1e3a5f", fg: "#93c5fd", icon: "📅", sub: "Pendientes de atender" },
+                            { label: "Incumplidas",         value: est.incumplidas, bg: "#292524", fg: "#d6d3d1", icon: "⚠️" },
+                            { label: "Canceladas",          value: est.canceladas,  bg: "#450a0a", fg: "#fca5a5", icon: "❌", sub: "Pérdidas reales" },
+                            { label: "Sin Estado",          value: est.sin_estado,  bg: "#1e1b4b", fg: "#c4b5fd", icon: "❓" },
                         ].map(b => (
-                            <div key={b.label} style={{ backgroundColor: b.bg, borderRadius: 10, padding: "12px 14px" }}>
-                                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", color: b.fg, opacity: 0.7, textTransform: "uppercase" as const, marginBottom: 4 }}>
-                                    {b.label}
+                            <div key={b.label} style={{
+                                backgroundColor: b.bg, borderRadius: 12, padding: "18px 20px",
+                                display: "flex", flexDirection: "column", gap: 6,
+                                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                            }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: b.fg, opacity: 0.65, textTransform: "uppercase" as const }}>
+                                        {b.label}
+                                    </span>
+                                    <span style={{ fontSize: 16, lineHeight: 1 }}>{b.icon}</span>
                                 </div>
-                                <div style={{ fontSize: 28, fontWeight: 800, color: b.fg, lineHeight: 1 }}>
+                                <div style={{ fontSize: 34, fontWeight: 900, color: b.fg, lineHeight: 1, letterSpacing: "-0.02em" }}>
                                     {b.value.toLocaleString("es-CO")}
                                 </div>
-                                {(b as any).sub && <div style={{ fontSize: 9, color: b.fg, opacity: 0.55, marginTop: 4 }}>{(b as any).sub}</div>}
+                                {(b as any).sub && (
+                                    <div style={{ fontSize: 10, color: b.fg, opacity: 0.5, marginTop: 2 }}>{(b as any).sub}</div>
+                                )}
                             </div>
                         ))}
                     </div>
 
-                    {/* ── franja de métricas de negocio (compacta, una sola línea) ── */}
-                    <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
-                        <div style={{ flex: "0 0 auto", background: "#7c3aed", color: "#fff", borderRadius: 8, padding: "8px 16px", textAlign: "center" }}>
-                            <div style={{ fontSize: 10, opacity: 0.8, fontWeight: 600 }}>TOTAL CITAS</div>
-                            <div style={{ fontSize: 22, fontWeight: 800 }}>{agendamientoTotal.toLocaleString("es-CO")}</div>
-                        </div>
-                        {agendamientoValorConsultas > 0 && (
-                            <div style={{ flex: "1 1 200px", background: "#1d4ed8", color: "#fff", borderRadius: 8, padding: "8px 16px" }}>
-                                <div style={{ fontSize: 10, opacity: 0.8, fontWeight: 600 }}>VALOR ESTIMADO</div>
-                                <div style={{ fontSize: 18, fontWeight: 800 }}>{agendamientoValorConsultas.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })}</div>
-                                <div style={{ fontSize: 9, opacity: 0.7 }}>Consultas: exacto · Imágenes: aprox.</div>
+                    {/* ── barra de métricas ── */}
+                    <div style={{
+                        display: "flex", gap: 0, marginBottom: 20,
+                        background: "#1e293b", borderRadius: 12, overflow: "hidden",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                    }}>
+                        {[
+                            { label: "Total Citas",      value: agendamientoTotal.toLocaleString("es-CO"),                                                                                                           show: true,                        flex: "0 0 110px" },
+                            { label: "Valor Estimado",   value: agendamientoValorConsultas.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }),                                show: agendamientoValorConsultas > 0, flex: "2 1 200px", sub: "Consultas exacto · Imágenes aprox." },
+                            { label: "Copagos",          value: agendamientoCopago.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }),                                        show: agendamientoCopago > 0,      flex: "1 1 150px", sub: `Recaudado ${Math.round((agendamientoPagado / Math.max(agendamientoCopago,1)) * 100)}%` },
+                            { label: "Entidad Principal",value: topEntidad?.nombre ?? "",                                                                                                                             show: !!topEntidad,                flex: "1 1 160px", sub: `${topEntidad?.citas ?? 0} citas` },
+                            { label: "Servicio Principal",value: topServicio?.nombre ?? "",                                                                                                                           show: !!topServicio,               flex: "1 1 160px", sub: `${topServicio?.total ?? 0} citas` },
+                            { label: "Convenios",        value: agendamientoEntidades.length.toString(),                                                                                                              show: true,                        flex: "0 0 90px" },
+                        ].filter(m => m.show).map((m, i, arr) => (
+                            <div key={m.label} style={{
+                                flex: m.flex, padding: "12px 18px", color: "#fff",
+                                borderRight: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.1)" : "none",
+                                overflow: "hidden",
+                            }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", opacity: 0.5, textTransform: "uppercase" as const, marginBottom: 3 }}>{m.label}</div>
+                                <div style={{ fontSize: 16, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.value}</div>
+                                {(m as any).sub && <div style={{ fontSize: 9, opacity: 0.45, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{(m as any).sub}</div>}
                             </div>
-                        )}
-                        {agendamientoCopago > 0 && (
-                            <div style={{ flex: "1 1 160px", background: "#0e7490", color: "#fff", borderRadius: 8, padding: "8px 16px" }}>
-                                <div style={{ fontSize: 10, opacity: 0.8, fontWeight: 600 }}>COPAGOS ESPERADOS</div>
-                                <div style={{ fontSize: 16, fontWeight: 800 }}>{agendamientoCopago.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })}</div>
-                                <div style={{ fontSize: 9, opacity: 0.7 }}>Recaudado: {Math.round((agendamientoPagado / agendamientoCopago) * 100)}%</div>
-                            </div>
-                        )}
-                        {topEntidad && (
-                            <div style={{ flex: "1 1 160px", background: "#be185d", color: "#fff", borderRadius: 8, padding: "8px 16px", overflow: "hidden" }}>
-                                <div style={{ fontSize: 10, opacity: 0.8, fontWeight: 600 }}>ENTIDAD PRINCIPAL</div>
-                                <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topEntidad.nombre}</div>
-                                <div style={{ fontSize: 10, opacity: 0.75 }}>{topEntidad.citas} citas</div>
-                            </div>
-                        )}
-                        {topServicio && (
-                            <div style={{ flex: "1 1 140px", background: "#6d28d9", color: "#fff", borderRadius: 8, padding: "8px 16px", overflow: "hidden" }}>
-                                <div style={{ fontSize: 10, opacity: 0.8, fontWeight: 600 }}>SERVICIO PRINCIPAL</div>
-                                <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topServicio.nombre}</div>
-                                <div style={{ fontSize: 10, opacity: 0.75 }}>{topServicio.total} citas</div>
-                            </div>
-                        )}
-                        <div style={{ flex: "0 0 auto", background: "#0369a1", color: "#fff", borderRadius: 8, padding: "8px 16px", textAlign: "center" }}>
-                            <div style={{ fontSize: 10, opacity: 0.8, fontWeight: 600 }}>CONVENIOS</div>
-                            <div style={{ fontSize: 22, fontWeight: 800 }}>{agendamientoEntidades.length}</div>
-                        </div>
+                        ))}
                     </div>
 
                     {/* ── pestañas ── */}
                     <div style={{
-                        display: "flex", borderBottom: "2px solid #e2e8f0", marginBottom: 20,
-                        backgroundColor: "#f8fafc", borderRadius: "10px 10px 0 0",
-                        padding: "0 4px",
+                        display: "flex", gap: 6, marginBottom: 24,
+                        padding: "6px", background: "#f1f5f9", borderRadius: 12,
+                        width: "fit-content",
                     }}>
                         {TABS.map(t => (
                             <button key={t.key} onClick={() => setTab(t.key)} style={{
-                                padding: "12px 24px", fontWeight: tab === t.key ? 700 : 500,
-                                fontSize: 14, border: "none", cursor: "pointer",
-                                background: tab === t.key ? "#fff" : "transparent",
-                                borderBottom: tab === t.key ? "3px solid #7c3aed" : "3px solid transparent",
-                                color: tab === t.key ? "#7c3aed" : "#64748b",
-                                borderRadius: "8px 8px 0 0",
-                                transition: "all 0.15s",
-                                boxShadow: tab === t.key ? "0 -2px 8px rgba(124,58,237,0.08)" : "none",
+                                padding: "10px 22px", fontWeight: 600, fontSize: 14,
+                                border: "none", cursor: "pointer", borderRadius: 8,
+                                background: tab === t.key ? "#7c3aed" : "transparent",
+                                color: tab === t.key ? "#fff" : "#64748b",
+                                transition: "all 0.18s",
+                                boxShadow: tab === t.key ? "0 2px 8px rgba(124,58,237,0.35)" : "none",
                             }}>
                                 {t.label}
                             </button>
