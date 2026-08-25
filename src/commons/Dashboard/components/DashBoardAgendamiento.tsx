@@ -190,41 +190,11 @@ const AgendamientoDashboard = () => {
                         ))}
                     </div>
 
-                    {/* ── barra de métricas ── */}
-                    <div style={{
-                        display: "flex", gap: 0, marginBottom: 20,
-                        background: "#1e293b", borderRadius: 12, overflow: "hidden",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                    }}>
-                        {[
-                            { label: "Total Citas",      value: agendamientoTotal.toLocaleString("es-CO"),                                                                                                           show: true,                        flex: "0 0 110px" },
-                            { label: "Valor Estimado",   value: agendamientoValorConsultas.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }),                                show: agendamientoValorConsultas > 0, flex: "2 1 200px", sub: "Consultas exacto · Imágenes aprox." },
-                            { label: "Copagos",          value: agendamientoCopago.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }),                                        show: agendamientoCopago > 0,      flex: "1 1 150px", sub: `Recaudado ${Math.round((agendamientoPagado / Math.max(agendamientoCopago,1)) * 100)}%` },
-                            { label: "Entidad Principal",value: topEntidad?.nombre ?? "",                                                                                                                             show: !!topEntidad,                flex: "1 1 160px", sub: `${topEntidad?.citas ?? 0} citas` },
-                            { label: "Servicio Principal",value: topServicio?.nombre ?? "",                                                                                                                           show: !!topServicio,               flex: "1 1 160px", sub: `${topServicio?.total ?? 0} citas` },
-                            { label: "Convenios",        value: agendamientoEntidades.length.toString(),                                                                                                              show: true,                        flex: "0 0 90px" },
-                        ].filter(m => m.show).map((m, i, arr) => (
-                            <div key={m.label} style={{
-                                flex: m.flex, padding: "12px 18px", color: "#fff",
-                                borderRight: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.1)" : "none",
-                                overflow: "hidden",
-                            }}>
-                                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", opacity: 0.5, textTransform: "uppercase" as const, marginBottom: 3 }}>{m.label}</div>
-                                <div style={{ fontSize: 16, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.value}</div>
-                                {(m as any).sub && <div style={{ fontSize: 9, opacity: 0.45, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{(m as any).sub}</div>}
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* ── pestañas ── */}
-                    <div style={{
-                        display: "flex", gap: 6, marginBottom: 24,
-                        padding: "6px", background: "#f1f5f9", borderRadius: 12,
-                        width: "fit-content",
-                    }}>
+                    {/* ── pestañas ── inmediatamente debajo de las tarjetas de estado ── */}
+                    <div style={{ display: "flex", gap: 6, marginBottom: 20, padding: "6px", background: "#f1f5f9", borderRadius: 12, width: "fit-content" }}>
                         {TABS.map(t => (
                             <button key={t.key} onClick={() => setTab(t.key)} style={{
-                                padding: "10px 22px", fontWeight: 600, fontSize: 14,
+                                padding: "10px 24px", fontWeight: 600, fontSize: 14,
                                 border: "none", cursor: "pointer", borderRadius: 8,
                                 background: tab === t.key ? "#7c3aed" : "transparent",
                                 color: tab === t.key ? "#fff" : "#64748b",
@@ -238,6 +208,16 @@ const AgendamientoDashboard = () => {
 
                     {/* ──────────── RESUMEN ──────────── */}
                     {tab === 'resumen' && (() => {
+                        // Métricas de negocio: valor, entidad, servicio, convenios
+                        const metricItems = [
+                            { label: "Total Citas",        value: agendamientoTotal.toLocaleString("es-CO"),                                                                                                          show: true,                           flex: "0 0 110px" },
+                            { label: "Valor Estimado",     value: agendamientoValorConsultas.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }),                              show: agendamientoValorConsultas > 0,  flex: "2 1 200px", sub: "Consultas exacto · Imágenes aprox." },
+                            { label: "Copagos Esperados",  value: agendamientoCopago.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }),                                      show: agendamientoCopago > 0,          flex: "1 1 150px", sub: `Recaudado ${Math.round((agendamientoPagado / Math.max(agendamientoCopago, 1)) * 100)}%` },
+                            { label: "Entidad Principal",  value: topEntidad?.nombre ?? "",                                                                                                                           show: !!topEntidad,                   flex: "1 1 180px", sub: `${topEntidad?.citas ?? 0} citas` },
+                            { label: "Servicio Principal", value: topServicio?.nombre ?? "",                                                                                                                          show: !!topServicio,                  flex: "1 1 160px", sub: `${topServicio?.total ?? 0} citas` },
+                            { label: "Convenios",          value: agendamientoEntidades.length.toString(),                                                                                                            show: true,                           flex: "0 0 90px" },
+                        ].filter(m => m.show);
+
                         const cats = [
                             { key: "Consultas",      label: "Consultas Médicas",    color: "#7c3aed", icon: "🩺" },
                             { key: "Imágenes",       label: "Imágenes Diagnósticas",color: "#0e7490", icon: "🔬" },
@@ -252,6 +232,17 @@ const AgendamientoDashboard = () => {
                         const maxVal = Math.max(...catData.map(c => c.valor), 1);
                         return (
                             <>
+                                {/* barra de métricas */}
+                                <div style={{ display: "flex", gap: 0, marginBottom: 20, background: "#1e293b", borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+                                    {metricItems.map((m, i) => (
+                                        <div key={m.label} style={{ flex: m.flex, padding: "14px 20px", color: "#fff", borderRight: i < metricItems.length - 1 ? "1px solid rgba(255,255,255,0.1)" : "none", overflow: "hidden" }}>
+                                            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", opacity: 0.5, textTransform: "uppercase" as const, marginBottom: 4 }}>{m.label}</div>
+                                            <div style={{ fontSize: 18, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.value}</div>
+                                            {(m as any).sub && <div style={{ fontSize: 9, opacity: 0.45, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{(m as any).sub}</div>}
+                                        </div>
+                                    ))}
+                                </div>
+
                                 {/* categorías en 4 cards */}
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 20 }}>
                                     {catData.map(c => (
