@@ -33,13 +33,18 @@ interface ApiData {
   mrc:     { total_valor: number; grupos: Grupo[] };
 }
 
-// Cartera: el endpoint devuelve { [nit]: { nombre, dias_credito, "1-30 días": n, ..., Glosas: n, recaudo_pendiente_aplicar?: n } }
-const AGING_BUCKETS = ["1-30 días", "31-60 días", "61-90 días", "91-120 días", "121-150 días", "151-180 días", "181+ días"] as const;
-type AgingBucket = typeof AGING_BUCKETS[number];
-interface CarteraItem extends Record<AgingBucket, number> {
-  nombre: string; dias_credito: number; Glosas: number; recaudo_pendiente_aplicar?: number;
+// Admisiones vs facturación
+interface AdmisionEntidad {
+  nombre: string; admisiones: number; facturadas: number; pendientes: number; valor: number; tasa: number;
 }
-type CarteraData = Record<string, CarteraItem>;
+interface AdmisionTimeline {
+  fecha: string; admisiones: number; facturadas: number; pendientes: number; valor: number;
+}
+interface AdmisionesData {
+  total_admisiones: number; total_facturadas: number; total_pendientes: number;
+  total_valor: number; tasa_facturacion: number;
+  timeline: AdmisionTimeline[]; entidades: AdmisionEntidad[];
+}
 
 // ── paleta semáforo MRC ───────────────────────────────────────────────────────
 const ESTADO_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
@@ -47,17 +52,6 @@ const ESTADO_META: Record<string, { label: string; color: string; bg: string; ic
   en_rango:       { label: "Dentro del rango",      color: "#10b981", bg: "#ecfdf5", icon: "✅" },
   sobre:          { label: "Por encima del máximo", color: "#ef4444", bg: "#fef2f2", icon: "🚨" },
   sin_parametros: { label: "Sin parámetros",        color: "#6366f1", bg: "#eef2ff", icon: "ℹ️" },
-};
-
-// paleta aging: secuencial verde → rojo (polarity: safe → critical)
-const AGING_COLORS: Record<AgingBucket, string> = {
-  "1-30 días":    "#22c55e",
-  "31-60 días":   "#84cc16",
-  "61-90 días":   "#eab308",
-  "91-120 días":  "#f97316",
-  "121-150 días": "#ef4444",
-  "151-180 días": "#dc2626",
-  "181+ días":    "#7f1d1d",
 };
 
 // ── MrcGrupoCard ──────────────────────────────────────────────────────────────
@@ -156,10 +150,10 @@ const FacturacionDashboard = () => {
   const [fechaInicio, setFechaInicio] = useState<dayjs.Dayjs | null>(dayjs().startOf("month"));
   const [fechaFin,    setFechaFin]    = useState<dayjs.Dayjs | null>(dayjs());
   const [data,        setData]        = useState<ApiData | null>(null);
-  const [cartera,     setCartera]     = useState<CarteraData | null>(null);
+  const [admisiones,  setAdmisiones]  = useState<AdmisionesData | null>(null);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
-  const [activeTab,   setActiveTab]   = useState<"regular" | "mrc" | "cartera">("regular");
+  const [activeTab,   setActiveTab]   = useState<"regular" | "mrc" | "admisiones">("regular");
 
   const handleBuscar = async () => {
     if (!fechaInicio || !fechaFin) return;
@@ -168,19 +162,17 @@ const FacturacionDashboard = () => {
     try {
       const fi = fechaInicio.format("YYYY-MM-DD");
       const ff = fechaFin.format("YYYY-MM-DD");
-      const anio = fechaFin.year();
-      const mes  = fechaFin.month() + 1;
 
-      const [resFactura, resCartera] = await Promise.all([
+      const [resFactura, resAdm] = await Promise.all([
         fetch(`${API}/dashboard/facturacion-nuevo/?fecha_inicio=${fi}&fecha_fin=${ff}`),
-        fetch(`${API}/dashboard/consolidado_cartera/?anio=${anio}&mes=${mes}`),
+        fetch(`${API}/dashboard/facturacion-admisiones/?fecha_inicio=${fi}&fecha_fin=${ff}`),
       ]);
       if (!resFactura.ok) throw new Error(`Facturación: error ${resFactura.status}`);
-      if (!resCartera.ok) throw new Error(`Cartera: error ${resCartera.status}`);
+      if (!resAdm.ok)     throw new Error(`Admisiones: error ${resAdm.status}`);
 
-      const [jsonFactura, jsonCartera] = await Promise.all([resFactura.json(), resCartera.json()]);
+      const [jsonFactura, jsonAdm] = await Promise.all([resFactura.json(), resAdm.json()]);
       setData(jsonFactura);
-      setCartera(jsonCartera as CarteraData);
+      setAdmisiones(jsonAdm as AdmisionesData);
     } catch (e: any) {
       setError(e.message || "Error al cargar");
     } finally {
@@ -200,23 +192,13 @@ const FacturacionDashboard = () => {
   const top1Pct       = totalRegular > 0 ? Math.round((data?.regular.entidades[0]?.valor ?? 0) / totalRegular * 100) : 0;
   const tendencia     = tlSlope > 500000 ? "creciente" : tlSlope < -500000 ? "decreciente" : "estable";
 
-  // ── derived: cartera ──────────────────────────────────────────────────────
-  const carteraList = cartera
-    ? Object.entries(cartera).map(([nit, v]) => ({ nit, ...v,
-        total: AGING_BUCKETS.reduce((a, b) => a + (v[b] ?? 0), 0),
-        vencido: (v["91-120 días"] ?? 0) + (v["121-150 días"] ?? 0) + (v["151-180 días"] ?? 0) + (v["181+ días"] ?? 0),
-      }))
-      .filter(e => e.total > 0)
-      .sort((a, b) => b.total - a.total)
-    : [];
-
-  const totalCartera  = carteraList.reduce((a, e) => a + e.total, 0);
-  const totalGlosas   = carteraList.reduce((a, e) => a + (e.Glosas ?? 0), 0);
-  const totalRecaudo  = carteraList.reduce((a, e) => a + (e.recaudo_pendiente_aplicar ?? 0), 0);
-  const entidadesCriticas = carteraList.filter(e => e["181+ días"] > 0).length;
-  const topDeudor     = carteraList[0];
-  const topVencido    = [...carteraList].sort((a, b) => b.vencido - a.vencido)[0];
-  const topCartera10  = carteraList.slice(0, 10);
+  // ── derived: admisiones ───────────────────────────────────────────────────
+  const admTimeline   = admisiones?.timeline ?? [];
+  const admEntidades  = admisiones?.entidades ?? [];
+  const admSlope      = linearSlope(admTimeline.map(t => t.admisiones));
+  const facSlope      = linearSlope(admTimeline.map(t => t.facturadas));
+  const topAdmEntidad = admEntidades[0];
+  const admTendencia  = admSlope > 1 ? "creciente" : admSlope < -1 ? "decreciente" : "estable";
 
   // ── chart options: facturación regular ────────────────────────────────────
   const barOpts: ApexCharts.ApexOptions = {
@@ -243,26 +225,34 @@ const FacturacionDashboard = () => {
     tooltip: { y: { formatter: (v: number) => fmt(v) } },
   };
 
-  // ── chart options: cartera aging ──────────────────────────────────────────
-  const agingOpts: ApexCharts.ApexOptions = {
-    chart: { type: "bar", stacked: true, toolbar: { show: false } },
-    plotOptions: { bar: { horizontal: true, barHeight: "65%", borderRadius: 3 } },
-    colors: AGING_BUCKETS.map(b => AGING_COLORS[b]),
-    xaxis: {
-      categories: topCartera10.map(e => e.nombre.length > 28 ? e.nombre.substring(0, 28) + "…" : e.nombre),
-      labels: { formatter: fmtM, style: { fontSize: "11px" } },
-    },
-    yaxis: { labels: { style: { fontSize: "11px" } } },
+  // ── chart options: admisiones timeline ───────────────────────────────────
+  const admTimelineOpts: ApexCharts.ApexOptions = {
+    chart: { type: "area", toolbar: { show: false }, animations: { enabled: true, easing: "easeinout", speed: 600 } },
     dataLabels: { enabled: false },
-    legend: { position: "bottom", fontSize: "11px", markers: { size: 8 } },
-    tooltip: { y: { formatter: (v: number) => fmt(v) } },
-    grid: { borderColor: "#f1f5f9", strokeDashArray: 3 },
+    stroke: { curve: "smooth", width: 2 },
+    xaxis: { categories: admTimeline.map(t => t.fecha), labels: { rotate: -35, style: { fontSize: "10px" } } },
+    yaxis: { labels: { formatter: (v: number) => v.toLocaleString("es-CO"), style: { fontSize: "11px" } } },
+    colors: ["#1d4ed8", "#10b981"],
+    fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
+    grid: { borderColor: "#f1f5f9" },
+    legend: { position: "top" as const, fontSize: "12px" },
+    tooltip: { y: { formatter: (v: number) => v.toLocaleString("es-CO") } },
   };
 
-  const agingSeries = AGING_BUCKETS.map(bucket => ({
-    name: bucket,
-    data: topCartera10.map(e => Math.round(e[bucket] ?? 0)),
-  }));
+  const admBarOpts: ApexCharts.ApexOptions = {
+    chart: { type: "bar", toolbar: { show: false } },
+    plotOptions: { bar: { horizontal: true, borderRadius: 4, dataLabels: { position: "top" } } },
+    dataLabels: { enabled: false },
+    xaxis: {
+      categories: admEntidades.slice(0, 12).map(e => e.nombre.length > 28 ? e.nombre.substring(0, 28) + "…" : e.nombre),
+      labels: { style: { fontSize: "10px" } },
+    },
+    yaxis: { labels: { style: { fontSize: "10px", colors: "#475569" } } },
+    colors: ["#1d4ed8", "#10b981", "#f59e0b"],
+    legend: { position: "top" as const, fontSize: "11px" },
+    grid: { borderColor: "#f1f5f9" },
+    tooltip: { y: { formatter: (v: number) => v.toLocaleString("es-CO") } },
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc", fontFamily: "'Inter','Segoe UI',sans-serif" }}>
@@ -273,7 +263,7 @@ const FacturacionDashboard = () => {
           Dashboard de Facturación
         </h1>
         <p style={{ color: "#93c5fd", margin: "0 0 20px", fontSize: 13 }}>
-          Valor facturado · MRC SANITAS · Estado de cartera
+          Valor facturado · MRC SANITAS · Admisiones vs Facturación
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
           <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -321,12 +311,12 @@ const FacturacionDashboard = () => {
           {/* ── KPI row ── */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 14, marginBottom: 24 }}>
             {[
-              { label: "Total Facturado Regular", value: fmtM(data.regular.total),      sub: `${data.regular.admisiones.toLocaleString("es-CO")} admisiones`, color: "#1d4ed8", icon: "🏥" },
-              { label: "MRC SANITAS",             value: fmtM(data.mrc.total_valor),     sub: `${data.mrc.grupos.length} grupos`,                             color: "#7c3aed", icon: "📋" },
-              { label: "Cartera pendiente",        value: fmtM(totalCartera),            sub: `${carteraList.length} entidades`,                              color: "#0f766e", icon: "💰" },
-              { label: "Glosas acumuladas",        value: fmtM(totalGlosas),             sub: "Total glosas registradas",                                     color: "#be123c", icon: "⚠️" },
-              { label: "Recaudo por aplicar",      value: fmtM(totalRecaudo),            sub: "Ingresos sin cruzar",                                          color: "#d97706", icon: "🔄" },
-              { label: "Entidad principal",        value: topEntidad?.nombre.substring(0,20) ?? "—", sub: topEntidad ? fmtM(topEntidad.valor) : "—",           color: "#0891b2", icon: "🏆" },
+              { label: "Total Facturado Regular",   value: fmtM(data.regular.total),       sub: `${data.regular.admisiones.toLocaleString("es-CO")} admisiones`, color: "#1d4ed8", icon: "🏥" },
+              { label: "MRC SANITAS",              value: fmtM(data.mrc.total_valor),    sub: `${data.mrc.grupos.length} grupos`,                             color: "#7c3aed", icon: "📋" },
+              { label: "Admisiones del período",   value: (admisiones?.total_admisiones ?? 0).toLocaleString("es-CO"), sub: "Estudios ingresados",            color: "#0f766e", icon: "📥" },
+              { label: "Tasa de facturación",      value: `${admisiones?.tasa_facturacion ?? 0}%`,  sub: "Admisiones ya facturadas",                          color: admisiones && admisiones.tasa_facturacion >= 80 ? "#10b981" : "#f59e0b", icon: "📊" },
+              { label: "Pendiente por facturar",   value: (admisiones?.total_pendientes ?? 0).toLocaleString("es-CO"), sub: fmtM(admisiones?.total_pendientes ? (admisiones.total_valor / admisiones.total_facturadas || 0) * admisiones.total_pendientes : 0), color: "#be123c", icon: "⏳" },
+              { label: "Entidad principal",        value: topEntidad?.nombre.substring(0,20) ?? "—", sub: topEntidad ? fmtM(topEntidad.valor) : "—",          color: "#0891b2", icon: "🏆" },
             ].map((k, i) => (
               <div key={i} style={{ background: "#fff", borderRadius: 12, padding: "16px 18px",
                 boxShadow: "0 1px 8px rgba(0,0,0,0.07)", borderLeft: `4px solid ${k.color}` }}>
@@ -340,7 +330,7 @@ const FacturacionDashboard = () => {
 
           {/* ── tabs ── */}
           <div style={{ display: "flex", gap: 0, marginBottom: 24, background: "#e2e8f0", borderRadius: 10, padding: 4, width: "fit-content" }}>
-            {([["regular","🏥 Facturación Regular"], ["mrc","🔬 MRC SANITAS"], ["cartera","📂 Cartera"]] as const).map(([tab, label]) => (
+            {([["regular","🏥 Facturación Regular"], ["mrc","🔬 MRC SANITAS"], ["admisiones","📥 Admisiones vs Facturación"]] as const).map(([tab, label]) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 style={{ padding: "8px 22px", borderRadius: 8, border: "none", cursor: "pointer",
                   fontWeight: 700, fontSize: 13, transition: "all 0.2s",
@@ -470,130 +460,143 @@ const FacturacionDashboard = () => {
             </div>
           )}
 
-          {/* ══════════════ TAB: CARTERA ══════════════ */}
-          {activeTab === "cartera" && (
+          {/* ══════════════ TAB: ADMISIONES VS FACTURACIÓN ══════════════ */}
+          {activeTab === "admisiones" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-              {carteraList.length === 0 ? (
+              {!admisiones ? (
                 <div style={{ textAlign: "center", padding: "60px 32px", color: "#94a3b8" }}>
-                  <div style={{ fontSize: 48, marginBottom: 12 }}>📂</div>
-                  <p>Sin datos de cartera para el período seleccionado.</p>
+                  <div style={{ fontSize: 48, marginBottom: 12 }}>📥</div>
+                  <p>Sin datos de admisiones para el período seleccionado.</p>
                 </div>
               ) : (
                 <>
-                  {/* KPIs cartera */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+                  {/* KPIs admisiones */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
                     {[
-                      { label: "Total cartera", value: fmtM(totalCartera), sub: `${carteraList.length} entidades con saldo`, color: "#1d4ed8", icon: "💼" },
-                      { label: "Cartera vencida (+90d)", value: fmtM(carteraList.reduce((a,e)=>a+e.vencido,0)),
-                        sub: `${carteraList.filter(e=>e.vencido>0).length} entidades`, color: "#ef4444", icon: "🚨" },
-                      { label: "Glosas",  value: fmtM(totalGlosas),  sub: "Acumulado histórico", color: "#f59e0b", icon: "⚠️" },
-                      { label: "Recaudo sin aplicar", value: fmtM(totalRecaudo), sub: "Pendiente de cruzar", color: "#10b981", icon: "💰" },
-                      { label: "Con mora crítica", value: `${entidadesCriticas}`, sub: "Entidades con 181+ días", color: "#7c3aed", icon: "🔴" },
+                      { label: "Total admisiones", value: admisiones.total_admisiones.toLocaleString("es-CO"), sub: "Estudios del período", color: "#1d4ed8", icon: "📥" },
+                      { label: "Facturadas",        value: admisiones.total_facturadas.toLocaleString("es-CO"), sub: "Con factura emitida",  color: "#10b981", icon: "✅" },
+                      { label: "Pendientes",        value: admisiones.total_pendientes.toLocaleString("es-CO"), sub: "Sin factura aún",      color: "#f59e0b", icon: "⏳" },
+                      { label: "Tasa facturación",  value: `${admisiones.tasa_facturacion}%`,                  sub: admisiones.tasa_facturacion >= 80 ? "Buen ritmo" : "Revisar pendientes", color: admisiones.tasa_facturacion >= 80 ? "#10b981" : "#ef4444", icon: "📊" },
+                      { label: "Valor facturado",   value: fmtM(admisiones.total_valor),                       sub: "Admisiones facturadas", color: "#0f766e", icon: "💰" },
                     ].map((k, i) => (
                       <div key={i} style={{ background: "#fff", borderRadius: 10, padding: "14px 18px",
                         boxShadow: "0 1px 6px rgba(0,0,0,0.07)", borderLeft: `4px solid ${k.color}` }}>
                         <div style={{ fontSize: 18 }}>{k.icon}</div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 4 }}>{k.label}</div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: k.color, lineHeight: 1.2, margin: "4px 0 2px" }}>{k.value}</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#64748b", textTransform: "uppercase" as const, letterSpacing: 0.5, marginTop: 4 }}>{k.label}</div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: k.color, lineHeight: 1.2, margin: "4px 0 2px" }}>{k.value}</div>
                         <div style={{ fontSize: 10, color: "#94a3b8" }}>{k.sub}</div>
                       </div>
                     ))}
                   </div>
 
-                  {/* alertas inteligentes */}
+                  {/* alertas */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10 }}>
-
-                    {topDeudor && (
-                      <div style={{ background: "#fff", border: "1px solid #fecaca", borderLeft: "4px solid #ef4444", borderRadius: 8, padding: "14px 18px" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#7f1d1d", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>💼 Mayor deuda pendiente</div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{topDeudor.nombre}</div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: "#ef4444", margin: "4px 0" }}>{fmtM(topDeudor.total)}</div>
-                        <div style={{ fontSize: 11, color: "#6b7280" }}>Días de crédito pactados: {topDeudor.dias_credito} días</div>
-                        {topDeudor["181+ días"] > 0 && (
-                          <div style={{ marginTop: 6, fontSize: 10, color: "#dc2626", fontWeight: 600 }}>
-                            ⚠️ {fmtM(topDeudor["181+ días"])} llevan más de 181 días
-                          </div>
-                        )}
+                    <div style={{ background: "#fff", border: "1px solid #dbeafe", borderLeft: "4px solid #1d4ed8", borderRadius: 8, padding: "14px 18px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#1e3a8a", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>📈 Tendencia de admisiones</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: admSlope > 1 ? "#16a34a" : admSlope < -1 ? "#dc2626" : "#4f46e5" }}>
+                        {admTendencia === "creciente" ? "↑ Creciente" : admTendencia === "decreciente" ? "↓ Decreciente" : "→ Estable"}
                       </div>
-                    )}
-
-                    {topVencido && topVencido.vencido > 0 && (
-                      <div style={{ background: "#fff", border: "1px solid #fed7aa", borderLeft: "4px solid #f97316", borderRadius: 8, padding: "14px 18px" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#7c2d12", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>🚨 Más cartera vencida (+90d)</div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{topVencido.nombre}</div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: "#f97316", margin: "4px 0" }}>{fmtM(topVencido.vencido)}</div>
-                        <div style={{ fontSize: 11, color: "#6b7280" }}>{Math.round(topVencido.vencido / Math.max(topVencido.total, 1) * 100)}% de su cartera total está vencida</div>
+                      <div style={{ fontSize: 12, color: "#374151", marginTop: 4 }}>
+                        {admTimeline.length > 0 ? `Promedio ${(admisiones.total_admisiones / admTimeline.length).toFixed(1)} admisiones / día` : ""}
                       </div>
-                    )}
+                    </div>
 
-                    {totalRecaudo > 0 && (
-                      <div style={{ background: "#fff", border: "1px solid #bbf7d0", borderLeft: "4px solid #10b981", borderRadius: 8, padding: "14px 18px" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#065f46", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>💡 Recaudo sin aplicar</div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: "#10b981", margin: "4px 0" }}>{fmtM(totalRecaudo)}</div>
+                    {admisiones.total_pendientes > 0 && (
+                      <div style={{ background: "#fff", border: "1px solid #fef3c7", borderLeft: "4px solid #f59e0b", borderRadius: 8, padding: "14px 18px" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#78350f", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>⏳ Admisiones sin facturar</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: "#f59e0b", margin: "4px 0" }}>{admisiones.total_pendientes.toLocaleString("es-CO")}</div>
                         <div style={{ fontSize: 12, color: "#374151", lineHeight: 1.5 }}>
-                          Dinero recibido que aún no se ha cruzado contra facturas. Aplicarlo reduciría la cartera pendiente.
+                          Estudios realizados cuya factura aún no se ha generado en el período.
                         </div>
                       </div>
                     )}
+
+                    {topAdmEntidad && (
+                      <div style={{ background: "#fff", border: "1px solid #d1fae5", borderLeft: "4px solid #10b981", borderRadius: 8, padding: "14px 18px" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#065f46", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>🏆 Mayor volumen de estudios</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{topAdmEntidad.nombre}</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: "#10b981", margin: "4px 0" }}>{topAdmEntidad.admisiones.toLocaleString("es-CO")} admisiones</div>
+                        <div style={{ fontSize: 11, color: "#6b7280" }}>Tasa facturación: {topAdmEntidad.tasa}% · {fmtM(topAdmEntidad.valor)}</div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* gráfica aging */}
+                  {/* timeline dual */}
                   <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
-                    <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: 0.5 }}>
-                      Cartera por Entidad y Antigüedad
+                    <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                      Admisiones vs Facturadas por Día
                     </h3>
-                    <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>Top 10 entidades · verde = reciente · rojo = mora crítica</p>
-                    <Chart type="bar" height={Math.max(320, topCartera10.length * 44)} series={agingSeries} options={agingOpts} />
+                    <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>
+                      Azul = admisiones ingresadas · Verde = con factura emitida · la brecha es lo pendiente
+                    </p>
+                    {admTimeline.length > 0
+                      ? <Chart type="area" height={280}
+                          series={[
+                            { name: "Admisiones", data: admTimeline.map(t => t.admisiones) },
+                            { name: "Facturadas",  data: admTimeline.map(t => t.facturadas)  },
+                          ]}
+                          options={admTimelineOpts} />
+                      : <div style={{ textAlign: "center", color: "#94a3b8", padding: 40 }}>Sin datos</div>
+                    }
                   </div>
 
-                  {/* tabla detalle */}
+                  {/* gráfica por entidad */}
+                  <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
+                    <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                      Admisiones vs Facturadas por Entidad
+                    </h3>
+                    <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>Top 12 entidades por volumen de estudios</p>
+                    {admEntidades.length > 0
+                      ? <Chart type="bar" height={Math.max(300, admEntidades.slice(0,12).length * 36)}
+                          series={[
+                            { name: "Admisiones", data: admEntidades.slice(0,12).map(e => e.admisiones) },
+                            { name: "Facturadas",  data: admEntidades.slice(0,12).map(e => e.facturadas)  },
+                            { name: "Pendientes",  data: admEntidades.slice(0,12).map(e => e.pendientes)  },
+                          ]}
+                          options={admBarOpts} />
+                      : <div style={{ textAlign: "center", color: "#94a3b8", padding: 40 }}>Sin datos</div>
+                    }
+                  </div>
+
+                  {/* tabla detalle por entidad */}
                   <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)", overflowX: "auto" }}>
-                    <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: 0.5 }}>Detalle de Cartera por Entidad</h3>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 900 }}>
+                    <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Detalle por Entidad</h3>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 700 }}>
                       <thead>
                         <tr style={{ borderBottom: "2px solid #e2e8f0", background: "#f8fafc" }}>
-                          <th style={{ padding: "8px 10px", textAlign: "left",  fontWeight: 700, color: "#475569", fontSize: 10, textTransform: "uppercase" }}>Entidad</th>
-                          {AGING_BUCKETS.map(b => (
-                            <th key={b} style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: "#475569", fontSize: 10, textTransform: "uppercase", whiteSpace: "nowrap" }}>
-                              <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: AGING_COLORS[b], marginRight: 4, verticalAlign: "middle" }} />
-                              {b}
-                            </th>
+                          {["#", "Entidad", "Admisiones", "Facturadas", "Pendientes", "Tasa %", "Valor Facturado"].map(h => (
+                            <th key={h} style={{ padding: "8px 10px", textAlign: h === "Entidad" ? "left" : "right",
+                              fontWeight: 700, color: "#475569", fontSize: 10, textTransform: "uppercase" as const }}>{h}</th>
                           ))}
-                          <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: "#475569", fontSize: 10, textTransform: "uppercase" }}>Glosas</th>
-                          <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: "#475569", fontSize: 10, textTransform: "uppercase" }}>Total</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {carteraList.map((e, i) => (
-                          <tr key={e.nit} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-                            <td style={{ padding: "9px 10px", fontWeight: 600, color: "#0f172a", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {e.nombre}
-                              {e.dias_credito > 0 && <span style={{ marginLeft: 6, fontSize: 9, color: "#94a3b8", fontWeight: 400 }}>{e.dias_credito}d crédito</span>}
+                        {admEntidades.map((e, i) => (
+                          <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                            <td style={{ padding: "9px 10px", color: "#94a3b8", textAlign: "right" }}>{i + 1}</td>
+                            <td style={{ padding: "9px 10px", fontWeight: 600, color: "#0f172a" }}>{e.nombre}</td>
+                            <td style={{ padding: "9px 10px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: "#1d4ed8", fontWeight: 700 }}>{e.admisiones.toLocaleString("es-CO")}</td>
+                            <td style={{ padding: "9px 10px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: "#10b981", fontWeight: 700 }}>{e.facturadas.toLocaleString("es-CO")}</td>
+                            <td style={{ padding: "9px 10px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: e.pendientes > 0 ? "#f59e0b" : "#94a3b8", fontWeight: 600 }}>{e.pendientes.toLocaleString("es-CO")}</td>
+                            <td style={{ padding: "9px 10px", textAlign: "right" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
+                                <div style={{ width: 50, height: 6, background: "#e2e8f0", borderRadius: 3 }}>
+                                  <div style={{ width: `${Math.min(e.tasa, 100)}%`, height: "100%", background: e.tasa >= 80 ? "#10b981" : e.tasa >= 50 ? "#f59e0b" : "#ef4444", borderRadius: 3 }} />
+                                </div>
+                                <span style={{ fontSize: 11, color: "#475569", minWidth: 32 }}>{e.tasa}%</span>
+                              </div>
                             </td>
-                            {AGING_BUCKETS.map(b => (
-                              <td key={b} style={{ padding: "9px 10px", textAlign: "right", fontVariantNumeric: "tabular-nums",
-                                color: (e[b] ?? 0) > 0 ? AGING_COLORS[b] : "#d1d5db", fontWeight: (e[b] ?? 0) > 0 ? 600 : 400 }}>
-                                {(e[b] ?? 0) > 0 ? fmtM(e[b]) : "—"}
-                              </td>
-                            ))}
-                            <td style={{ padding: "9px 10px", textAlign: "right", color: "#f59e0b", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                              {e.Glosas > 0 ? fmtM(e.Glosas) : "—"}
-                            </td>
-                            <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
-                              {fmtM(e.total)}
-                            </td>
+                            <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 700, color: "#0f766e", fontVariantNumeric: "tabular-nums" }}>{fmt(e.valor)}</td>
                           </tr>
                         ))}
-                        <tr style={{ background: "#f1f5f9", fontWeight: 800 }}>
-                          <td style={{ padding: "10px", color: "#0f172a", fontSize: 12 }}>TOTAL</td>
-                          {AGING_BUCKETS.map(b => (
-                            <td key={b} style={{ padding: "10px", textAlign: "right", color: AGING_COLORS[b], fontVariantNumeric: "tabular-nums" }}>
-                              {fmtM(carteraList.reduce((a, e) => a + (e[b] ?? 0), 0))}
-                            </td>
-                          ))}
-                          <td style={{ padding: "10px", textAlign: "right", color: "#f59e0b", fontVariantNumeric: "tabular-nums" }}>{fmtM(totalGlosas)}</td>
-                          <td style={{ padding: "10px", textAlign: "right", color: "#0f172a",  fontVariantNumeric: "tabular-nums" }}>{fmtM(totalCartera)}</td>
+                        <tr style={{ background: "#f1f5f9", fontWeight: 800, borderTop: "2px solid #e2e8f0" }}>
+                          <td colSpan={2} style={{ padding: "10px", color: "#0f172a", fontSize: 12 }}>TOTAL</td>
+                          <td style={{ padding: "10px", textAlign: "right", color: "#1d4ed8", fontVariantNumeric: "tabular-nums" }}>{admisiones.total_admisiones.toLocaleString("es-CO")}</td>
+                          <td style={{ padding: "10px", textAlign: "right", color: "#10b981", fontVariantNumeric: "tabular-nums" }}>{admisiones.total_facturadas.toLocaleString("es-CO")}</td>
+                          <td style={{ padding: "10px", textAlign: "right", color: "#f59e0b", fontVariantNumeric: "tabular-nums" }}>{admisiones.total_pendientes.toLocaleString("es-CO")}</td>
+                          <td style={{ padding: "10px", textAlign: "right", color: "#475569" }}>{admisiones.tasa_facturacion}%</td>
+                          <td style={{ padding: "10px", textAlign: "right", color: "#0f766e", fontVariantNumeric: "tabular-nums" }}>{fmtM(admisiones.total_valor)}</td>
                         </tr>
                       </tbody>
                     </table>
