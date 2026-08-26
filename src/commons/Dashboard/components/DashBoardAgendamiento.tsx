@@ -11,6 +11,17 @@ import { get_agenda_diaria } from "../store/thunks/DashboardThunks.tsx";
 
 const CHART_COLORS = ['#7e22ce','#6d28d9','#4f46e5','#1d4ed8','#0e7490','#155e75','#334155','#3b0764','#0f172a','#083344'];
 
+// ── regresión lineal simple ───────────────────────────────────────────────────
+function linearSlope(values: number[]): number {
+    const n = values.length;
+    if (n < 2) return 0;
+    const sumX  = (n * (n - 1)) / 2;
+    const sumX2 = (n * (n - 1) * (2 * n - 1)) / 6;
+    const sumY  = values.reduce((a, v) => a + v, 0);
+    const sumXY = values.reduce((a, v, i) => a + i * v, 0);
+    return (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+}
+
 // ── cabecera de sección ───────────────────────────────────────────────────────
 const Panel = ({ title, children, style = {} }: { title: string; children: React.ReactNode; style?: React.CSSProperties }) => (
     <div style={{ borderRadius: 10, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.09)", border: "1px solid #e2e8f0", ...style }}>
@@ -63,8 +74,37 @@ const AgendamientoDashboard = () => {
     const topEntidad  = agendamientoEntidades[0];
     const topServicio = agendamientoServicios[0];
     const est = agendamientoEstados ?? { total: 0, atendidas: 0, programadas: 0, incumplidas: 0, canceladas: 0, sin_estado: 0 };
-    const topMedicos  = (agendamientoMedicos ?? []).slice(0, 12);
+    const allMedicos  = agendamientoMedicos ?? [];
+    const topMedicos  = allMedicos.slice(0, 12);
     const hasData     = agendamientoEntidades.length > 0;
+
+    // ── analytics derivados ───────────────────────────────────────────────────
+    const medicoStats = allMedicos.map(m => ({
+        ...m,
+        eficiencia:       m.total > 0 ? Math.round((m.atendidas  / m.total) * 100) : 0,
+        pctCancelacion:   m.total > 0 ? Math.round((m.canceladas / m.total) * 100) : 0,
+        pctIncumplido:    m.total > 0 ? Math.round((m.incumplidas/ m.total) * 100) : 0,
+        pctProgramadas:   m.total > 0 ? Math.round((m.programadas/ m.total) * 100) : 0,
+    }));
+    const medicoPorColapso    = [...medicoStats].sort((a, b) => b.programadas - a.programadas);
+    const medicoPorCancelacion= [...medicoStats].filter(m => m.total >= 10).sort((a, b) => b.pctCancelacion - a.pctCancelacion);
+    const medicoMasEficiente  = [...medicoStats].filter(m => m.atendidas > 5).sort((a, b) => b.eficiencia - a.eficiencia)[0];
+
+    const totalConvenios   = agendamientoEntidades.reduce((a, e) => a + e.citas, 0);
+    const top1Pct          = totalConvenios > 0 ? Math.round((agendamientoEntidades[0]?.citas ?? 0) / totalConvenios * 100) : 0;
+    const top2Sum          = (agendamientoEntidades[0]?.citas ?? 0) + (agendamientoEntidades[1]?.citas ?? 0);
+    const top2Pct          = totalConvenios > 0 ? Math.round((top2Sum / totalConvenios) * 100) : 0;
+    const conveniosSinTop2 = agendamientoEntidades.slice(2);
+    const mayorOportunidad = conveniosSinTop2.sort((a, b) => b.citas - a.citas)[0];
+
+    const tlValues  = agendamientoTimeline.map(t => t.citas);
+    const tlSlope   = linearSlope(tlValues);
+    const tlAvgDia  = tlValues.length > 0 ? Math.round(tlValues.reduce((a, v) => a + v, 0) / tlValues.length) : 0;
+    const tlMax     = tlValues.length > 0 ? Math.max(...tlValues) : 0;
+    const tlMaxFecha= agendamientoTimeline[tlValues.indexOf(tlMax)]?.fecha ?? '';
+    const diasRestantesMes = dayjs().endOf('month').diff(dayjs(), 'day');
+    const proyeccionMes    = Math.round(tlAvgDia * diasRestantesMes);
+    const tendencia        = tlSlope > 2 ? 'creciente' : tlSlope < -2 ? 'decreciente' : 'estable';
 
     // ── gráficas ──────────────────────────────────────────────────────────────
     const medicosOpts: ApexCharts.ApexOptions = {
@@ -159,38 +199,7 @@ const AgendamientoDashboard = () => {
             {!loading && hasData && (
                 <div style={{ width: "100%", maxWidth: "1600px" }}>
 
-                    {/* ── tarjetas de estado ── */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 12 }}>
-                        {[
-                            { label: "Asistencia Total",    value: est.total,       bg: "#3c0b79", fg: "#e9d5ff", icon: "📋" },
-                            { label: "Atendidas",           value: est.atendidas,   bg: "#064e3b", fg: "#6ee7b7", icon: "✅", sub: "Confirmadas / En estudio" },
-                            { label: "Programadas",         value: est.programadas, bg: "#1e3a5f", fg: "#93c5fd", icon: "📅", sub: "Pendientes de atender" },
-                            { label: "Incumplidas",         value: est.incumplidas, bg: "#292524", fg: "#d6d3d1", icon: "⚠️" },
-                            { label: "Canceladas",          value: est.canceladas,  bg: "#450a0a", fg: "#fca5a5", icon: "❌", sub: "Pérdidas reales" },
-                            { label: "Sin Estado",          value: est.sin_estado,  bg: "#1e1b4b", fg: "#c4b5fd", icon: "❓" },
-                        ].map(b => (
-                            <div key={b.label} style={{
-                                backgroundColor: b.bg, borderRadius: 12, padding: "18px 20px",
-                                display: "flex", flexDirection: "column", gap: 6,
-                                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-                            }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: b.fg, opacity: 0.65, textTransform: "uppercase" as const }}>
-                                        {b.label}
-                                    </span>
-                                    <span style={{ fontSize: 16, lineHeight: 1 }}>{b.icon}</span>
-                                </div>
-                                <div style={{ fontSize: 34, fontWeight: 900, color: b.fg, lineHeight: 1, letterSpacing: "-0.02em" }}>
-                                    {b.value.toLocaleString("es-CO")}
-                                </div>
-                                {(b as any).sub && (
-                                    <div style={{ fontSize: 10, color: b.fg, opacity: 0.5, marginTop: 2 }}>{(b as any).sub}</div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* ── pestañas ── inmediatamente debajo de las tarjetas de estado ── */}
+                    {/* ── pestañas primero ── */}
                     <div style={{ display: "flex", gap: 6, marginBottom: 20, padding: "6px", background: "#f1f5f9", borderRadius: 12, width: "fit-content" }}>
                         {TABS.map(t => (
                             <button key={t.key} onClick={() => setTab(t.key)} style={{
@@ -208,7 +217,7 @@ const AgendamientoDashboard = () => {
 
                     {/* ──────────── RESUMEN ──────────── */}
                     {tab === 'resumen' && (() => {
-                        // Métricas de negocio: valor, entidad, servicio, convenios
+                        // Métricas y estados dentro del tab Resumen
                         const metricItems = [
                             { label: "Total Citas",        value: agendamientoTotal.toLocaleString("es-CO"),                                                                                                          show: true,                           flex: "0 0 110px" },
                             { label: "Valor Estimado",     value: agendamientoValorConsultas.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }),                              show: agendamientoValorConsultas > 0,  flex: "2 1 200px", sub: "Consultas exacto · Imágenes aprox." },
@@ -217,6 +226,15 @@ const AgendamientoDashboard = () => {
                             { label: "Servicio Principal", value: topServicio?.nombre ?? "",                                                                                                                          show: !!topServicio,                  flex: "1 1 160px", sub: `${topServicio?.total ?? 0} citas` },
                             { label: "Convenios",          value: agendamientoEntidades.length.toString(),                                                                                                            show: true,                           flex: "0 0 90px" },
                         ].filter(m => m.show);
+
+                        const estadoBadges = [
+                            { label: "Asistencia Total", value: est.total,       bg: "#3c0b79", fg: "#e9d5ff" },
+                            { label: "Atendidas",        value: est.atendidas,   bg: "#064e3b", fg: "#6ee7b7", sub: "Confirmadas / En estudio" },
+                            { label: "Programadas",      value: est.programadas, bg: "#1e3a5f", fg: "#93c5fd", sub: "Pendientes" },
+                            { label: "Incumplidas",      value: est.incumplidas, bg: "#292524", fg: "#d6d3d1" },
+                            { label: "Canceladas",       value: est.canceladas,  bg: "#450a0a", fg: "#fca5a5", sub: "Pérdidas reales" },
+                            { label: "Sin Estado",       value: est.sin_estado,  bg: "#1e1b4b", fg: "#c4b5fd" },
+                        ];
 
                         const cats = [
                             { key: "Consultas",      label: "Consultas Médicas",    color: "#7c3aed", icon: "🩺" },
@@ -232,15 +250,39 @@ const AgendamientoDashboard = () => {
                         const maxVal = Math.max(...catData.map(c => c.valor), 1);
                         return (
                             <>
-                                {/* barra de métricas */}
-                                <div style={{ display: "flex", gap: 0, marginBottom: 20, background: "#1e293b", borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
-                                    {metricItems.map((m, i) => (
-                                        <div key={m.label} style={{ flex: m.flex, padding: "14px 20px", color: "#fff", borderRight: i < metricItems.length - 1 ? "1px solid rgba(255,255,255,0.1)" : "none", overflow: "hidden" }}>
-                                            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", opacity: 0.5, textTransform: "uppercase" as const, marginBottom: 4 }}>{m.label}</div>
-                                            <div style={{ fontSize: 18, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.value}</div>
-                                            {(m as any).sub && <div style={{ fontSize: 9, opacity: 0.45, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{(m as any).sub}</div>}
-                                        </div>
-                                    ))}
+                                {/* panel unificado: estado + métricas */}
+                                <div style={{ background: "#1e293b", borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.2)", marginBottom: 20 }}>
+                                    {/* fila superior: estado de citas */}
+                                    <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                                        {estadoBadges.map((b, i) => (
+                                            <div key={b.label} style={{
+                                                flex: 1, padding: "12px 16px",
+                                                borderRight: i < estadoBadges.length - 1 ? "1px solid rgba(255,255,255,0.07)" : "none",
+                                                display: "flex", flexDirection: "column", gap: 2,
+                                            }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: b.fg, opacity: 0.7, flexShrink: 0 }} />
+                                                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", color: "#94a3b8", textTransform: "uppercase" as const }}>{b.label}</span>
+                                                </div>
+                                                <div style={{ fontSize: 26, fontWeight: 800, color: b.fg, lineHeight: 1, letterSpacing: "-0.02em" }}>
+                                                    {b.value.toLocaleString("es-CO")}
+                                                </div>
+                                                {(b as any).sub && (
+                                                    <div style={{ fontSize: 9, color: "#64748b", marginTop: 1 }}>{(b as any).sub}</div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {/* fila inferior: métricas financieras/operativas */}
+                                    <div style={{ display: "flex" }}>
+                                        {metricItems.map((m, i) => (
+                                            <div key={m.label} style={{ flex: m.flex, padding: "10px 16px", color: "#fff", borderRight: i < metricItems.length - 1 ? "1px solid rgba(255,255,255,0.07)" : "none", overflow: "hidden" }}>
+                                                <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.07em", opacity: 0.45, textTransform: "uppercase" as const, marginBottom: 3 }}>{m.label}</div>
+                                                <div style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.value}</div>
+                                                {(m as any).sub && <div style={{ fontSize: 8, opacity: 0.4, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{(m as any).sub}</div>}
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 {/* categorías en 4 cards */}
@@ -317,64 +359,233 @@ const AgendamientoDashboard = () => {
 
                     {/* ──────────── POR MÉDICO ──────────── */}
                     {tab === 'medicos' && (
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
-                            <Panel title="Citas por Médico">
-                                {topMedicos.length > 0 ? (
-                                    <Chart
-                                        options={medicosOpts}
-                                        series={[
-                                            { name: "Atendidas / Confirmadas", data: topMedicos.map(m => m.atendidas) },
-                                            { name: "Programadas",             data: topMedicos.map(m => m.programadas) },
-                                            { name: "Canceladas",              data: topMedicos.map(m => m.canceladas) },
-                                            { name: "Incumplidas",             data: topMedicos.map(m => m.incumplidas) },
-                                            { name: "Sin Estado",              data: topMedicos.map(m => m.sin_estado) },
-                                        ]}
-                                        type="bar"
-                                        height={Math.max(320, topMedicos.length * 50)}
-                                    />
-                                ) : (
-                                    <p style={{ color: "#6b7280", textAlign: "center", padding: 20 }}>Sin datos de médicos.</p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
+                            {/* alertas de inteligencia */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10 }}>
+
+                                {/* riesgo de colapso */}
+                                <div style={{ background: "#fff", border: "1px solid #fde68a", borderLeft: "4px solid #f59e0b", borderRadius: 8, padding: "12px 16px" }}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 8 }}>
+                                        ⚠️ Agenda más cargada
+                                    </div>
+                                    {medicoPorColapso.slice(0, 3).map((m, i) => (
+                                        <div key={m.medico} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                            <span style={{ fontSize: 12, color: "#374151", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>
+                                                {i + 1}. {m.medico}
+                                            </span>
+                                            <span style={{ fontSize: 12, fontWeight: 700, color: m.programadas > 50 ? "#dc2626" : "#d97706", marginLeft: 8, flexShrink: 0 }}>
+                                                {m.programadas} pendientes
+                                            </span>
+                                        </div>
+                                    ))}
+                                    {medicoPorColapso[0]?.programadas > 50 && (
+                                        <div style={{ marginTop: 6, fontSize: 10, color: "#dc2626", fontStyle: "italic" }}>
+                                            {medicoPorColapso[0].medico.split(' ')[0]} puede colapsar — revisar agenda
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* mayor tasa de cancelación */}
+                                <div style={{ background: "#fff", border: "1px solid #fecaca", borderLeft: "4px solid #ef4444", borderRadius: 8, padding: "12px 16px" }}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#7f1d1d", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 8 }}>
+                                        ❌ Mayor cancelación
+                                    </div>
+                                    {medicoPorCancelacion.slice(0, 3).map((m, i) => (
+                                        <div key={m.medico} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                            <span style={{ fontSize: 12, color: "#374151", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>
+                                                {i + 1}. {m.medico}
+                                            </span>
+                                            <span style={{ fontSize: 12, fontWeight: 700, color: m.pctCancelacion > 20 ? "#dc2626" : "#6b7280", marginLeft: 8, flexShrink: 0 }}>
+                                                {m.pctCancelacion}% canceladas
+                                            </span>
+                                        </div>
+                                    ))}
+                                    <div style={{ marginTop: 6, fontSize: 10, color: "#6b7280", fontStyle: "italic" }}>
+                                        Mínimo 10 citas para aparecer
+                                    </div>
+                                </div>
+
+                                {/* más eficiente */}
+                                {medicoMasEficiente && (
+                                    <div style={{ background: "#fff", border: "1px solid #bbf7d0", borderLeft: "4px solid #22c55e", borderRadius: 8, padding: "12px 16px" }}>
+                                        <div style={{ fontSize: 10, fontWeight: 700, color: "#14532d", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 8 }}>
+                                            ✅ Mayor eficiencia
+                                        </div>
+                                        <div style={{ fontSize: 20, fontWeight: 800, color: "#16a34a" }}>{medicoMasEficiente.eficiencia}%</div>
+                                        <div style={{ fontSize: 12, color: "#374151", marginTop: 2 }}>{medicoMasEficiente.medico}</div>
+                                        <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>
+                                            {medicoMasEficiente.atendidas} de {medicoMasEficiente.total} citas atendidas
+                                        </div>
+                                        <div style={{ marginTop: 8 }}>
+                                            {[...medicoStats].filter(m => m.atendidas > 5).sort((a, b) => b.eficiencia - a.eficiencia).slice(1, 4).map(m => (
+                                                <div key={m.medico} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6b7280", marginBottom: 3 }}>
+                                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{m.medico}</span>
+                                                    <span style={{ fontWeight: 600, flexShrink: 0, marginLeft: 8 }}>{m.eficiencia}%</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 )}
-                            </Panel>
-                            <Panel title="Top 10 Convenios">
-                                <Chart
-                                    options={conveniosOpts}
-                                    series={[{ name: "Citas", data: agendamientoEntidades.slice(0, 10).map(e => e.citas) }]}
-                                    type="bar"
-                                    height={Math.max(320, Math.min(agendamientoEntidades.length, 10) * 50)}
-                                />
-                            </Panel>
+                            </div>
+
+                            {/* gráficas */}
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                                <Panel title="Citas por Médico">
+                                    {topMedicos.length > 0 ? (
+                                        <Chart
+                                            options={medicosOpts}
+                                            series={[
+                                                { name: "Atendidas / Confirmadas", data: topMedicos.map(m => m.atendidas) },
+                                                { name: "Programadas",             data: topMedicos.map(m => m.programadas) },
+                                                { name: "Canceladas",              data: topMedicos.map(m => m.canceladas) },
+                                                { name: "Incumplidas",             data: topMedicos.map(m => m.incumplidas) },
+                                                { name: "Sin Estado",              data: topMedicos.map(m => m.sin_estado) },
+                                            ]}
+                                            type="bar"
+                                            height={Math.max(320, topMedicos.length * 50)}
+                                        />
+                                    ) : (
+                                        <p style={{ color: "#6b7280", textAlign: "center", padding: 20 }}>Sin datos de médicos.</p>
+                                    )}
+                                </Panel>
+                                <Panel title="Top 10 Convenios">
+                                    <Chart
+                                        options={conveniosOpts}
+                                        series={[{ name: "Citas", data: agendamientoEntidades.slice(0, 10).map(e => e.citas) }]}
+                                        type="bar"
+                                        height={Math.max(320, Math.min(agendamientoEntidades.length, 10) * 50)}
+                                    />
+                                </Panel>
+                            </div>
                         </div>
                     )}
 
                     {/* ──────────── POR CONVENIO ──────────── */}
                     {tab === 'convenios' && (
-                        <Panel title="Citas por Convenio / Entidad">
-                            <Chart
-                                options={{ ...conveniosOpts, xaxis: { ...conveniosOpts.xaxis, categories: agendamientoEntidades.map(e => e.nombre.length > 30 ? e.nombre.slice(0,30)+'…' : e.nombre) } }}
-                                series={[{ name: "Citas", data: agendamientoEntidades.map(e => e.citas) }]}
-                                type="bar"
-                                height={Math.max(320, agendamientoEntidades.length * 42)}
-                            />
-                        </Panel>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
+                            {/* insights pareto */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
+
+                                <div style={{ background: "#fff", border: "1px solid #e0e7ff", borderLeft: "4px solid #6366f1", borderRadius: 8, padding: "14px 18px" }}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: "#3730a3", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>
+                                        📊 Regla de Pareto
+                                    </div>
+                                    <div style={{ fontSize: 28, fontWeight: 800, color: "#4f46e5" }}>{top2Pct}%</div>
+                                    <div style={{ fontSize: 12, color: "#374151", marginTop: 2 }}>
+                                        de las citas proviene de solo <strong>2 convenios</strong>
+                                    </div>
+                                    <div style={{ marginTop: 8 }}>
+                                        {agendamientoEntidades.slice(0, 2).map(e => (
+                                            <div key={e.nombre} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6b7280", marginBottom: 3 }}>
+                                                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>{e.nombre}</span>
+                                                <span style={{ fontWeight: 700, color: "#4f46e5", flexShrink: 0, marginLeft: 8 }}>{totalConvenios > 0 ? Math.round(e.citas / totalConvenios * 100) : 0}%</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div style={{ background: "#fff", border: top2Pct > 70 ? "1px solid #fecaca" : "1px solid #d1fae5", borderLeft: `4px solid ${top2Pct > 70 ? "#ef4444" : "#22c55e"}`, borderRadius: 8, padding: "14px 18px" }}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: top2Pct > 70 ? "#7f1d1d" : "#14532d", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>
+                                        {top2Pct > 70 ? "🚨 Riesgo de concentración" : "✅ Diversificación saludable"}
+                                    </div>
+                                    <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
+                                        {top2Pct > 70
+                                            ? `Alta dependencia de ${agendamientoEntidades[0]?.nombre ?? ''} (${top1Pct}%). Perder este convenio impactaría fuertemente la operación.`
+                                            : `Los convenios están bien distribuidos. Ninguno representa más del ${top1Pct}% del total.`
+                                        }
+                                    </div>
+                                </div>
+
+                                {mayorOportunidad && (
+                                    <div style={{ background: "#fff", border: "1px solid #fef3c7", borderLeft: "4px solid #f59e0b", borderRadius: 8, padding: "14px 18px" }}>
+                                        <div style={{ fontSize: 10, fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>
+                                            💡 Convenio por crecer
+                                        </div>
+                                        <div style={{ fontSize: 15, fontWeight: 700, color: "#374151" }}>{mayorOportunidad.nombre}</div>
+                                        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+                                            {mayorOportunidad.citas} citas · {totalConvenios > 0 ? Math.round(mayorOportunidad.citas / totalConvenios * 100) : 0}% del total
+                                        </div>
+                                        <div style={{ fontSize: 11, color: "#92400e", marginTop: 6, fontStyle: "italic" }}>
+                                            Potencial de crecimiento fuera del top 2
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <Panel title="Citas por Convenio / Entidad">
+                                <Chart
+                                    options={{ ...conveniosOpts, xaxis: { ...conveniosOpts.xaxis, categories: agendamientoEntidades.map(e => e.nombre.length > 30 ? e.nombre.slice(0,30)+'…' : e.nombre) } }}
+                                    series={[{ name: "Citas", data: agendamientoEntidades.map(e => e.citas) }]}
+                                    type="bar"
+                                    height={Math.max(320, agendamientoEntidades.length * 42)}
+                                />
+                            </Panel>
+                        </div>
                     )}
 
                     {/* ──────────── POR DÍA ──────────── */}
                     {tab === 'timeline' && (
-                        <Panel title="Evolución de Citas por Día">
-                            {agendamientoTimeline.length > 1 ? (
-                                <Chart
-                                    options={timelineOpts}
-                                    series={[{ name: "Citas", data: agendamientoTimeline.map(t => t.citas) }]}
-                                    type="area"
-                                    height={300}
-                                />
-                            ) : (
-                                <p style={{ color: "#6b7280", textAlign: "center", padding: 30 }}>
-                                    Selecciona un rango mayor a 1 día para ver la evolución.
-                                </p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
+                            {agendamientoTimeline.length > 1 && (
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+
+                                    <div style={{ background: "#fff", border: "1px solid #e0e7ff", borderLeft: `4px solid ${tlSlope > 2 ? "#22c55e" : tlSlope < -2 ? "#ef4444" : "#6366f1"}`, borderRadius: 8, padding: "14px 18px" }}>
+                                        <div style={{ fontSize: 10, fontWeight: 700, color: "#3730a3", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>
+                                            📈 Tendencia del período
+                                        </div>
+                                        <div style={{ fontSize: 24, fontWeight: 800, color: tlSlope > 2 ? "#16a34a" : tlSlope < -2 ? "#dc2626" : "#4f46e5" }}>
+                                            {tendencia === 'creciente' ? '↑ Creciente' : tendencia === 'decreciente' ? '↓ Decreciente' : '→ Estable'}
+                                        </div>
+                                        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+                                            {Math.abs(Math.round(tlSlope))} citas/día de {tlSlope >= 0 ? 'aumento' : 'caída'} en promedio
+                                        </div>
+                                    </div>
+
+                                    <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderLeft: "4px solid #0ea5e9", borderRadius: 8, padding: "14px 18px" }}>
+                                        <div style={{ fontSize: 10, fontWeight: 700, color: "#075985", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>
+                                            📅 Promedio diario
+                                        </div>
+                                        <div style={{ fontSize: 28, fontWeight: 800, color: "#0284c7" }}>{tlAvgDia}</div>
+                                        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>citas por día en el período seleccionado</div>
+                                    </div>
+
+                                    <div style={{ background: "#fff", border: "1px solid #fef9c3", borderLeft: "4px solid #ca8a04", borderRadius: 8, padding: "14px 18px" }}>
+                                        <div style={{ fontSize: 10, fontWeight: 700, color: "#713f12", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>
+                                            🏔️ Día pico
+                                        </div>
+                                        <div style={{ fontSize: 28, fontWeight: 800, color: "#ca8a04" }}>{tlMax}</div>
+                                        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>citas el {tlMaxFecha}</div>
+                                    </div>
+
+                                    {diasRestantesMes > 0 && (
+                                        <div style={{ background: "#fff", border: "1px solid #d1fae5", borderLeft: "4px solid #10b981", borderRadius: 8, padding: "14px 18px" }}>
+                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#065f46", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>
+                                                🔮 Proyección resto del mes
+                                            </div>
+                                            <div style={{ fontSize: 28, fontWeight: 800, color: "#059669" }}>~{proyeccionMes.toLocaleString("es-CO")}</div>
+                                            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+                                                citas en los próximos {diasRestantesMes} días, al ritmo actual
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             )}
-                        </Panel>
+
+                            <Panel title="Evolución de Citas por Día">
+                                {agendamientoTimeline.length > 1 ? (
+                                    <Chart
+                                        options={timelineOpts}
+                                        series={[{ name: "Citas", data: agendamientoTimeline.map(t => t.citas) }]}
+                                        type="area"
+                                        height={300}
+                                    />
+                                ) : (
+                                    <p style={{ color: "#6b7280", textAlign: "center", padding: 30 }}>
+                                        Selecciona un rango mayor a 1 día para ver la evolución.
+                                    </p>
+                                )}
+                            </Panel>
+                        </div>
                     )}
                 </div>
             )}

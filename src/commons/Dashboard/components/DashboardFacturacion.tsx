@@ -185,8 +185,6 @@ const FacturacionDashboard = () => {
   };
 
   const topEntidad = data?.regular.entidades[0];
-  const topMrcGrupo = data?.mrc.grupos.find(g => g.estado === "sobre")
-    ?? data?.mrc.grupos[0];
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc", fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
