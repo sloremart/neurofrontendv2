@@ -26,6 +26,16 @@ const Navbar = () => {
       </Link>
 
       <Link
+        to="/dashboard"
+        style={{
+          color: pathname === '/dashboard' ? '#facc15' : 'white',
+          textDecoration: 'none'
+        }}
+      >
+        FACTURACIÓN
+      </Link>
+
+      <Link
         to="/facturas_proveedores"
         style={{
           color: pathname === '/facturas_proveedores' ? '#facc15' : 'white',
