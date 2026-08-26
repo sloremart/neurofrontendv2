@@ -109,12 +109,12 @@ const MrcGrupoCard = ({ g }: { g: Grupo }) => {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
           <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 8, padding: "8px 12px" }}>
             <div style={{ fontSize: 11, color: "#64748b" }}>Valor facturado</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{fmtM(g.valor)}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{fmt(g.valor)}</div>
           </div>
           {g.valor_calculado !== null && (
             <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 8, padding: "8px 12px" }}>
               <div style={{ fontSize: 11, color: "#64748b" }}>Valor MRC calculado</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: meta.color }}>{fmtM(g.valor_calculado)}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: meta.color }}>{fmt(g.valor_calculado)}</div>
             </div>
           )}
         </div>
@@ -136,7 +136,7 @@ const MrcGrupoCard = ({ g }: { g: Grupo }) => {
                 {c.nombre.substring(0, 50)}{c.nombre.length > 50 ? "…" : ""}
               </span>
               <span style={{ color: "#0f172a", fontWeight: 600, whiteSpace: "nowrap" }}>
-                {Math.round(c.cantidad).toLocaleString("es-CO")} · {fmtM(c.valor)}
+                {Math.round(c.cantidad).toLocaleString("es-CO")} · {fmt(c.valor)}
               </span>
             </div>
           ))}
@@ -351,12 +351,12 @@ const FacturacionDashboard = () => {
           {/* ── KPI row ── */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 14, marginBottom: 24 }}>
             {[
-              { label: "Total Facturado Regular",   value: fmtM(data.regular.total),       sub: `${data.regular.admisiones.toLocaleString("es-CO")} admisiones`, color: "#1d4ed8", icon: "🏥" },
-              { label: "MRC SANITAS",              value: fmtM(data.mrc.total_valor),    sub: `${data.mrc.grupos.length} grupos`,                             color: "#7c3aed", icon: "📋" },
+              { label: "Total Facturado Regular",   value: fmt(data.regular.total),       sub: `${data.regular.admisiones.toLocaleString("es-CO")} admisiones`, color: "#1d4ed8", icon: "🏥" },
+              { label: "MRC SANITAS",              value: fmt(data.mrc.total_valor),    sub: `${data.mrc.grupos.length} grupos`,                              color: "#7c3aed", icon: "📋" },
               { label: "Admisiones del período",   value: (admisiones?.total_admisiones ?? 0).toLocaleString("es-CO"), sub: "Estudios ingresados",            color: "#0f766e", icon: "📥" },
               { label: "Tasa de facturación",      value: `${admisiones?.tasa_facturacion ?? 0}%`,  sub: "Admisiones ya facturadas",                          color: admisiones && admisiones.tasa_facturacion >= 80 ? "#10b981" : "#f59e0b", icon: "📊" },
               { label: "Pendiente por facturar",   value: (admisiones?.total_pendientes ?? 0).toLocaleString("es-CO"), sub: "Estudios sin factura",  color: "#be123c", icon: "⏳" },
-              { label: "Entidad principal",        value: topEntidad?.nombre.substring(0,20) ?? "—", sub: topEntidad ? fmtM(topEntidad.valor) : "—",          color: "#0891b2", icon: "🏆" },
+              { label: "Entidad principal",        value: topEntidad?.nombre.substring(0,20) ?? "—", sub: topEntidad ? fmt(topEntidad.valor) : "—",           color: "#0891b2", icon: "🏆" },
             ].map((k, i) => (
               <div key={i} style={{ background: "#fff", borderRadius: 12, padding: "16px 18px",
                 boxShadow: "0 1px 8px rgba(0,0,0,0.07)", borderLeft: `4px solid ${k.color}` }}>
@@ -419,7 +419,7 @@ const FacturacionDashboard = () => {
                   <div style={{ fontSize: 22, fontWeight: 800, color: tlSlope > 0 ? "#16a34a" : tlSlope < 0 ? "#dc2626" : "#4f46e5" }}>
                     {tendencia === "creciente" ? "↑ Creciente" : tendencia === "decreciente" ? "↓ Decreciente" : "→ Estable"}
                   </div>
-                  <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>Promedio {fmtM(tlAvg)} / día</div>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>Promedio {fmt(tlAvg)} / día</div>
                 </div>
               </div>
 
@@ -518,7 +518,7 @@ const FacturacionDashboard = () => {
                       { label: "Facturadas",        value: admisiones.total_facturadas.toLocaleString("es-CO"), sub: "Con factura emitida",  color: "#10b981", icon: "✅" },
                       { label: "Pendientes",        value: admisiones.total_pendientes.toLocaleString("es-CO"), sub: "Sin factura aún",      color: "#f59e0b", icon: "⏳" },
                       { label: "Tasa facturación",  value: `${admisiones.tasa_facturacion}%`,                  sub: admisiones.tasa_facturacion >= 80 ? "Buen ritmo" : "Revisar pendientes", color: admisiones.tasa_facturacion >= 80 ? "#10b981" : "#ef4444", icon: "📊" },
-                      { label: "Valor facturado",   value: fmtM(admisiones.total_valor),                       sub: "Admisiones facturadas", color: "#0f766e", icon: "💰" },
+                      { label: "Valor facturado",   value: fmt(admisiones.total_valor),                        sub: "Admisiones facturadas", color: "#0f766e", icon: "💰" },
                     ].map((k, i) => (
                       <div key={i} style={{ background: "#fff", borderRadius: 10, padding: "14px 18px",
                         boxShadow: "0 1px 6px rgba(0,0,0,0.07)", borderLeft: `4px solid ${k.color}` }}>
@@ -557,7 +557,7 @@ const FacturacionDashboard = () => {
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#065f46", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>🏆 Mayor volumen de estudios</div>
                         <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{topAdmEntidad.nombre}</div>
                         <div style={{ fontSize: 22, fontWeight: 800, color: "#10b981", margin: "4px 0" }}>{topAdmEntidad.admisiones.toLocaleString("es-CO")} admisiones</div>
-                        <div style={{ fontSize: 11, color: "#6b7280" }}>Tasa facturación: {topAdmEntidad.tasa}% · {fmtM(topAdmEntidad.valor)}</div>
+                        <div style={{ fontSize: 11, color: "#6b7280" }}>Tasa facturación: {topAdmEntidad.tasa}% · {fmt(topAdmEntidad.valor)}</div>
                       </div>
                     )}
                   </div>
@@ -724,7 +724,7 @@ const FacturacionDashboard = () => {
                               </div>
                               <div style={{ textAlign: "right" }}>
                                 <div style={{ fontSize: 9, color: "#94a3b8", textTransform: "uppercase" as const }}>Valor total</div>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: "#0f766e" }}>{fmtM(u.total_valor)}</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: "#0f766e" }}>{fmt(u.total_valor)}</div>
                               </div>
                             </div>
                           </div>
