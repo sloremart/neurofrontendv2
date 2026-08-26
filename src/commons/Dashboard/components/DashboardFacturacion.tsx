@@ -40,10 +40,22 @@ interface AdmisionEntidad {
 interface AdmisionTimeline {
   fecha: string; admisiones: number; facturadas: number; pendientes: number; valor: number;
 }
+interface AdmisionServicio {
+  servicio: string; admisiones: number; facturadas: number; pendientes: number; valor: number; tasa: number;
+}
+interface UsuarioResumen {
+  usuario: string; total_facturas: number; total_valor: number; dias_activos: number; promedio_dia: number;
+}
+interface ProduccionTimeline {
+  fecha: string; usuario: string; facturas: number; valor: number;
+}
 interface AdmisionesData {
   total_admisiones: number; total_facturadas: number; total_pendientes: number;
   total_valor: number; tasa_facturacion: number;
   timeline: AdmisionTimeline[]; entidades: AdmisionEntidad[];
+  servicios: AdmisionServicio[];
+  usuarios_resumen: UsuarioResumen[];
+  produccion_timeline: ProduccionTimeline[];
 }
 
 // ── paleta semáforo MRC ───────────────────────────────────────────────────────
@@ -241,7 +253,7 @@ const FacturacionDashboard = () => {
 
   const admBarOpts: ApexCharts.ApexOptions = {
     chart: { type: "bar", toolbar: { show: false } },
-    plotOptions: { bar: { horizontal: true, borderRadius: 4, dataLabels: { position: "top" } } },
+    plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
     dataLabels: { enabled: false },
     xaxis: {
       categories: admEntidades.slice(0, 12).map(e => e.nombre.length > 28 ? e.nombre.substring(0, 28) + "…" : e.nombre),
@@ -252,6 +264,34 @@ const FacturacionDashboard = () => {
     legend: { position: "top" as const, fontSize: "11px" },
     grid: { borderColor: "#f1f5f9" },
     tooltip: { y: { formatter: (v: number) => v.toLocaleString("es-CO") } },
+  };
+
+  const servicioBarOpts: ApexCharts.ApexOptions = {
+    chart: { type: "bar", toolbar: { show: false } },
+    plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+    dataLabels: { enabled: false },
+    xaxis: {
+      categories: (admisiones?.servicios ?? []).map(s => s.servicio.length > 30 ? s.servicio.substring(0, 30) + "…" : s.servicio),
+      labels: { style: { fontSize: "10px" } },
+    },
+    yaxis: { labels: { style: { fontSize: "10px", colors: "#475569" } } },
+    colors: ["#1d4ed8", "#10b981", "#f59e0b"],
+    legend: { position: "top" as const, fontSize: "11px" },
+    grid: { borderColor: "#f1f5f9" },
+    tooltip: { y: { formatter: (v: number) => v.toLocaleString("es-CO") } },
+  };
+
+  // Producción por usuario: datos para gráfica de barras
+  const usuariosResumen = admisiones?.usuarios_resumen ?? [];
+  const usuariosBarOpts: ApexCharts.ApexOptions = {
+    chart: { type: "bar", toolbar: { show: false } },
+    plotOptions: { bar: { horizontal: false, borderRadius: 4, columnWidth: "55%" } },
+    dataLabels: { enabled: true, formatter: (v: number) => v.toString(), style: { fontSize: "11px", colors: ["#1e293b"] } },
+    xaxis: { categories: usuariosResumen.map(u => u.usuario.split(" ").slice(0, 2).join(" ")), labels: { style: { fontSize: "10px" } } },
+    yaxis: { title: { text: "Facturas", style: { fontSize: "11px" } }, labels: { style: { fontSize: "11px" } } },
+    colors: ["#7c3aed"],
+    grid: { borderColor: "#f1f5f9" },
+    tooltip: { y: { formatter: (v: number) => `${v.toLocaleString("es-CO")} facturas` } },
   };
 
   return (
@@ -315,7 +355,7 @@ const FacturacionDashboard = () => {
               { label: "MRC SANITAS",              value: fmtM(data.mrc.total_valor),    sub: `${data.mrc.grupos.length} grupos`,                             color: "#7c3aed", icon: "📋" },
               { label: "Admisiones del período",   value: (admisiones?.total_admisiones ?? 0).toLocaleString("es-CO"), sub: "Estudios ingresados",            color: "#0f766e", icon: "📥" },
               { label: "Tasa de facturación",      value: `${admisiones?.tasa_facturacion ?? 0}%`,  sub: "Admisiones ya facturadas",                          color: admisiones && admisiones.tasa_facturacion >= 80 ? "#10b981" : "#f59e0b", icon: "📊" },
-              { label: "Pendiente por facturar",   value: (admisiones?.total_pendientes ?? 0).toLocaleString("es-CO"), sub: fmtM(admisiones?.total_pendientes ? (admisiones.total_valor / admisiones.total_facturadas || 0) * admisiones.total_pendientes : 0), color: "#be123c", icon: "⏳" },
+              { label: "Pendiente por facturar",   value: (admisiones?.total_pendientes ?? 0).toLocaleString("es-CO"), sub: "Estudios sin factura",  color: "#be123c", icon: "⏳" },
               { label: "Entidad principal",        value: topEntidad?.nombre.substring(0,20) ?? "—", sub: topEntidad ? fmtM(topEntidad.valor) : "—",          color: "#0891b2", icon: "🏆" },
             ].map((k, i) => (
               <div key={i} style={{ background: "#fff", borderRadius: 12, padding: "16px 18px",
@@ -562,7 +602,7 @@ const FacturacionDashboard = () => {
                   {/* tabla detalle por entidad */}
                   <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)", overflowX: "auto" }}>
                     <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Detalle por Entidad</h3>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 700 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 750 }}>
                       <thead>
                         <tr style={{ borderBottom: "2px solid #e2e8f0", background: "#f8fafc" }}>
                           {["#", "Entidad", "Admisiones", "Facturadas", "Pendientes", "Tasa %", "Valor Facturado"].map(h => (
@@ -596,11 +636,137 @@ const FacturacionDashboard = () => {
                           <td style={{ padding: "10px", textAlign: "right", color: "#10b981", fontVariantNumeric: "tabular-nums" }}>{admisiones.total_facturadas.toLocaleString("es-CO")}</td>
                           <td style={{ padding: "10px", textAlign: "right", color: "#f59e0b", fontVariantNumeric: "tabular-nums" }}>{admisiones.total_pendientes.toLocaleString("es-CO")}</td>
                           <td style={{ padding: "10px", textAlign: "right", color: "#475569" }}>{admisiones.tasa_facturacion}%</td>
-                          <td style={{ padding: "10px", textAlign: "right", color: "#0f766e", fontVariantNumeric: "tabular-nums" }}>{fmtM(admisiones.total_valor)}</td>
+                          <td style={{ padding: "10px", textAlign: "right", color: "#0f766e", fontVariantNumeric: "tabular-nums" }}>{fmt(admisiones.total_valor)}</td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
+
+                  {/* ── Sección: Por Servicio ── */}
+                  {admisiones.servicios && admisiones.servicios.length > 0 && (
+                    <>
+                      <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
+                        <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                          Admisiones vs Facturadas por Servicio
+                        </h3>
+                        <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>Volumen de estudios por tipo de servicio en el período</p>
+                        <Chart type="bar" height={Math.max(280, admisiones.servicios.length * 40)}
+                          series={[
+                            { name: "Admisiones", data: admisiones.servicios.map(s => s.admisiones) },
+                            { name: "Facturadas",  data: admisiones.servicios.map(s => s.facturadas) },
+                            { name: "Pendientes",  data: admisiones.servicios.map(s => s.pendientes) },
+                          ]}
+                          options={servicioBarOpts} />
+                      </div>
+
+                      <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)", overflowX: "auto" }}>
+                        <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Detalle por Servicio</h3>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 700 }}>
+                          <thead>
+                            <tr style={{ borderBottom: "2px solid #e2e8f0", background: "#f8fafc" }}>
+                              {["Servicio", "Admisiones", "Facturadas", "Pendientes", "Tasa %", "Valor Facturado"].map(h => (
+                                <th key={h} style={{ padding: "8px 10px", textAlign: h === "Servicio" ? "left" : "right",
+                                  fontWeight: 700, color: "#475569", fontSize: 10, textTransform: "uppercase" as const }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {admisiones.servicios.map((s, i) => (
+                              <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                                <td style={{ padding: "9px 10px", fontWeight: 600, color: "#0f172a" }}>{s.servicio}</td>
+                                <td style={{ padding: "9px 10px", textAlign: "right", color: "#1d4ed8", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{s.admisiones.toLocaleString("es-CO")}</td>
+                                <td style={{ padding: "9px 10px", textAlign: "right", color: "#10b981", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{s.facturadas.toLocaleString("es-CO")}</td>
+                                <td style={{ padding: "9px 10px", textAlign: "right", color: s.pendientes > 0 ? "#f59e0b" : "#94a3b8", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{s.pendientes.toLocaleString("es-CO")}</td>
+                                <td style={{ padding: "9px 10px", textAlign: "right" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
+                                    <div style={{ width: 50, height: 6, background: "#e2e8f0", borderRadius: 3 }}>
+                                      <div style={{ width: `${Math.min(s.tasa, 100)}%`, height: "100%", background: s.tasa >= 80 ? "#10b981" : s.tasa >= 50 ? "#f59e0b" : "#ef4444", borderRadius: 3 }} />
+                                    </div>
+                                    <span style={{ fontSize: 11, color: "#475569", minWidth: 32 }}>{s.tasa}%</span>
+                                  </div>
+                                </td>
+                                <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 700, color: "#0f766e", fontVariantNumeric: "tabular-nums" }}>{fmt(s.valor)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+
+                  {/* ── Sección: Productividad Cuentas Médicas ── */}
+                  {usuariosResumen.length > 0 && (
+                    <>
+                      <div style={{ background: "linear-gradient(135deg,#4c1d95,#3730a3)", borderRadius: 12, padding: "18px 24px" }}>
+                        <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#fff", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                          Productividad — Área de Cuentas Médicas
+                        </h3>
+                        <p style={{ margin: 0, fontSize: 12, color: "#c4b5fd" }}>
+                          Facturas generadas por usuario en el período · fecha de creación del documento
+                        </p>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+                        {usuariosResumen.map((u, i) => (
+                          <div key={i} style={{ background: "#fff", borderRadius: 10, padding: "16px 18px",
+                            boxShadow: "0 1px 6px rgba(0,0,0,0.07)", borderLeft: "4px solid #7c3aed" }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: "#7c3aed", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                              {i === 0 ? "🏆 " : "👤 "}{u.usuario}
+                            </div>
+                            <div style={{ fontSize: 28, fontWeight: 800, color: "#4c1d95", margin: "6px 0 2px", fontVariantNumeric: "tabular-nums" }}>
+                              {u.total_facturas.toLocaleString("es-CO")}
+                            </div>
+                            <div style={{ fontSize: 11, color: "#64748b" }}>facturas · {u.dias_activos} días activos</div>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, paddingTop: 10, borderTop: "1px solid #f1f5f9" }}>
+                              <div>
+                                <div style={{ fontSize: 9, color: "#94a3b8", textTransform: "uppercase" as const }}>Promedio/día</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>{u.promedio_dia}</div>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <div style={{ fontSize: 9, color: "#94a3b8", textTransform: "uppercase" as const }}>Valor total</div>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: "#0f766e" }}>{fmtM(u.total_valor)}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
+                        <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                          Total Facturas por Usuario
+                        </h3>
+                        <Chart type="bar" height={280}
+                          series={[{ name: "Facturas generadas", data: usuariosResumen.map(u => u.total_facturas) }]}
+                          options={usuariosBarOpts} />
+                      </div>
+
+                      <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)", overflowX: "auto" }}>
+                        <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Resumen de Productividad</h3>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ borderBottom: "2px solid #e2e8f0", background: "#f8fafc" }}>
+                              {["#", "Usuario", "Facturas", "Días Activos", "Promedio/Día", "Valor Total"].map(h => (
+                                <th key={h} style={{ padding: "8px 12px", textAlign: h === "Usuario" ? "left" : "right",
+                                  fontWeight: 700, color: "#475569", fontSize: 10, textTransform: "uppercase" as const }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {usuariosResumen.map((u, i) => (
+                              <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                                <td style={{ padding: "10px 12px", color: "#94a3b8", textAlign: "right" }}>{i + 1}</td>
+                                <td style={{ padding: "10px 12px", fontWeight: 600, color: "#0f172a" }}>{u.usuario}</td>
+                                <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "#7c3aed", fontVariantNumeric: "tabular-nums" }}>{u.total_facturas.toLocaleString("es-CO")}</td>
+                                <td style={{ padding: "10px 12px", textAlign: "right", color: "#475569", fontVariantNumeric: "tabular-nums" }}>{u.dias_activos}</td>
+                                <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600, color: "#1d4ed8", fontVariantNumeric: "tabular-nums" }}>{u.promedio_dia}</td>
+                                <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "#0f766e", fontVariantNumeric: "tabular-nums" }}>{fmt(u.total_valor)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>
