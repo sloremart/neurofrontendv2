@@ -24,7 +24,7 @@ interface Grupo {
   valor_mes: number | null; tarifa: number | null;
   estado: "bajo" | "en_rango" | "sobre" | "sin_parametros" | "sin_inicio";
   faltan_minimo: number; faltan_maximo: number;
-  cups: CupsItem[]; cups_sin_factura: CupsItem[];
+  cups: CupsItem[];
 }
 interface EntidadItem  { nombre: string; valor: number; admisiones: number }
 interface TimelineItem { fecha: string; valor: number; admisiones: number }
@@ -70,14 +70,12 @@ const ESTADO_META: Record<string, { label: string; color: string; bg: string; ic
 
 // ── MrcGrupoCard ──────────────────────────────────────────────────────────────
 const MrcGrupoCard = ({ g }: { g: Grupo }) => {
-  const [openCups, setOpenCups]       = useState(false);
-  const [openFalta, setOpenFalta]     = useState(false);
-  const meta    = ESTADO_META[g.estado] ?? ESTADO_META["sin_parametros"];
-  const hasSem  = g.min !== null && g.max !== null;
-  const pct     = hasSem ? Math.min((g.cantidad / g.max!) * 100, 110) : null;
-  const minPct  = hasSem ? (g.min! / g.max!) * 100 : null;
-  const refPct  = hasSem ? (g.ref! / g.max!) * 100 : null;
-  const sinFactura = g.cups_sin_factura ?? [];
+  const [openCups, setOpenCups] = useState(false);
+  const meta   = ESTADO_META[g.estado] ?? ESTADO_META["sin_parametros"];
+  const hasSem = g.min !== null && g.max !== null;
+  const pct    = hasSem ? Math.min((g.cantidad / g.max!) * 100, 110) : null;
+  const minPct = hasSem ? (g.min! / g.max!) * 100 : null;
+  const refPct = hasSem ? (g.ref! / g.max!) * 100 : null;
 
   return (
     <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden",
@@ -86,6 +84,7 @@ const MrcGrupoCard = ({ g }: { g: Grupo }) => {
       {/* cabecera */}
       <div style={{ background: `linear-gradient(135deg,${meta.color}18,${meta.color}06)`,
         borderLeft: `4px solid ${meta.color}`, padding: "14px 18px" }}>
+
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div style={{ flex: 1 }}>
             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1,
@@ -93,14 +92,14 @@ const MrcGrupoCard = ({ g }: { g: Grupo }) => {
             <h3 style={{ margin: "4px 0 0", fontSize: 15, fontWeight: 700, color: "#0f172a", lineHeight: 1.3 }}>{g.grupo}</h3>
           </div>
           <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
-            <div style={{ fontSize: 26, fontWeight: 800, color: meta.color, fontVariantNumeric: "tabular-nums" }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color: meta.color, fontVariantNumeric: "tabular-nums" }}>
               {g.cantidad.toLocaleString("es-CO")}
             </div>
-            <div style={{ fontSize: 11, color: "#64748b" }}>facturados</div>
+            <div style={{ fontSize: 11, color: "#64748b" }}>estudios realizados</div>
           </div>
         </div>
 
-        {/* barra de progreso */}
+        {/* barra de progreso min → ref → max */}
         {hasSem && (
           <div style={{ marginTop: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#64748b", marginBottom: 6 }}>
@@ -114,83 +113,74 @@ const MrcGrupoCard = ({ g }: { g: Grupo }) => {
                 {g.cantidad > g.max! && <span style={{ marginLeft: 4 }}>+{(g.cantidad - g.max!).toLocaleString("es-CO")}</span>}
               </span>
             </div>
-            {/* barra con marcadores */}
             <div style={{ position: "relative", height: 10, background: "#e2e8f0", borderRadius: 5 }}>
-              {/* zona verde: min a max */}
+              {/* zona verde (rango válido: min → max) */}
               <div style={{ position: "absolute", left: `${minPct}%`, width: `${100 - minPct!}%`,
-                height: "100%", background: "#bbf7d0", borderRadius: "0 5px 5px 0", opacity: 0.6 }} />
+                height: "100%", background: "#bbf7d0", borderRadius: "0 5px 5px 0", opacity: 0.5 }} />
               {/* marcador mínimo */}
-              <div style={{ position: "absolute", left: `${minPct}%`, top: -3, width: 2, height: 16,
-                background: "#f59e0b", borderRadius: 1 }} />
+              <div style={{ position: "absolute", left: `${minPct}%`, top: -3, width: 2, height: 16, background: "#f59e0b", borderRadius: 1 }} />
               {/* marcador referencia */}
-              {refPct && <div style={{ position: "absolute", left: `${refPct}%`, top: -3, width: 2, height: 16,
-                background: "#6366f1", borderRadius: 1 }} />}
+              {refPct && <div style={{ position: "absolute", left: `${refPct}%`, top: -3, width: 2, height: 16, background: "#6366f1", borderRadius: 1 }} />}
               {/* barra de progreso */}
               <div style={{
-                width: `${Math.min(pct!, 100)}%`, height: "100%",
+                width: `${Math.min(pct ?? 0, 100)}%`, height: "100%", borderRadius: 5,
                 background: g.estado === "sobre" ? "#ef4444" : g.estado === "en_rango" ? "#10b981" : g.estado === "bajo" ? "#f59e0b" : "#cbd5e1",
-                borderRadius: 5, transition: "width 0.7s ease",
+                transition: "width 0.7s ease",
               }} />
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#94a3b8", marginTop: 4 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ display: "inline-block", width: 8, height: 8, background: "#f59e0b", borderRadius: 2 }}/>mínimo
+            <div style={{ display: "flex", gap: 16, fontSize: 10, color: "#94a3b8", marginTop: 4 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <span style={{ display: "inline-block", width: 8, height: 8, background: "#f59e0b", borderRadius: 2 }} /> mínimo
               </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ display: "inline-block", width: 8, height: 8, background: "#6366f1", borderRadius: 2 }}/>referencia
+              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <span style={{ display: "inline-block", width: 8, height: 8, background: "#6366f1", borderRadius: 2 }} /> referencia
               </span>
             </div>
           </div>
         )}
 
-        {/* alertas clave */}
-        {hasSem && g.estado !== "en_rango" && g.estado !== "sobre" && (
-          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8,
-            background: g.estado === "sin_inicio" ? "#f1f5f9" : "#fffbeb",
-            border: `1px solid ${g.estado === "sin_inicio" ? "#e2e8f0" : "#fde68a"}`, fontSize: 12 }}>
-            {g.estado === "sin_inicio"
-              ? `⭕ Sin facturas en el período. Necesita ${g.min!.toLocaleString("es-CO")} para llegar al mínimo.`
-              : `⚠️ Faltan ${g.faltan_minimo.toLocaleString("es-CO")} estudios para alcanzar el mínimo (${g.min!.toLocaleString("es-CO")}).`
-            }
-          </div>
-        )}
-        {hasSem && g.estado === "en_rango" && g.faltan_maximo > 0 && (
-          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "#ecfdf5", border: "1px solid #a7f3d0", fontSize: 12 }}>
-            ✅ En rango. Puede agregar {g.faltan_maximo.toLocaleString("es-CO")} más antes de superar el máximo.
-          </div>
-        )}
-        {hasSem && g.estado === "sobre" && (
-          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", fontSize: 12 }}>
-            🚨 Excede el máximo en {(g.cantidad - g.max!).toLocaleString("es-CO")} estudios. El exceso se paga a tarifa reducida.
+        {/* mensaje de alerta según estado */}
+        {hasSem && (
+          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, fontSize: 12,
+            background: g.estado === "sin_inicio" ? "#f1f5f9" : g.estado === "bajo" ? "#fffbeb" : g.estado === "en_rango" ? "#ecfdf5" : "#fef2f2",
+            border: `1px solid ${g.estado === "sin_inicio" ? "#e2e8f0" : g.estado === "bajo" ? "#fde68a" : g.estado === "en_rango" ? "#a7f3d0" : "#fecaca"}` }}>
+            {g.estado === "sin_inicio" && `⭕ Sin estudios en el período. Necesita ${g.min!.toLocaleString("es-CO")} para llegar al mínimo.`}
+            {g.estado === "bajo"       && `⚠️ Faltan ${g.faltan_minimo.toLocaleString("es-CO")} estudios para alcanzar el mínimo.`}
+            {g.estado === "en_rango"   && `✅ En rango. Puede atender ${g.faltan_maximo.toLocaleString("es-CO")} más sin superar el máximo.`}
+            {g.estado === "sobre"      && `🚨 Excede el máximo en ${(g.cantidad - g.max!).toLocaleString("es-CO")} estudios. El exceso se paga a tarifa reducida (50%).`}
           </div>
         )}
 
-        {/* valores */}
+        {/* valores: estudios vs estimado a facturar */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
           <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 8, padding: "8px 12px" }}>
-            <div style={{ fontSize: 11, color: "#64748b" }}>Valor facturado (real)</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{fmt(g.valor)}</div>
+            <div style={{ fontSize: 11, color: "#64748b" }}>Valor en CUPS (referencia)</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#475569" }}>{fmt(g.valor)}</div>
           </div>
-          {g.valor_calculado !== null && g.valor_calculado > 0 && (
-            <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 8, padding: "8px 12px" }}>
-              <div style={{ fontSize: 11, color: "#64748b" }}>Valor MRC proyectado</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: meta.color }}>{fmt(g.valor_calculado)}</div>
+          {g.valor_calculado !== null && (
+            <div style={{ background: g.estado === "en_rango" ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.7)", borderRadius: 8, padding: "8px 12px",
+              border: g.estado === "en_rango" ? "1px solid #6ee7b7" : "none" }}>
+              <div style={{ fontSize: 11, color: "#64748b" }}>Valor estimado a facturar</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: meta.color }}>{fmt(g.valor_calculado)}</div>
+              {g.valor_mes !== null && g.estado === "en_rango" && (
+                <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>= valor mensual fijo del contrato</div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* CUPS con facturación */}
+      {/* CUPS del grupo con estudios en el período */}
       {g.cups.length > 0 && (
         <>
           <button onClick={() => setOpenCups(!openCups)} style={{ width: "100%", background: "none", border: "none",
             borderTop: "1px solid #f1f5f9", padding: "9px 18px", cursor: "pointer", textAlign: "left",
             fontSize: 12, color: "#475569", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>🔢 CUPS facturados en el período ({g.cups.length})</span>
+            <span>🔢 Ver CUPS del período ({g.cups.length})</span>
             <span>{openCups ? "▲" : "▼"}</span>
           </button>
           {openCups && (
-            <div style={{ padding: "0 18px 12px", maxHeight: 200, overflowY: "auto" }}>
+            <div style={{ padding: "0 18px 12px", maxHeight: 220, overflowY: "auto" }}>
               {g.cups.map((c, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between",
                   padding: "5px 0", borderBottom: "1px solid #f8fafc", fontSize: 12 }}>
@@ -199,34 +189,8 @@ const MrcGrupoCard = ({ g }: { g: Grupo }) => {
                     {c.nombre.substring(0, 45)}{c.nombre.length > 45 ? "…" : ""}
                   </span>
                   <span style={{ color: "#0f172a", fontWeight: 600, whiteSpace: "nowrap" }}>
-                    {Math.round(c.cantidad).toLocaleString("es-CO")} · {fmt(c.valor)}
+                    {Math.round(c.cantidad).toLocaleString("es-CO")} estudios
                   </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* CUPS sin ninguna factura en el período */}
-      {sinFactura.length > 0 && (
-        <>
-          <button onClick={() => setOpenFalta(!openFalta)} style={{ width: "100%", background: "none", border: "none",
-            borderTop: "1px solid #fef3c7", padding: "9px 18px", cursor: "pointer", textAlign: "left",
-            fontSize: 12, color: "#92400e", display: "flex", justifyContent: "space-between", alignItems: "center",
-            background: "#fffbeb" }}>
-            <span>⚠️ CUPS del grupo sin facturar aún ({sinFactura.length})</span>
-            <span>{openFalta ? "▲" : "▼"}</span>
-          </button>
-          {openFalta && (
-            <div style={{ padding: "8px 18px 12px", background: "#fffbeb" }}>
-              <p style={{ margin: "0 0 8px", fontSize: 11, color: "#92400e" }}>
-                Estos CUPS pertenecen al grupo pero no tienen facturas en el período seleccionado:
-              </p>
-              {sinFactura.map((c, i) => (
-                <div key={i} style={{ padding: "4px 0", fontSize: 12 }}>
-                  <code style={{ color: "#b45309", fontWeight: 700 }}>{c.cups}</code>
-                  <span style={{ color: "#78350f", marginLeft: 8 }}>— sin facturas</span>
                 </div>
               ))}
             </div>
