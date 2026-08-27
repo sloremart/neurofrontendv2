@@ -22,8 +22,9 @@ interface Grupo {
   grupo: string; cantidad: number; valor: number; valor_calculado: number | null;
   min: number | null; ref: number | null; max: number | null;
   valor_mes: number | null; tarifa: number | null;
-  estado: "bajo" | "en_rango" | "sobre" | "sin_parametros";
-  cups: CupsItem[];
+  estado: "bajo" | "en_rango" | "sobre" | "sin_parametros" | "sin_inicio";
+  faltan_minimo: number; faltan_maximo: number;
+  cups: CupsItem[]; cups_sin_factura: CupsItem[];
 }
 interface EntidadItem  { nombre: string; valor: number; admisiones: number }
 interface TimelineItem { fecha: string; valor: number; admisiones: number }
@@ -60,87 +61,177 @@ interface AdmisionesData {
 
 // ── paleta semáforo MRC ───────────────────────────────────────────────────────
 const ESTADO_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  bajo:           { label: "Por debajo del mínimo", color: "#f59e0b", bg: "#fffbeb", icon: "⚠️" },
-  en_rango:       { label: "Dentro del rango",      color: "#10b981", bg: "#ecfdf5", icon: "✅" },
-  sobre:          { label: "Por encima del máximo", color: "#ef4444", bg: "#fef2f2", icon: "🚨" },
-  sin_parametros: { label: "Sin parámetros",        color: "#6366f1", bg: "#eef2ff", icon: "ℹ️" },
+  sin_inicio:     { label: "Sin iniciar — 0 facturados", color: "#94a3b8", bg: "#f8fafc", icon: "⭕" },
+  bajo:           { label: "Por debajo del mínimo",      color: "#f59e0b", bg: "#fffbeb", icon: "⚠️" },
+  en_rango:       { label: "Dentro del rango",           color: "#10b981", bg: "#ecfdf5", icon: "✅" },
+  sobre:          { label: "Por encima del máximo",      color: "#ef4444", bg: "#fef2f2", icon: "🚨" },
+  sin_parametros: { label: "Sin parámetros",             color: "#6366f1", bg: "#eef2ff", icon: "ℹ️" },
 };
 
 // ── MrcGrupoCard ──────────────────────────────────────────────────────────────
 const MrcGrupoCard = ({ g }: { g: Grupo }) => {
-  const [open, setOpen] = useState(false);
-  const meta    = ESTADO_META[g.estado];
+  const [openCups, setOpenCups]       = useState(false);
+  const [openFalta, setOpenFalta]     = useState(false);
+  const meta    = ESTADO_META[g.estado] ?? ESTADO_META["sin_parametros"];
   const hasSem  = g.min !== null && g.max !== null;
-  const pct     = hasSem ? Math.min((g.cantidad / g.max!) * 100, 130) : null;
+  const pct     = hasSem ? Math.min((g.cantidad / g.max!) * 100, 110) : null;
   const minPct  = hasSem ? (g.min! / g.max!) * 100 : null;
+  const refPct  = hasSem ? (g.ref! / g.max!) * 100 : null;
+  const sinFactura = g.cups_sin_factura ?? [];
 
   return (
     <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden",
       boxShadow: "0 2px 12px rgba(0,0,0,0.08)", border: `1px solid ${meta.color}33` }}>
+
+      {/* cabecera */}
       <div style={{ background: `linear-gradient(135deg,${meta.color}18,${meta.color}06)`,
         borderLeft: `4px solid ${meta.color}`, padding: "14px 18px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
+          <div style={{ flex: 1 }}>
             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1,
-              color: meta.color, textTransform: "uppercase" }}>{meta.icon} {meta.label}</span>
+              color: meta.color, textTransform: "uppercase" as const }}>{meta.icon} {meta.label}</span>
             <h3 style={{ margin: "4px 0 0", fontSize: 15, fontWeight: 700, color: "#0f172a", lineHeight: 1.3 }}>{g.grupo}</h3>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: meta.color }}>{g.cantidad.toLocaleString("es-CO")}</div>
-            <div style={{ fontSize: 11, color: "#64748b" }}>estudios</div>
+          <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
+            <div style={{ fontSize: 26, fontWeight: 800, color: meta.color, fontVariantNumeric: "tabular-nums" }}>
+              {g.cantidad.toLocaleString("es-CO")}
+            </div>
+            <div style={{ fontSize: 11, color: "#64748b" }}>facturados</div>
           </div>
         </div>
 
+        {/* barra de progreso */}
         {hasSem && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#64748b", marginBottom: 4 }}>
-              <span>Mín: {g.min!.toLocaleString("es-CO")}</span>
+          <div style={{ marginTop: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#64748b", marginBottom: 6 }}>
+              <span style={{ fontWeight: 600, color: g.faltan_minimo > 0 ? "#f59e0b" : "#10b981" }}>
+                Mín: {g.min!.toLocaleString("es-CO")}
+                {g.faltan_minimo > 0 && <span style={{ color: "#ef4444", marginLeft: 4 }}>(-{g.faltan_minimo})</span>}
+              </span>
               <span>Ref: {g.ref!.toLocaleString("es-CO")}</span>
-              <span>Máx: {g.max!.toLocaleString("es-CO")}</span>
+              <span style={{ fontWeight: 600, color: g.cantidad > g.max! ? "#ef4444" : "#64748b" }}>
+                Máx: {g.max!.toLocaleString("es-CO")}
+                {g.cantidad > g.max! && <span style={{ marginLeft: 4 }}>+{(g.cantidad - g.max!).toLocaleString("es-CO")}</span>}
+              </span>
             </div>
-            <div style={{ position: "relative", height: 8, background: "#e2e8f0", borderRadius: 4 }}>
-              <div style={{ position: "absolute", left: `${minPct}%`, top: -2, width: 2, height: 12, background: "#94a3b8", borderRadius: 1 }} />
-              <div style={{ position: "absolute", left: "100%", transform: "translateX(-50%)", top: -2, width: 2, height: 12, background: "#94a3b8", borderRadius: 1 }} />
-              <div style={{ width: `${Math.min(pct!, 100)}%`, height: "100%", background: pct! > 100 ? "#ef4444" : meta.color, borderRadius: 4, transition: "width 0.6s ease" }} />
+            {/* barra con marcadores */}
+            <div style={{ position: "relative", height: 10, background: "#e2e8f0", borderRadius: 5 }}>
+              {/* zona verde: min a max */}
+              <div style={{ position: "absolute", left: `${minPct}%`, width: `${100 - minPct!}%`,
+                height: "100%", background: "#bbf7d0", borderRadius: "0 5px 5px 0", opacity: 0.6 }} />
+              {/* marcador mínimo */}
+              <div style={{ position: "absolute", left: `${minPct}%`, top: -3, width: 2, height: 16,
+                background: "#f59e0b", borderRadius: 1 }} />
+              {/* marcador referencia */}
+              {refPct && <div style={{ position: "absolute", left: `${refPct}%`, top: -3, width: 2, height: 16,
+                background: "#6366f1", borderRadius: 1 }} />}
+              {/* barra de progreso */}
+              <div style={{
+                width: `${Math.min(pct!, 100)}%`, height: "100%",
+                background: g.estado === "sobre" ? "#ef4444" : g.estado === "en_rango" ? "#10b981" : g.estado === "bajo" ? "#f59e0b" : "#cbd5e1",
+                borderRadius: 5, transition: "width 0.7s ease",
+              }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#94a3b8", marginTop: 4 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ display: "inline-block", width: 8, height: 8, background: "#f59e0b", borderRadius: 2 }}/>mínimo
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ display: "inline-block", width: 8, height: 8, background: "#6366f1", borderRadius: 2 }}/>referencia
+              </span>
             </div>
           </div>
         )}
 
+        {/* alertas clave */}
+        {hasSem && g.estado !== "en_rango" && g.estado !== "sobre" && (
+          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8,
+            background: g.estado === "sin_inicio" ? "#f1f5f9" : "#fffbeb",
+            border: `1px solid ${g.estado === "sin_inicio" ? "#e2e8f0" : "#fde68a"}`, fontSize: 12 }}>
+            {g.estado === "sin_inicio"
+              ? `⭕ Sin facturas en el período. Necesita ${g.min!.toLocaleString("es-CO")} para llegar al mínimo.`
+              : `⚠️ Faltan ${g.faltan_minimo.toLocaleString("es-CO")} estudios para alcanzar el mínimo (${g.min!.toLocaleString("es-CO")}).`
+            }
+          </div>
+        )}
+        {hasSem && g.estado === "en_rango" && g.faltan_maximo > 0 && (
+          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "#ecfdf5", border: "1px solid #a7f3d0", fontSize: 12 }}>
+            ✅ En rango. Puede agregar {g.faltan_maximo.toLocaleString("es-CO")} más antes de superar el máximo.
+          </div>
+        )}
+        {hasSem && g.estado === "sobre" && (
+          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", fontSize: 12 }}>
+            🚨 Excede el máximo en {(g.cantidad - g.max!).toLocaleString("es-CO")} estudios. El exceso se paga a tarifa reducida.
+          </div>
+        )}
+
+        {/* valores */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
           <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 8, padding: "8px 12px" }}>
-            <div style={{ fontSize: 11, color: "#64748b" }}>Valor facturado</div>
+            <div style={{ fontSize: 11, color: "#64748b" }}>Valor facturado (real)</div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{fmt(g.valor)}</div>
           </div>
-          {g.valor_calculado !== null && (
+          {g.valor_calculado !== null && g.valor_calculado > 0 && (
             <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 8, padding: "8px 12px" }}>
-              <div style={{ fontSize: 11, color: "#64748b" }}>Valor MRC calculado</div>
+              <div style={{ fontSize: 11, color: "#64748b" }}>Valor MRC proyectado</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: meta.color }}>{fmt(g.valor_calculado)}</div>
             </div>
           )}
         </div>
       </div>
 
-      <button onClick={() => setOpen(!open)} style={{ width: "100%", background: "none", border: "none",
-        borderTop: "1px solid #f1f5f9", padding: "10px 18px", cursor: "pointer", textAlign: "left",
-        fontSize: 12, color: "#64748b", display: "flex", justifyContent: "space-between" }}>
-        <span>Ver detalle de CUPS ({g.cups.length})</span>
-        <span>{open ? "▲" : "▼"}</span>
-      </button>
-      {open && (
-        <div style={{ padding: "0 18px 14px", maxHeight: 220, overflowY: "auto" }}>
-          {g.cups.slice(0, 10).map((c, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between",
-              padding: "5px 0", borderBottom: "1px solid #f8fafc", fontSize: 12 }}>
-              <span style={{ color: "#475569", flex: 1, marginRight: 8 }}>
-                <code style={{ color: meta.color, fontWeight: 700 }}>{c.cups}</code>{" "}
-                {c.nombre.substring(0, 50)}{c.nombre.length > 50 ? "…" : ""}
-              </span>
-              <span style={{ color: "#0f172a", fontWeight: 600, whiteSpace: "nowrap" }}>
-                {Math.round(c.cantidad).toLocaleString("es-CO")} · {fmt(c.valor)}
-              </span>
+      {/* CUPS con facturación */}
+      {g.cups.length > 0 && (
+        <>
+          <button onClick={() => setOpenCups(!openCups)} style={{ width: "100%", background: "none", border: "none",
+            borderTop: "1px solid #f1f5f9", padding: "9px 18px", cursor: "pointer", textAlign: "left",
+            fontSize: 12, color: "#475569", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>🔢 CUPS facturados en el período ({g.cups.length})</span>
+            <span>{openCups ? "▲" : "▼"}</span>
+          </button>
+          {openCups && (
+            <div style={{ padding: "0 18px 12px", maxHeight: 200, overflowY: "auto" }}>
+              {g.cups.map((c, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between",
+                  padding: "5px 0", borderBottom: "1px solid #f8fafc", fontSize: 12 }}>
+                  <span style={{ color: "#475569", flex: 1, marginRight: 8 }}>
+                    <code style={{ color: meta.color, fontWeight: 700 }}>{c.cups}</code>{" "}
+                    {c.nombre.substring(0, 45)}{c.nombre.length > 45 ? "…" : ""}
+                  </span>
+                  <span style={{ color: "#0f172a", fontWeight: 600, whiteSpace: "nowrap" }}>
+                    {Math.round(c.cantidad).toLocaleString("es-CO")} · {fmt(c.valor)}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
+      )}
+
+      {/* CUPS sin ninguna factura en el período */}
+      {sinFactura.length > 0 && (
+        <>
+          <button onClick={() => setOpenFalta(!openFalta)} style={{ width: "100%", background: "none", border: "none",
+            borderTop: "1px solid #fef3c7", padding: "9px 18px", cursor: "pointer", textAlign: "left",
+            fontSize: 12, color: "#92400e", display: "flex", justifyContent: "space-between", alignItems: "center",
+            background: "#fffbeb" }}>
+            <span>⚠️ CUPS del grupo sin facturar aún ({sinFactura.length})</span>
+            <span>{openFalta ? "▲" : "▼"}</span>
+          </button>
+          {openFalta && (
+            <div style={{ padding: "8px 18px 12px", background: "#fffbeb" }}>
+              <p style={{ margin: "0 0 8px", fontSize: 11, color: "#92400e" }}>
+                Estos CUPS pertenecen al grupo pero no tienen facturas en el período seleccionado:
+              </p>
+              {sinFactura.map((c, i) => (
+                <div key={i} style={{ padding: "4px 0", fontSize: 12 }}>
+                  <code style={{ color: "#b45309", fontWeight: 700 }}>{c.cups}</code>
+                  <span style={{ color: "#78350f", marginLeft: 8 }}>— sin facturas</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -479,8 +570,9 @@ const FacturacionDashboard = () => {
           {/* ══════════════ TAB: MRC ══════════════ */}
           {activeTab === "mrc" && (
             <div>
-              <div style={{ display: "flex", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
-                {["en_rango", "bajo", "sobre", "sin_parametros"].map(estado => {
+              {/* resumen de estados */}
+              <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+                {["en_rango", "bajo", "sin_inicio", "sobre", "sin_parametros"].map(estado => {
                   const m = ESTADO_META[estado];
                   const count = data.mrc.grupos.filter(g => g.estado === estado).length;
                   return count > 0 ? (
@@ -494,8 +586,15 @@ const FacturacionDashboard = () => {
                   ) : null;
                 })}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(340px,1fr))", gap: 16 }}>
-                {data.mrc.grupos.map((g, i) => <MrcGrupoCard key={i} g={g} />)}
+              {/* ordenar: primero los que necesitan atención (sin_inicio, bajo), luego en_rango, sobre, sin_parametros */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(360px,1fr))", gap: 16 }}>
+                {[...data.mrc.grupos]
+                  .sort((a, b) => {
+                    const order: Record<string, number> = { sin_inicio: 0, bajo: 1, en_rango: 2, sobre: 3, sin_parametros: 4 };
+                    return (order[a.estado] ?? 5) - (order[b.estado] ?? 5);
+                  })
+                  .map((g, i) => <MrcGrupoCard key={i} g={g} />)
+                }
               </div>
             </div>
           )}
