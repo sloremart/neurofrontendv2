@@ -411,8 +411,8 @@ const FacturacionDashboard = () => {
               { label: "Total Facturado Regular",   value: fmt(data.regular.total),       sub: `${data.regular.admisiones.toLocaleString("es-CO")} admisiones`, color: "#1d4ed8", icon: "🏥" },
               { label: "MRC SANITAS",              value: fmt(data.mrc.total_valor),    sub: `${data.mrc.grupos.length} grupos`,                              color: "#7c3aed", icon: "📋" },
               { label: "Estudios del período",     value: (admisiones?.total_admisiones ?? 0).toLocaleString("es-CO"), sub: "Estudios ingresados (fecha admisión)", color: "#0f766e", icon: "📥" },
-              { label: "Facturas FES emitidas",    value: (admisiones?.total_facturadas ?? 0).toLocaleString("es-CO"), sub: "Emitidas en el período",               color: "#10b981", icon: "✅" },
-              { label: "Valor facturado FES",      value: fmt(admisiones?.total_valor ?? 0),                           sub: "Total facturas FES del período",        color: "#0891b2", icon: "💰" },
+              { label: "Estudios facturados",    value: (admisiones?.total_facturadas ?? 0).toLocaleString("es-CO"), sub: "Del período con FES emitida",          color: "#10b981", icon: "✅" },
+              { label: "Valor facturado FES",      value: fmt(admisiones?.total_valor ?? 0),                           sub: "Valor de los estudios del período",      color: "#0891b2", icon: "💰" },
             ].map((k, i) => (
               <div key={i} style={{ background: "#fff", borderRadius: 12, padding: "16px 18px",
                 boxShadow: "0 1px 8px rgba(0,0,0,0.07)", borderLeft: `4px solid ${k.color}` }}>
@@ -579,7 +579,7 @@ const FacturacionDashboard = () => {
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
                     {[
                       { label: "Estudios realizados", value: admisiones.total_admisiones.toLocaleString("es-CO"), sub: "Estudios del período (por fecha ingreso)", color: "#1d4ed8", icon: "📥" },
-                      { label: "Facturas emitidas",   value: admisiones.total_facturadas.toLocaleString("es-CO"), sub: "Facturas FES creadas en el período",       color: "#10b981", icon: "✅" },
+                      { label: "Estudios facturados", value: admisiones.total_facturadas.toLocaleString("es-CO"), sub: "Estudios del período con FES emitida",      color: "#10b981", icon: "✅" },
                       { label: "Valor facturado",      value: fmt(admisiones.total_valor),                        sub: "Valor de las facturas FES emitidas",        color: "#0f766e", icon: "💰" },
                     ].map((k, i) => (
                       <div key={i} style={{ background: "#fff", borderRadius: 10, padding: "14px 18px",
