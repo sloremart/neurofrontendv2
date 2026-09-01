@@ -35,7 +35,8 @@ interface ApiData {
 }
 
 // Admisiones vs facturación
-// admisiones = estudios por fecha_ing | facturadas = facturas FES por FechaDV (poblaciones distintas)
+// admisiones = estudios por fecha_ing del estudio | fes = facturas por fecha_usuario (emisión real)
+// Son poblaciones distintas: una FES emitida en agosto puede corresponder a un estudio de julio.
 interface AdmisionEntidad {
   nombre: string; admisiones: number; facturadas: number; valor: number;
 }
@@ -51,12 +52,16 @@ interface UsuarioResumen {
 interface ProduccionTimeline {
   fecha: string; usuario: string; facturas: number; valor: number;
 }
+interface ResumenMes {
+  mes: string; admisiones: number; fes: number; valor: number;
+}
 interface AdmisionesData {
   total_admisiones: number; total_facturadas: number; total_valor: number;
   timeline: AdmisionTimeline[]; entidades: AdmisionEntidad[];
   servicios: AdmisionServicio[];
   usuarios_resumen: UsuarioResumen[];
   produccion_timeline: ProduccionTimeline[];
+  resumen_meses: ResumenMes[];
 }
 
 // ── paleta semáforo MRC ───────────────────────────────────────────────────────
@@ -578,9 +583,9 @@ const FacturacionDashboard = () => {
                   {/* KPIs admisiones */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
                     {[
-                      { label: "Estudios realizados", value: admisiones.total_admisiones.toLocaleString("es-CO"), sub: "Estudios del período (por fecha ingreso)", color: "#1d4ed8", icon: "📥" },
-                      { label: "Estudios facturados", value: admisiones.total_facturadas.toLocaleString("es-CO"), sub: "Estudios del período con FES emitida",      color: "#10b981", icon: "✅" },
-                      { label: "Valor facturado",      value: fmt(admisiones.total_valor),                        sub: "Valor de las facturas FES emitidas",        color: "#0f766e", icon: "💰" },
+                      { label: "Estudios admisionados", value: admisiones.total_admisiones.toLocaleString("es-CO"), sub: "Por fecha de ingreso del estudio", color: "#1d4ed8", icon: "📥" },
+                      { label: "FES emitidas",           value: admisiones.total_facturadas.toLocaleString("es-CO"), sub: "Por fecha de creación de la factura", color: "#10b981", icon: "✅" },
+                      { label: "Valor facturado FES",    value: fmt(admisiones.total_valor),                         sub: "Total facturado en el período",         color: "#0f766e", icon: "💰" },
                     ].map((k, i) => (
                       <div key={i} style={{ background: "#fff", borderRadius: 10, padding: "14px 18px",
                         boxShadow: "0 1px 6px rgba(0,0,0,0.07)", borderLeft: `4px solid ${k.color}` }}>
@@ -591,6 +596,50 @@ const FacturacionDashboard = () => {
                       </div>
                     ))}
                   </div>
+
+                  {/* Aviso: métricas independientes */}
+                  <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "10px 16px", fontSize: 12, color: "#1e40af" }}>
+                    ℹ️ <strong>Nota:</strong> "Estudios admisionados" se cuenta por fecha de ingreso del estudio. "FES emitidas" se cuenta por fecha de creación de la factura. Una FES emitida en agosto puede corresponder a un estudio de julio — por eso los totales difieren.
+                  </div>
+
+                  {/* Resumen mensual */}
+                  {admisiones.resumen_meses && admisiones.resumen_meses.length > 0 && (
+                    <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)", overflowX: "auto" }}>
+                      <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                        Resumen por Mes
+                      </h3>
+                      <p style={{ margin: "0 0 14px", fontSize: 12, color: "#64748b" }}>
+                        Admisionados (por mes de ingreso) · FES emitidas (por mes de emisión) — cada columna usa su propia fecha
+                      </p>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                        <thead>
+                          <tr style={{ borderBottom: "2px solid #e2e8f0", background: "#f8fafc" }}>
+                            {["Mes", "Admisionados", "FES emitidas", "Diferencia", "Valor FES"].map(h => (
+                              <th key={h} style={{ padding: "8px 12px", textAlign: h === "Mes" ? "left" : "right",
+                                fontWeight: 700, color: "#475569", fontSize: 10, textTransform: "uppercase" as const }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {admisiones.resumen_meses.map((m, i) => {
+                            const diff = m.admisiones - m.fes;
+                            return (
+                              <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                                <td style={{ padding: "9px 12px", fontWeight: 700, color: "#0f172a" }}>{m.mes}</td>
+                                <td style={{ padding: "9px 12px", textAlign: "right", color: "#1d4ed8", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{m.admisiones.toLocaleString("es-CO")}</td>
+                                <td style={{ padding: "9px 12px", textAlign: "right", color: "#10b981", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{m.fes.toLocaleString("es-CO")}</td>
+                                <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums",
+                                  color: diff >= 0 ? "#16a34a" : "#dc2626" }}>
+                                  {diff >= 0 ? "+" : ""}{diff.toLocaleString("es-CO")}
+                                </td>
+                                <td style={{ padding: "9px 12px", textAlign: "right", color: "#0f766e", fontVariantNumeric: "tabular-nums" }}>{fmt(m.valor)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
                   {/* alertas */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10 }}>
@@ -617,10 +666,10 @@ const FacturacionDashboard = () => {
                   {/* timeline dual */}
                   <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
                     <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
-                      Admisiones vs Facturadas por Día
+                      Evolución Diaria
                     </h3>
                     <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>
-                      Azul = admisiones ingresadas · Verde = con factura emitida · la brecha es lo pendiente
+                      Azul = estudios admisionados ese día · Verde = FES emitidas ese día (pueden ser de estudios de otro período)
                     </p>
                     {admTimeline.length > 0
                       ? <Chart type="area" height={280}
@@ -636,9 +685,9 @@ const FacturacionDashboard = () => {
                   {/* gráfica por entidad */}
                   <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
                     <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
-                      Admisiones vs Facturadas por Entidad
+                      Admisionados vs FES Emitidas por Entidad
                     </h3>
-                    <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>Top 12 entidades por volumen de estudios</p>
+                    <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>Top 12 entidades — azul: estudios por fecha ingreso · verde: FES por fecha emisión</p>
                     {admEntidades.length > 0
                       ? <Chart type="bar" height={Math.max(300, admEntidades.slice(0,12).length * 36)}
                           series={[
@@ -652,11 +701,12 @@ const FacturacionDashboard = () => {
 
                   {/* tabla detalle por entidad */}
                   <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)", overflowX: "auto" }}>
-                    <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Detalle por Entidad</h3>
+                    <h3 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Detalle por Entidad</h3>
+                    <p style={{ margin: "0 0 14px", fontSize: 11, color: "#64748b" }}>Admisionados: por fecha de ingreso del estudio · FES: por fecha de emisión de la factura</p>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 750 }}>
                       <thead>
                         <tr style={{ borderBottom: "2px solid #e2e8f0", background: "#f8fafc" }}>
-                          {["#", "Entidad", "Admisiones", "Facturas FES", "Valor Facturado"].map(h => (
+                          {["#", "Entidad", "Admisionados", "FES emitidas", "Valor Facturado"].map(h => (
                             <th key={h} style={{ padding: "8px 10px", textAlign: h === "Entidad" ? "left" : "right",
                               fontWeight: 700, color: "#475569", fontSize: 10, textTransform: "uppercase" as const }}>{h}</th>
                           ))}
