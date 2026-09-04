@@ -44,6 +44,16 @@ const Navbar = () => {
       >
         GDF PROVEEDORES
       </Link>
+
+      <Link
+        to="/carga_autorizaciones"
+        style={{
+          color: pathname === '/carga_autorizaciones' ? '#facc15' : 'white',
+          textDecoration: 'none'
+        }}
+      >
+        AUTORIZACIONES
+      </Link>
     </nav>
   );
 };

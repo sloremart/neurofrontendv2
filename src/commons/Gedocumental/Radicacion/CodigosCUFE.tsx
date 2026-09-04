@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { DataGrid,  GridRenderCellParams,  GridToolbarExport, type GridColDef } from "@mui/x-data-grid";
 import { Button } from "@mui/material";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -140,7 +140,7 @@ export const CodigosCufe = () => {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        marginTop: "80px",
+        marginTop: "0",
       }}
     >
       <Title title="CÓDIGOS CUFE" />

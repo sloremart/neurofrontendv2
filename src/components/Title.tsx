@@ -28,7 +28,8 @@ export const Title: React.FC<Props> = ({ title, width, fontSize }: Props) => {
         fontWeight: "900",
         alignItems: "center",
         justifyContent: "center",
-        marginTop: "20px",
+        marginTop: "16px",
+        marginBottom: "20px",
       }}
     >
       <Typography
