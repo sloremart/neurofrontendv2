@@ -1,24 +1,21 @@
 import React, { useState } from "react";
 import {
-  DataGrid,
-  GridRenderCellParams,
-  GridToolbarExport,
-  type GridColDef,
+  DataGrid, GridRenderCellParams, GridToolbarExport, type GridColDef,
 } from "@mui/x-data-grid";
 import { useDispatch, useSelector } from "react-redux";
-import { Autocomplete, TextField } from "@mui/material";
+import {
+  Autocomplete, TextField, Box, Button,
+  Checkbox, Chip,
+} from "@mui/material";
 import { RootState } from "../../../../store/store.ts";
-import { Title } from "../../../../components/Title.tsx";
 import { IObjUsuarios } from "../../../Login/interface/InterfaceLogin.ts";
 import {
-  actualizarModificadoRevisor,
-  get_admision_pendiente,
+  actualizarModificadoRevisor, get_admision_pendiente,
 } from "../../TalentoHumano/store/thunks/TalentoHumanoThunks.tsx";
 import WarningIcon from "@mui/icons-material/Warning";
-import { Checkbox, Button } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import HighlightOffIcon from "@mui/icons-material/HighlightOff";
-import { PrimeReactProvider } from "primereact/api";
+import SearchIcon from "@mui/icons-material/Search";
 
 interface TablaFacturacionPendientesProps {
   userId?: string | number;
@@ -28,7 +25,24 @@ interface TablaFacturacionPendientesProps {
   onUserChange?: (id: string) => void;
 }
 
-export const TablaFacturacionPendientes = ({ userId: userIdProp, isLider, users = [], selectedUserId, onUserChange }: TablaFacturacionPendientesProps) => {
+const HEADER_SX = {
+  "& .MuiDataGrid-columnHeaders": {
+    background: "linear-gradient(90deg, #381A73 0%, #1E2E71 60%, #0F4374 100%)",
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: 700,
+  },
+  "& .MuiDataGrid-columnHeaderTitle": { color: "#fff", fontWeight: 700 },
+  "& .MuiDataGrid-sortIcon, & .MuiDataGrid-menuIconButton": { color: "rgba(255,255,255,0.7)" },
+  "& .MuiDataGrid-row:hover": { bgcolor: "#F5F3FF" },
+  "& .MuiDataGrid-row.Mui-selected": { bgcolor: "#EDE9FE" },
+  borderRadius: 2,
+  border: "1px solid #E5E7EB",
+};
+
+export const TablaFacturacionPendientes = ({
+  userId: userIdProp, isLider, users = [], selectedUserId, onUserChange,
+}: TablaFacturacionPendientesProps) => {
   const { admision_pendientes_facturacion } = useSelector(
     (state: RootState) => state.talento_humano
   );
@@ -41,12 +55,9 @@ export const TablaFacturacionPendientes = ({ userId: userIdProp, isLider, users 
     return userData.id;
   };
 
-  const handleCheckboxChange = async (row, type) => {
+  const handleCheckboxChange = async (row: any, type: string) => {
     if (type === "cuentas_medicas") {
-      await actualizarModificadoRevisor(
-        row.Consecutivo,
-        "cuentas_medicas"
-      )(dispatch);
+      await actualizarModificadoRevisor(row.Consecutivo, "cuentas_medicas")(dispatch);
     } else if (type === "tesoreria") {
       await actualizarModificadoRevisor(row.Consecutivo, "tesoreria")(dispatch);
     }
@@ -55,108 +66,62 @@ export const TablaFacturacionPendientes = ({ userId: userIdProp, isLider, users 
 
   const columns: GridColDef[] = [
     {
-      field: "no",
-      headerName: "No.",
-      width: 70,
-      renderCell: (params: GridRenderCellParams<any>) => {
-        const allRows = params.api.getSortedRowIds();
-        const index = allRows.indexOf(params.id);
-        return index + 1;
+      field: "no", headerName: "No.", width: 60,
+      renderCell: (p: GridRenderCellParams<any>) => {
+        const allRows = p.api.getSortedRowIds();
+        return allRows.indexOf(p.id) + 1;
       },
     },
+    { field: "Consecutivo", headerName: "Núm. Admisión", width: 110 },
+    { field: "IdPaciente", headerName: "Identificación", width: 110, flex: 1 },
+    { field: "CodigoEntidad", headerName: "Entidad", width: 100 },
+    { field: "NombreResponsable", headerName: "Nombre", width: 250, flex: 1 },
+    { field: "FacturaNo", headerName: "Factura", width: 100 },
     {
-      field: "Consecutivo",
-      headerName: "Núm. Admisión",
-      width: 100,
-      cellClassName: "truncate-cell",
-    },
-    {
-      field: "IdPaciente",
-      headerName: "Identificacion",
-      width: 100,
-      flex: 1,
-      cellClassName: "truncate-cell",
-    },
-    {
-      field: "CodigoEntidad",
-      headerName: "Entidad",
-      width: 100,
-      cellClassName: "truncate-cell",
-    },
-    {
-      field: "NombreResponsable",
-      headerName: "Nombre",
-      width: 300,
-      flex: 1,
-    },
-    {
-      field: "FacturaNo",
-      headerName: "Factura",
-      width: 100,
-      cellClassName: "truncate-cell",
-    },
-    {
-      field: "DiasActiva",
-      headerName: "Días Activa",
-      width: 150,
-      cellClassName: "truncate-cell",
-      valueGetter: (params) => {
-        const fechaObservacion = new Date(params.row.FechaRecienteObservacion);
-        if (isNaN(fechaObservacion.getTime())) {
-          return "Fecha inválida";
-        }
-        const fechaActual = new Date();
-        const diferenciaEnMilisegundos =
-          fechaActual.getTime() - fechaObservacion.getTime();
-        const diferenciaEnDias = Math.floor(
-          diferenciaEnMilisegundos / (1000 * 60 * 60 * 24)
-        );
-        return diferenciaEnDias;
+      field: "DiasActiva", headerName: "Días Activa", width: 100,
+      valueGetter: (p) => {
+        const f = new Date(p.row.FechaRecienteObservacion);
+        if (isNaN(f.getTime())) return "—";
+        return Math.floor((new Date().getTime() - f.getTime()) / (1000 * 60 * 60 * 24));
       },
-    },
-    {
-      field: "Pendientes",
-      headerName: "Admisión por revisar",
-      width: 100,
-      flex: 1,
-      renderCell: (params) => {
-        const diasActiva = params.row.DiasActiva;
-        let color = "orange"; // Por defecto, el color es naranja
-        if (diasActiva && diasActiva > 5) {
-          color = "red"; // Si los días activos son mayores que 5, cambia el color a rojo
-        }
+      renderCell: (p) => {
+        const dias = p.value as number;
+        if (typeof dias !== "number") return <span>—</span>;
         return (
-          <span>
-            <WarningIcon style={{ color }} />
-          </span>
+          <Chip
+            label={`${dias}d`}
+            size="small"
+            sx={{
+              fontWeight: 700, fontSize: 11,
+              bgcolor: dias > 5 ? "#FEE2E2" : "#FEF3C7",
+              color: dias > 5 ? "#991B1B" : "#92400E",
+            }}
+          />
         );
       },
     },
     {
-      field: "Modificado1",
-      headerName: "Enviado",
-      width: 150,
-      flex: 1,
-      renderCell: (params) => {
-        const value = params.value as boolean;
-        const iconStyle = {
-          color: value ? "green" : "red",
-        };
-        return value ? (
-          <CheckCircleIcon style={iconStyle} />
-        ) : (
-          <HighlightOffIcon style={iconStyle} />
-        );
+      field: "Pendientes", headerName: "Alerta", width: 80,
+      renderCell: (p) => {
+        const dias = p.row.DiasActiva;
+        return <WarningIcon sx={{ color: dias && dias > 5 ? "#EF4444" : "#F59E0B", fontSize: 20 }} />;
       },
     },
     {
-      field: "cuentas_medicas",
-      headerName: "Cuentas Médicas",
-      width: 150,
-      renderCell: (params) => (
+      field: "Modificado1", headerName: "Enviado", width: 100,
+      renderCell: (p) =>
+        p.value
+          ? <CheckCircleIcon sx={{ color: "#16A34A", fontSize: 20 }} />
+          : <HighlightOffIcon sx={{ color: "#EF4444", fontSize: 20 }} />,
+    },
+    {
+      field: "cuentas_medicas", headerName: "Cuentas Médicas", width: 140,
+      renderCell: (p) => (
         <Checkbox
-          checked={params.row.cuentas_medicas}
-          onChange={() => handleCheckboxChange(params.row, "cuentas_medicas")}
+          checked={!!p.row.cuentas_medicas}
+          onChange={() => handleCheckboxChange(p.row, "cuentas_medicas")}
+          size="small"
+          sx={{ color: "#1E2E71", "&.Mui-checked": { color: "#1E2E71" } }}
         />
       ),
     },
@@ -166,8 +131,7 @@ export const TablaFacturacionPendientes = ({ userId: userIdProp, isLider, users 
     setLoading(true);
     try {
       const id = getEffectiveUserId();
-      if (!id) { setLoading(false); return; }
-      await dispatch(get_admision_pendiente(id));
+      if (id) await dispatch(get_admision_pendiente(id));
     } catch (error) {
       console.error("Error al cargar las admisiones pendientes:", error);
     } finally {
@@ -176,70 +140,41 @@ export const TablaFacturacionPendientes = ({ userId: userIdProp, isLider, users 
   };
 
   return (
-    <div
-      className="myContainer"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-      }}>
-      <PrimeReactProvider>
-        <Title title="LISTADO DE ADMISIONES PENDIENTES" />
-        <div style={{ marginTop: "20px", marginBottom: "24px", display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", flexWrap: "wrap" }}>
-          {isLider && (
-            <Autocomplete
-              options={users}
-              getOptionLabel={(u) => u.nombre || u.username}
-              style={{ width: 280 }}
-              value={users.find((u) => String(u.id) === String(selectedUserId)) || null}
-              onChange={(_, newValue) => onUserChange?.(newValue ? String(newValue.id) : "")}
-              renderInput={(params) => (
-                <TextField {...params} label="Consultar como usuario" variant="outlined" size="small" />
-              )}
-            />
-          )}
-          <Button
-            variant="contained"
-            color="primary"
-            sx={{ backgroundColor: "#1E3A8A", "&:hover": { backgroundColor: "#1E3A8A" } }}
-            onClick={fetchData}
-            style={{ marginBottom: "0px", height: "40px" }}>
-            Consultar Observaciones
-          </Button>
-        </div>
-        <div
-          style={{
-            height: 400,
-            width: "95%",
-            display: "flex",
-            justifyContent: "center",
-          }}>
-          <DataGrid
-            sx={{
-              backgroundColor: "white",
-              "& .MuiDataGrid-cell": {
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              },
-              "& .MuiDataGrid-columnHeader": {
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              },
-            }}
-            density="compact"
-            columns={columns}
-            getRowId={(row) => row.Consecutivo}
-            loading={loading}
-            rows={admision_pendientes_facturacion}
-            components={{
-              Toolbar: GridToolbarExport,
-            }}
+    <Box sx={{ p: 2 }}>
+      <Box sx={{ display: "flex", gap: 2, mb: 2, alignItems: "center" }}>
+        {isLider && (
+          <Autocomplete
+            options={users}
+            getOptionLabel={(u) => u.nombre || u.username}
+            sx={{ width: 280 }}
+            value={users.find((u) => String(u.id) === String(selectedUserId)) || null}
+            onChange={(_, v) => onUserChange?.(v ? String(v.id) : "")}
+            renderInput={(params) => (
+              <TextField {...params} label="Consultar como usuario" size="small" />
+            )}
           />
-        </div>
-      </PrimeReactProvider>
-    </div>
+        )}
+        <Button
+          variant="contained"
+          onClick={fetchData}
+          startIcon={<SearchIcon />}
+          sx={{ background: "linear-gradient(90deg, #381A73, #1E2E71)" }}
+        >
+          Consultar pendientes
+        </Button>
+      </Box>
+      <DataGrid
+        sx={HEADER_SX}
+        density="compact"
+        autoHeight
+        columns={columns}
+        getRowId={(row) => row.Consecutivo}
+        loading={loading}
+        rows={admision_pendientes_facturacion}
+        pageSizeOptions={[25, 50, 100]}
+        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+        slots={{ toolbar: GridToolbarExport }}
+      />
+    </Box>
   );
 };
-
