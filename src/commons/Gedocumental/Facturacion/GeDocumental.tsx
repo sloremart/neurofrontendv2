@@ -28,6 +28,9 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import CommentIcon from "@mui/icons-material/Comment";
 import ListAltIcon from "@mui/icons-material/ListAlt";
+import SyncIcon from "@mui/icons-material/Sync";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import { getToken } from "../../../config/token.jsx";
 
 interface Observacion {
   AdmisionId: number;
@@ -105,6 +108,7 @@ export const GeDocumental = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [pendientesOpen, setPendientesOpen] = useState(false);
   const [obsOpen, setObsOpen] = useState(false);
+  const [archivosExistentes, setArchivosExistentes] = useState<{ [tipo: string]: { IdArchivo: number; NombreArchivo: string }[] }>({});
 
   useEffect(() => {
     if (enviarArchivos) {
@@ -136,6 +140,38 @@ export const GeDocumental = () => {
     }
   };
 
+  const fetchArchivosExistentes = async (cons: string) => {
+    try {
+      const res = await fetch(`${API_ENDPOINT}/gedocumental/archivos-por-admision/${cons}/`);
+      const data = await res.json();
+      if (data.success) {
+        const porTipo: { [tipo: string]: { IdArchivo: number; NombreArchivo: string }[] } = {};
+        for (const a of data.data.archivos) {
+          if (!porTipo[a.Tipo]) porTipo[a.Tipo] = [];
+          porTipo[a.Tipo].push({ IdArchivo: a.IdArchivo, NombreArchivo: a.NombreArchivo });
+        }
+        setArchivosExistentes(porTipo);
+      }
+    } catch {}
+  };
+
+  const handleReemplazar = async (tipo: string) => {
+    const existentes = archivosExistentes[tipo] || [];
+    const token = getToken();
+    for (const a of existentes) {
+      await fetch(`${API_ENDPOINT}/gedocumental/eliminar-archivo/?archivo_id=${a.IdArchivo}`, {
+        method: "DELETE",
+        headers: { Authorization: `Token ${token}` },
+      });
+    }
+    setArchivosExistentes(prev => { const { [tipo]: _, ...rest } = prev; return rest; });
+    setArchivosCargados(prev => ({ ...prev, [tipo]: false }));
+    setBotonesGuardadoHabilitados(prev => ({ ...prev, [tipo]: false }));
+    setArchivosCargadosInfo(prev => { const { [tipo]: _, ...rest } = prev; return rest; });
+    setArchivos(prev => prev.filter(a => a.tipoDocumento !== tipo));
+    toast.info(`Archivo ${tipo} eliminado. Puede subir uno nuevo.`);
+  };
+
   const fetchData = async () => {
     try {
       const response = await fetch(`${API_ENDPOINT}/gedocumental/admisiones/${consecutivo}/`);
@@ -143,6 +179,7 @@ export const GeDocumental = () => {
       const responseData = await response.json();
       const data = responseData.data;
       setAdmisionData(data);
+      setArchivosExistentes({});
       if (data.ContratoRegimen === 1) handleRegimenChange("C");
       else if (data.ContratoRegimen === 2) handleRegimenChange("S");
       else {
@@ -150,6 +187,7 @@ export const GeDocumental = () => {
         if (alias.includes("CONTRIBUTIVO")) handleRegimenChange("C");
         else if (alias.includes("SUBSIDIADO")) handleRegimenChange("S");
       }
+      await fetchArchivosExistentes(consecutivo);
       toast.success("Datos de admisión obtenidos correctamente", { autoClose: 3000 });
     } catch {
       toast.error("Error al obtener la información de la admisión", { autoClose: 3000 });
@@ -370,15 +408,24 @@ export const GeDocumental = () => {
                     component="span"
                     size="small"
                     startIcon={<UploadFileIcon />}
-                    disabled={archivosCargados[tipoDocumento]}
+                    disabled={archivosCargados[tipoDocumento] || (archivosExistentes[tipoDocumento]?.length > 0 && !archivosCargados[tipoDocumento])}
                     sx={{ minWidth: 180, borderStyle: "dashed" }}
                   >
                     {tipoDocumento}
                   </Button>
                 </label>
 
-                <Box sx={{ flex: 1 }}>
-                  {archivosCargadosInfo[tipoDocumento] ? (
+                <Box sx={{ flex: 1, display: "flex", alignItems: "center", gap: 1 }}>
+                  {archivosExistentes[tipoDocumento]?.length > 0 && !archivosCargados[tipoDocumento] ? (
+                    <Chip
+                      icon={<CheckCircleIcon />}
+                      label={archivosExistentes[tipoDocumento][0].NombreArchivo}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      sx={{ maxWidth: "100%", fontWeight: 600 }}
+                    />
+                  ) : archivosCargadosInfo[tipoDocumento] ? (
                     <Chip
                       label={archivosCargadosInfo[tipoDocumento]}
                       size="small"
@@ -393,34 +440,49 @@ export const GeDocumental = () => {
                   )}
                 </Box>
 
-                <Tooltip title="Guardar" arrow>
-                  <span>
+                {archivosExistentes[tipoDocumento]?.length > 0 && !archivosCargados[tipoDocumento] ? (
+                  <Tooltip title="Reemplazar archivo" arrow>
                     <IconButton
                       size="small"
-                      color="primary"
-                      disabled={botonesGuardadoHabilitados[tipoDocumento]}
-                      onClick={() =>
-                        handleGuardarArchivos(
-                          archivos.filter((a) => a.tipoDocumento === tipoDocumento),
-                          tipoDocumento
-                        )
-                      }
-                      sx={{ bgcolor: "#EEF2FF", "&:hover": { bgcolor: "#E0E7FF" } }}
+                      color="warning"
+                      onClick={() => handleReemplazar(tipoDocumento)}
+                      sx={{ bgcolor: "#FFFBEB", "&:hover": { bgcolor: "#FEF3C7" } }}
                     >
-                      <SaveIcon fontSize="small" />
+                      <SyncIcon fontSize="small" />
                     </IconButton>
-                  </span>
-                </Tooltip>
-                <Tooltip title="Eliminar" arrow>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleEliminarArchivo(tipoDocumento)}
-                    sx={{ bgcolor: "#FEF2F2", "&:hover": { bgcolor: "#FEE2E2" } }}
-                  >
-                    <DeleteForeverIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                  </Tooltip>
+                ) : (
+                  <>
+                    <Tooltip title="Guardar" arrow>
+                      <span>
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          disabled={botonesGuardadoHabilitados[tipoDocumento]}
+                          onClick={() =>
+                            handleGuardarArchivos(
+                              archivos.filter((a) => a.tipoDocumento === tipoDocumento),
+                              tipoDocumento
+                            )
+                          }
+                          sx={{ bgcolor: "#EEF2FF", "&:hover": { bgcolor: "#E0E7FF" } }}
+                        >
+                          <SaveIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title="Eliminar" arrow>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleEliminarArchivo(tipoDocumento)}
+                        sx={{ bgcolor: "#FEF2F2", "&:hover": { bgcolor: "#FEE2E2" } }}
+                      >
+                        <DeleteForeverIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </>
+                )}
               </Box>
             ))}
           </CardContent>
