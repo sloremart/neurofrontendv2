@@ -163,7 +163,6 @@ export const TablaRadicacion = () => {
         ? <CheckCircleIcon sx={{ color: "#16A34A", fontSize: 20 }} />
         : <HighlightOffIcon sx={{ color: "#EF4444", fontSize: 20 }} />,
     },
-    { field: "FechaCreacionAntares", headerName: "Fecha Creación Antares", width: 190, headerAlign: "center", align: "center" },
     { field: "FechaCreacionArchivo", headerName: "Fecha Creación Archivo", width: 190, headerAlign: "center", align: "center" },
     {
       field: "Radicado", headerName: "Renombrado", width: 120,
