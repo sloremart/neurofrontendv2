@@ -107,7 +107,7 @@ export const TablaRadicacion = () => {
       "FOMAG": renombrar_fomag,
       "POLICIA FISIATRIA 084-7-200075-25": renombrar_policia,
       "POLICIA ESTUDIOS DEL SUEÑO 084-7-200098-25": renombrar_policia,
-      "PONAL MEDICINA LABORAL": renombrar_policia,
+      "PONAL MEDICINA LABORAL 084-7-200062-26": renombrar_policia,
       "MEDISANITAS": renombrar_medisanitas,
       "EJERCITO": renombrar_ejercito,
     };
