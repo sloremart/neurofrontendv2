@@ -9,6 +9,7 @@ import { caja_facturacion_slice } from '../commons/Gedocumental/Facturacion/stor
 import { dashboard_slice } from '../commons/Dashboard/store/slice/indexDashboard.tsx';
 import { riesgo_compartido_slice } from '../commons/Dashboard/store/slice/indexMrc.tsx';
 import { programacion_pagos_slice } from '../commons/ProgramacionPagos/store/slice/indexProgramacionPago.tsx';
+import estudios_sueno_reducer from '../commons/EstudiosSueno/store/slice/indexEstudiosSueno.tsx';
 
 const store = configureStore({
   reducer: {
@@ -20,6 +21,7 @@ const store = configureStore({
     dashboard: dashboard_slice.reducer,
     riesgo_compartido: riesgo_compartido_slice.reducer,
     programacion_pagos: programacion_pagos_slice.reducer,
+    estudios_sueno: estudios_sueno_reducer,
 
   },
 });

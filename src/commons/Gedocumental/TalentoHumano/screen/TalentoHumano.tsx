@@ -13,6 +13,7 @@ import SendIcon from "@mui/icons-material/Send";
 import CommentIcon from "@mui/icons-material/Comment";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
+import RestoreIcon from "@mui/icons-material/Restore";
 import CONFIG from "../../../../config/api.js";
 import { Title } from "../../../../components/Title.tsx";
 import { Hallazgo, IObjAdmision, Observacion } from "../interfaces/TalentoHumano.ts";
@@ -215,6 +216,22 @@ export const TalentoHumano = () => {
   };
 
   const canDelete = userId === 182 || userId === 199 || userId === 209 || userId === 214;
+
+  const handleRevertirRadicado = async () => {
+    if (!consecutivoConsulta) { toast.warn("Busca una admisión primero", { autoClose: 3000 }); return; }
+    try {
+      const res = await fetch(`${API_ENDPOINT}/revertir_radicado/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admision_id: consecutivoConsulta }),
+      });
+      const data = await res.json();
+      if (data.success) toast.success(data.detail, { autoClose: 3000 });
+      else toast.error(data.detail, { autoClose: 3000 });
+    } catch {
+      toast.error("Error al revertir renombre", { autoClose: 3000 });
+    }
+  };
 
   return (
     <Box sx={{ p: 2 }}>
@@ -467,6 +484,28 @@ export const TalentoHumano = () => {
               </Box>
             </Box>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ── Revertir renombre ── */}
+      <Card variant="outlined" sx={{ mb: 3, borderRadius: 2, border: "1px solid #FEE2E2" }}>
+        <SectionHeader icon={<RestoreIcon />} label="Revertir renombre" />
+        <CardContent sx={{ pb: "16px !important" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+            <Typography sx={{ fontSize: 13, color: "#374151" }}>
+              Revierte a <strong>0</strong> el campo de renombre de todos los archivos de la admisión actual.
+              Úsalo cuando sea necesario volver a procesar el renombramiento.
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<RestoreIcon />}
+              onClick={handleRevertirRadicado}
+              disabled={!consecutivoConsulta}
+              sx={{ borderColor: "#EF4444", color: "#EF4444", "&:hover": { bgcolor: "#FEF2F2", borderColor: "#DC2626" }, flexShrink: 0 }}
+            >
+              Revertir renombre
+            </Button>
+          </Box>
         </CardContent>
       </Card>
 

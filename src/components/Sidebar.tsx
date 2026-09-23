@@ -61,7 +61,7 @@ const MENU: MenuGroup[] = [
       { label: 'Cuentas Médicas',      path: '/cuentas_medicas',                icon: <PeopleOutlineIcon />,         roles: ['CuentasMedicas', 'LiderCuentasMedicas'] },
       { label: 'Radicación',           path: '/radicacion',                    icon: <RequestQuoteIcon />,          roles: ['CuentasMedicas', 'LiderCuentasMedicas'] },
       { label: 'Códigos CUFE',         path: '/codigo_cufe',                   icon: <QrCode2Icon />,               roles: ['LiderCuentasMedicas'] },
-      { label: 'GE Documental Estudios', path: '/ge_documental_resultados',    icon: <AssignmentTurnedInIcon />,    roles: ['EstudiosSueño'] },
+      { label: 'Consolidado Sueño',     path: '/estudios_sueno',               icon: <AssignmentTurnedInIcon />,    roles: ['EstudiosSueño', 'Asistencial'] },
       { label: 'Prog. Pagos',          path: '/documental_programacion_pagos', icon: <AccountBalanceWalletIcon />,  roles: ['Contador', 'Financiera'] },
       { label: 'Tesorería',            path: '/tesoreria',                     icon: <AccountBalanceIcon />,        roles: ['Contador'] },
       { label: 'Caja Facturación',    path: '/caja_facturacion',              icon: <SavingsIcon />,               roles: ['Facturador'] },

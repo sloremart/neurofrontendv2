@@ -14,8 +14,8 @@ const API_ENDPOINT = CONFIG.API_ENDPOINT;
 const ROLE_ROUTES: Record<string, string> = {
   CuentasMedicas: "/cuentas_medicas",
   LiderCuentasMedicas: "/cuentas_medicas",
-  EstudiosSueño: "/ge_documental_resultados",
-  Asistencial: "/ge_documental_resultados",
+  EstudiosSueño: "/estudios_sueno",
+  Asistencial: "/estudios_sueno",
   Contador: "/documental_programacion_pagos",
   Financiera: "/documental_programacion_pagos",
   AdministrativoGerencia: "/facturas_proveedores",

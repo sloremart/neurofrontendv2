@@ -15,10 +15,10 @@ import { TalentoHumano } from '../commons/Gedocumental/TalentoHumano/screen/Tale
 import { Tesoreria } from '../commons/Gedocumental/TalentoHumano/screen/Tesoseria.tsx';
 import { TablaRadicacion } from '../commons/Gedocumental/Radicacion/TablaRadicacion.tsx';
 import { CodigosCufe } from '../commons/Gedocumental/Radicacion/CodigosCUFE.tsx';
-import { GeDocumentalResultados } from '../commons/Gedocumental/Facturacion/components/GeDocumentalResultados.tsx';
 import GeDocumentalProgramacion from '../commons/Gedocumental/Facturacion/components/GeDocumentalProgramacionPagos.tsx';
 import { TablaProveedor } from '../commons/ProgramacionPagos/components/TablaIdRevisor.tsx';
 import CargaAutorizaciones from '../commons/Autorizaciones/CargaAutorizaciones.tsx';
+import { TablaEstudioSueno } from '../commons/EstudiosSueno/TablaEstudioSueno.tsx';
 import { CajaFacturacion } from '../commons/Gedocumental/Facturacion/components/CajaFacturacion.tsx';
 
 // Dashboard
@@ -73,7 +73,7 @@ export const AppRouter: React.FC = () => {
 
         {/* Estudios / Asistencial */}
         <Route element={<ProtectedRoute allowedRoles={EST_ROLES} />}>
-          <Route path="/ge_documental_resultados" element={<GeDocumentalResultados />} />
+          <Route path="/estudios_sueno" element={<TablaEstudioSueno />} />
         </Route>
 
         {/* Contador / Financiera */}
