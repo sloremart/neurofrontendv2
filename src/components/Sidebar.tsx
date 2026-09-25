@@ -8,7 +8,6 @@ import {
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
-import QrCode2Icon from '@mui/icons-material/QrCode2';
 import BiotechIcon from '@mui/icons-material/Biotech';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
@@ -60,7 +59,6 @@ const MENU: MenuGroup[] = [
       { label: 'GE Documental',        path: '/ge_documental',                 icon: <FolderOpenIcon />,            roles: ['CuentasMedicas', 'LiderCuentasMedicas', 'EstudiosSueño', 'Asistencial', 'OPERSALUD', 'Facturador'] },
       { label: 'Cuentas Médicas',      path: '/cuentas_medicas',                icon: <PeopleOutlineIcon />,         roles: ['CuentasMedicas', 'LiderCuentasMedicas'] },
       { label: 'Radicación',           path: '/radicacion',                    icon: <RequestQuoteIcon />,          roles: ['CuentasMedicas', 'LiderCuentasMedicas'] },
-      { label: 'Códigos CUFE',         path: '/codigo_cufe',                   icon: <QrCode2Icon />,               roles: ['LiderCuentasMedicas'] },
       { label: 'Consolidado Sueño',     path: '/estudios_sueno',               icon: <AssignmentTurnedInIcon />,    roles: ['EstudiosSueño', 'Asistencial'] },
       { label: 'Prog. Pagos',          path: '/documental_programacion_pagos', icon: <AccountBalanceWalletIcon />,  roles: ['Contador', 'Financiera'] },
       { label: 'Tesorería',            path: '/tesoreria',                     icon: <AccountBalanceIcon />,        roles: ['Contador'] },

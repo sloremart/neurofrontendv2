@@ -14,7 +14,6 @@ import { GeDocumental } from '../commons/Gedocumental/Facturacion/GeDocumental.t
 import { TalentoHumano } from '../commons/Gedocumental/TalentoHumano/screen/TalentoHumano.tsx';
 import { Tesoreria } from '../commons/Gedocumental/TalentoHumano/screen/Tesoseria.tsx';
 import { TablaRadicacion } from '../commons/Gedocumental/Radicacion/TablaRadicacion.tsx';
-import { CodigosCufe } from '../commons/Gedocumental/Radicacion/CodigosCUFE.tsx';
 import GeDocumentalProgramacion from '../commons/Gedocumental/Facturacion/components/GeDocumentalProgramacionPagos.tsx';
 import { TablaProveedor } from '../commons/ProgramacionPagos/components/TablaIdRevisor.tsx';
 import CargaAutorizaciones from '../commons/Autorizaciones/CargaAutorizaciones.tsx';
@@ -66,10 +65,6 @@ export const AppRouter: React.FC = () => {
           <Route path="/radicacion"          element={<TablaRadicacion />} />
         </Route>
 
-        {/* Solo Líder CM */}
-        <Route element={<ProtectedRoute allowedRoles={['LiderCuentasMedicas']} />}>
-          <Route path="/codigo_cufe" element={<CodigosCufe />} />
-        </Route>
 
         {/* Estudios / Asistencial */}
         <Route element={<ProtectedRoute allowedRoles={EST_ROLES} />}>
