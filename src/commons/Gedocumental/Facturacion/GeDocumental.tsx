@@ -17,7 +17,7 @@ import { green } from "@mui/material/colors";
 import {
   Box, Card, CardContent, Typography, TextField,
   Button, IconButton, Tooltip, Chip, Divider,
-  Collapse,
+  Collapse, Dialog, DialogContent, DialogActions,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
@@ -30,6 +30,8 @@ import CommentIcon from "@mui/icons-material/Comment";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import SyncIcon from "@mui/icons-material/Sync";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import SmartToyIcon from "@mui/icons-material/SmartToy";
 import { getToken } from "../../../config/token.jsx";
 
 interface Observacion {
@@ -109,6 +111,8 @@ export const GeDocumental = () => {
   const [pendientesOpen, setPendientesOpen] = useState(false);
   const [obsOpen, setObsOpen] = useState(false);
   const [archivosExistentes, setArchivosExistentes] = useState<{ [tipo: string]: { IdArchivo: number; NombreArchivo: string }[] }>({});
+  const [aiResultados, setAiResultados] = useState<{ [tipo: string]: { tipo: string; descripcion: string } | null }>({});
+  const [aiAlerta, setAiAlerta] = useState<{ tipo: string; descripcion: string; tipoDocumento: string } | null>(null);
 
   useEffect(() => {
     if (enviarArchivos) {
@@ -233,8 +237,20 @@ export const GeDocumental = () => {
       formData.append("userId", userData.id);
       formData.append("regimen", regimen);
       const response = await fetch(`${API_ENDPOINT}/gedocumental/archivos/${consecutivo}/`, { method: "POST", body: formData });
-      if (!response.ok) { const d = await response.json(); throw new Error(d.detail || `Error ${response.status}`); }
-      toast.success("Archivos guardados correctamente.");
+      const responseData = await response.json();
+      if (!response.ok) { throw new Error(responseData.detail || `Error ${response.status}`); }
+
+      // Procesar resultado de revisión IA (puede no existir si la API key no está configurada)
+      const archivosGuardados: { ai_revision?: { tipo: string; descripcion: string } | null }[] = responseData.data || [];
+      const revisionIA = archivosGuardados[0]?.ai_revision ?? null;
+
+      setAiResultados((prev) => ({ ...prev, [tipoDocumento]: revisionIA }));
+
+      if (revisionIA && revisionIA.tipo !== "OK") {
+        setAiAlerta({ ...revisionIA, tipoDocumento: tipoDocumento });
+      } else {
+        toast.success("Archivos guardados correctamente.");
+      }
       setBotonesGuardadoHabilitados((prev) => ({ ...prev, [tipoDocumento]: true }));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error al enviar archivos.");
@@ -389,9 +405,18 @@ export const GeDocumental = () => {
                 sx={{
                   display: "flex", alignItems: "center", gap: 2, mb: 1.5,
                   p: 1.5, borderRadius: 1.5,
-                  bgcolor: archivosCargados[tipoDocumento] ? "#F0FDF4" : "#FAFAFA",
+                  bgcolor: aiResultados[tipoDocumento] != null && aiResultados[tipoDocumento]!.tipo !== "OK"
+                    ? "#FFF5F5"
+                    : aiResultados[tipoDocumento]?.tipo === "OK"
+                    ? "#F0FDF4"
+                    : archivosCargados[tipoDocumento] ? "#F0FDF4" : "#FAFAFA",
                   border: "1px solid",
-                  borderColor: archivosCargados[tipoDocumento] ? "#BBF7D0" : "#E5E7EB",
+                  borderColor: aiResultados[tipoDocumento] != null && aiResultados[tipoDocumento]!.tipo !== "OK"
+                    ? "#FCA5A5"
+                    : aiResultados[tipoDocumento]?.tipo === "OK"
+                    ? "#BBF7D0"
+                    : archivosCargados[tipoDocumento] ? "#BBF7D0" : "#E5E7EB",
+                  transition: "background-color 0.4s, border-color 0.4s",
                 }}
               >
                 <input
@@ -437,6 +462,22 @@ export const GeDocumental = () => {
                     <Typography variant="body2" sx={{ color: "#9CA3AF", fontSize: 12 }}>
                       Sin archivo seleccionado
                     </Typography>
+                  )}
+
+                  {/* Chip de revisión IA — aparece después de guardar */}
+                  {aiResultados[tipoDocumento] != null && (
+                    <Tooltip title={aiResultados[tipoDocumento]!.descripcion} arrow>
+                      <Chip
+                        icon={aiResultados[tipoDocumento]!.tipo === "OK"
+                          ? <SmartToyIcon sx={{ fontSize: "14px !important" }} />
+                          : <WarningAmberIcon sx={{ fontSize: "14px !important" }} />}
+                        label={`IA: ${aiResultados[tipoDocumento]!.tipo}`}
+                        size="small"
+                        color={aiResultados[tipoDocumento]!.tipo === "OK" ? "success" : "error"}
+                        variant="filled"
+                        sx={{ fontWeight: 700, fontSize: 11 }}
+                      />
+                    </Tooltip>
                   )}
                 </Box>
 
@@ -557,6 +598,122 @@ export const GeDocumental = () => {
           </PrimeReactProvider>
         </CardContent>
       </Card>
+
+      {/* ── Dialog revisión IA ── */}
+      {aiAlerta && (
+        <Dialog
+          open={!!aiAlerta}
+          onClose={() => setAiAlerta(null)}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              border: "2px solid #FCA5A5",
+              overflow: "hidden",
+            },
+          }}
+        >
+          {/* Cabecera roja */}
+          <Box
+            sx={{
+              background: "linear-gradient(135deg, #B91C1C 0%, #DC2626 100%)",
+              px: 3, py: 2.5,
+              display: "flex", alignItems: "center", gap: 1.5,
+            }}
+          >
+            <WarningAmberIcon sx={{ color: "#FEF2F2", fontSize: 28 }} />
+            <Box>
+              <Typography sx={{ color: "#fff", fontWeight: 800, fontSize: 15, lineHeight: 1.2 }}>
+                Documento con observación
+              </Typography>
+              <Typography sx={{ color: "rgba(255,255,255,0.8)", fontSize: 11, mt: 0.3 }}>
+                El archivo fue guardado · puede corregirlo después
+              </Typography>
+            </Box>
+          </Box>
+
+          <DialogContent sx={{ px: 3, py: 2.5 }}>
+            {/* Tipo de documento */}
+            <Typography sx={{ fontSize: 11, color: "#6B7280", fontWeight: 600, mb: 0.5, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Tipo de documento
+            </Typography>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#111827", mb: 2 }}>
+              {aiAlerta.tipoDocumento}
+            </Typography>
+
+            {/* Tipo de observación */}
+            <Typography sx={{ fontSize: 11, color: "#6B7280", fontWeight: 600, mb: 0.5, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Tipo de observación
+            </Typography>
+            <Chip
+              label={aiAlerta.tipo}
+              size="small"
+              sx={{
+                mb: 2,
+                fontWeight: 800,
+                fontSize: 13,
+                bgcolor: "#FEE2E2",
+                color: "#B91C1C",
+                border: "1px solid #FCA5A5",
+                borderRadius: 1,
+                height: 28,
+              }}
+            />
+
+            {/* Descripción */}
+            <Typography sx={{ fontSize: 11, color: "#6B7280", fontWeight: 600, mb: 0.5, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Descripción del problema
+            </Typography>
+            <Box
+              sx={{
+                bgcolor: "#FFF7ED",
+                border: "1px solid #FED7AA",
+                borderRadius: 1.5,
+                px: 1.5, py: 1.2,
+              }}
+            >
+              <Typography sx={{ fontSize: 13, color: "#92400E", lineHeight: 1.5 }}>
+                {aiAlerta.descripcion}
+              </Typography>
+            </Box>
+
+            <Box
+              sx={{
+                mt: 2, px: 1.5, py: 1,
+                bgcolor: "#F0F9FF",
+                border: "1px solid #BAE6FD",
+                borderRadius: 1.5,
+                display: "flex", alignItems: "flex-start", gap: 1,
+              }}
+            >
+              <SmartToyIcon sx={{ fontSize: 14, color: "#0369A1", mt: 0.2, flexShrink: 0 }} />
+              <Typography sx={{ fontSize: 11, color: "#0369A1", lineHeight: 1.4 }}>
+                Revisión generada por IA. El documento quedó guardado pero marcado para corrección — Cuentas Médicas no lo procesará hasta que sea corregido.
+              </Typography>
+            </Box>
+          </DialogContent>
+
+          <DialogActions sx={{ px: 3, pb: 2.5, pt: 0 }}>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={() => setAiAlerta(null)}
+              sx={{
+                background: "linear-gradient(135deg, #B91C1C 0%, #DC2626 100%)",
+                borderRadius: 2,
+                fontWeight: 700,
+                textTransform: "none",
+                fontSize: 14,
+                py: 1,
+                "&:hover": { background: "linear-gradient(135deg, #991B1B 0%, #B91C1C 100%)" },
+              }}
+            >
+              Entendido — corregiré el documento
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 };
