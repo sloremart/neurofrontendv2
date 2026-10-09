@@ -215,7 +215,7 @@ export const TalentoHumano = () => {
     }
   };
 
-  const canDelete = userId === 182 || userId === 199 || userId === 209 || userId === 214;
+  const canDelete = userId === 182 || userId === 199 || userId === 209 || userId === 214 || userId === 202;
 
   const handleRevertirRadicado = async () => {
     if (!consecutivoConsulta) { toast.warn("Busca una admisión primero", { autoClose: 3000 }); return; }
