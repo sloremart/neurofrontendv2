@@ -46,8 +46,10 @@ interface AdmisionTimeline {
 interface AdmisionServicio {
   servicio: string; admisiones: number;
 }
+interface ServicioUsuario { servicio: string; facturas: number; valor: number }
 interface UsuarioResumen {
   usuario: string; total_facturas: number; total_valor: number; dias_activos: number; promedio_dia: number;
+  servicios?: ServicioUsuario[];
 }
 interface ProduccionTimeline {
   fecha: string; usuario: string; facturas: number; valor: number;
@@ -228,6 +230,7 @@ const FacturacionDashboard = () => {
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [activeTab,   setActiveTab]   = useState<"regular" | "mrc" | "admisiones">("regular");
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
   const handleBuscar = async () => {
     if (!fechaInicio || !fechaFin) return;
@@ -783,29 +786,60 @@ const FacturacionDashboard = () => {
                         </p>
                       </div>
 
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
-                        {usuariosResumen.map((u, i) => (
-                          <div key={i} style={{ background: "#fff", borderRadius: 10, padding: "16px 18px",
-                            boxShadow: "0 1px 6px rgba(0,0,0,0.07)", borderLeft: "4px solid #7c3aed" }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: "#7c3aed", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
-                              {i === 0 ? "🏆 " : "👤 "}{u.usuario}
-                            </div>
-                            <div style={{ fontSize: 28, fontWeight: 800, color: "#4c1d95", margin: "6px 0 2px", fontVariantNumeric: "tabular-nums" }}>
-                              {u.total_facturas.toLocaleString("es-CO")}
-                            </div>
-                            <div style={{ fontSize: 11, color: "#64748b" }}>facturas · {u.dias_activos} días activos</div>
-                            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, paddingTop: 10, borderTop: "1px solid #f1f5f9" }}>
-                              <div>
-                                <div style={{ fontSize: 9, color: "#94a3b8", textTransform: "uppercase" as const }}>Promedio/día</div>
-                                <div style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>{u.promedio_dia}</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
+                        {usuariosResumen.map((u, i) => {
+                          const isOpen = expandedUser === u.usuario;
+                          return (
+                          <div key={i} style={{ background: "#fff", borderRadius: 10,
+                            boxShadow: "0 1px 6px rgba(0,0,0,0.07)", borderLeft: "4px solid #7c3aed", overflow: "hidden" }}>
+                            <div style={{ padding: "16px 18px" }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#7c3aed", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                                {i === 0 ? "🏆 " : "👤 "}{u.usuario}
                               </div>
-                              <div style={{ textAlign: "right" }}>
-                                <div style={{ fontSize: 9, color: "#94a3b8", textTransform: "uppercase" as const }}>Valor total</div>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: "#0f766e" }}>{fmt(u.total_valor)}</div>
+                              <div style={{ fontSize: 28, fontWeight: 800, color: "#4c1d95", margin: "6px 0 2px", fontVariantNumeric: "tabular-nums" }}>
+                                {u.total_facturas.toLocaleString("es-CO")}
                               </div>
+                              <div style={{ fontSize: 11, color: "#64748b" }}>facturas · {u.dias_activos} días activos</div>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, paddingTop: 10, borderTop: "1px solid #f1f5f9" }}>
+                                <div>
+                                  <div style={{ fontSize: 9, color: "#94a3b8", textTransform: "uppercase" as const }}>Promedio/día</div>
+                                  <div style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>{u.promedio_dia}</div>
+                                </div>
+                                <div style={{ textAlign: "right" }}>
+                                  <div style={{ fontSize: 9, color: "#94a3b8", textTransform: "uppercase" as const }}>Valor total</div>
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: "#0f766e" }}>{fmt(u.total_valor)}</div>
+                                </div>
+                              </div>
+                              {u.servicios && u.servicios.length > 0 && (
+                                <button onClick={() => setExpandedUser(isOpen ? null : u.usuario)}
+                                  style={{ marginTop: 10, width: "100%", background: "none", border: "1px solid #e2e8f0",
+                                    borderRadius: 6, padding: "5px 8px", fontSize: 10, color: "#7c3aed", cursor: "pointer",
+                                    fontWeight: 600, textAlign: "left" as const }}>
+                                  {isOpen ? "▲ Ocultar servicios" : `▼ Ver servicios (${u.servicios.length})`}
+                                </button>
+                              )}
                             </div>
+                            {isOpen && u.servicios && (
+                              <div style={{ background: "#f8f7ff", borderTop: "1px solid #ede9fe", padding: "10px 14px" }}>
+                                {u.servicios.map((s, j) => (
+                                  <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                                    padding: "5px 0", borderBottom: j < u.servicios!.length - 1 ? "1px solid #ede9fe" : "none" }}>
+                                    <span style={{ fontSize: 11, color: "#374151", fontWeight: 500, flex: 1, paddingRight: 8 }}>{s.servicio}</span>
+                                    <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
+                                      <span style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed", fontVariantNumeric: "tabular-nums" }}>
+                                        {s.facturas} fact.
+                                      </span>
+                                      <span style={{ fontSize: 10, color: "#0f766e", fontVariantNumeric: "tabular-nums" }}>
+                                        {fmt(s.valor)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
