@@ -40,7 +40,7 @@ const TEXT_DIM  = 'rgba(255,255,255,0.45)';
 const TEXT_MAIN = 'rgba(255,255,255,0.82)';
 
 type Rol =
-  | 'CuentasMedicas' | 'LiderCuentasMedicas'
+  | 'CuentasMedicas' | 'LiderCuentasMedicas' | 'GerenciaCM'
   | 'EstudiosSueño'  | 'Asistencial'
   | 'Contador'       | 'Financiera'
   | 'Administrativo' | 'AdministrativoGerencia'
@@ -57,8 +57,8 @@ const MENU: MenuGroup[] = [
     group: 'Gestión Documental',
     items: [
       { label: 'GE Documental',        path: '/ge_documental',                 icon: <FolderOpenIcon />,            roles: ['CuentasMedicas', 'LiderCuentasMedicas', 'EstudiosSueño', 'Asistencial', 'OPERSALUD', 'Facturador'] },
-      { label: 'Cuentas Médicas',      path: '/cuentas_medicas',                icon: <PeopleOutlineIcon />,         roles: ['CuentasMedicas', 'LiderCuentasMedicas'] },
-      { label: 'Radicación',           path: '/radicacion',                    icon: <RequestQuoteIcon />,          roles: ['CuentasMedicas', 'LiderCuentasMedicas'] },
+      { label: 'Cuentas Médicas',      path: '/cuentas_medicas',                icon: <PeopleOutlineIcon />,         roles: ['CuentasMedicas', 'LiderCuentasMedicas', 'GerenciaCM'] },
+      { label: 'Radicación',           path: '/radicacion',                    icon: <RequestQuoteIcon />,          roles: ['CuentasMedicas', 'LiderCuentasMedicas', 'GerenciaCM'] },
       { label: 'Consolidado Sueño',     path: '/estudios_sueno',               icon: <AssignmentTurnedInIcon />,    roles: ['EstudiosSueño', 'Asistencial'] },
       { label: 'Prog. Pagos',          path: '/documental_programacion_pagos', icon: <AccountBalanceWalletIcon />,  roles: ['Contador', 'Financiera'] },
       { label: 'Tesorería',            path: '/tesoreria',                     icon: <AccountBalanceIcon />,        roles: ['Contador'] },
@@ -70,8 +70,8 @@ const MENU: MenuGroup[] = [
   {
     group: 'Dashboard',
     items: [
-      { label: 'Facturación',   path: '/dashboard',               icon: <BarChartIcon />,      roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera'] },
-      { label: 'Agendamiento',  path: '/dashboard_agendamiento',  icon: <CalendarMonthIcon />, roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera'] },
+      { label: 'Facturación',   path: '/dashboard',               icon: <BarChartIcon />,      roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera', 'GerenciaCM'] },
+      { label: 'Agendamiento',  path: '/dashboard_agendamiento',  icon: <CalendarMonthIcon />, roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera', 'GerenciaCM'] },
     ],
   },
   {

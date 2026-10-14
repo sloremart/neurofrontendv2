@@ -40,8 +40,8 @@ import EvaluacionEvaluarWrapper from '../commons/EvaluacionDesempeño/components
 import EvaluacionActividadesWrapper from '../commons/EvaluacionDesempeño/components/EvaluacionActividadesWrapper.tsx';
 import ResponderEvaluacionWrapper from '../commons/EvaluacionDesempeño/components/ResponderEvaluacionWrapper.tsx';
 
-const ADMIN_ROLES  = ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera'];
-const CM_ROLES     = ['CuentasMedicas', 'LiderCuentasMedicas'];
+const ADMIN_ROLES  = ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera', 'GerenciaCM'];
+const CM_ROLES     = ['CuentasMedicas', 'LiderCuentasMedicas', 'GerenciaCM'];
 const CONT_ROLES   = ['Contador', 'Financiera'];
 const EST_ROLES    = ['EstudiosSueño', 'Asistencial'];
 const AUTH_ROLES   = [...CM_ROLES, 'Administrativo', 'AdministrativoGerencia', 'Sistemas'];

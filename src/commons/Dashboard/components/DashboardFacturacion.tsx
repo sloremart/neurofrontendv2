@@ -782,7 +782,7 @@ const FacturacionDashboard = () => {
                           Productividad — Área de Cuentas Médicas
                         </h3>
                         <p style={{ margin: 0, fontSize: 12, color: "#c4b5fd" }}>
-                          Facturas generadas por usuario en el período · fecha de creación del documento
+                          Facturas radicadas por usuario en el período · fecha de radicación
                         </p>
                       </div>
 
