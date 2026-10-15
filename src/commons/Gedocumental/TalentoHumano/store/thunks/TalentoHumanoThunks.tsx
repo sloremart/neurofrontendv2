@@ -627,6 +627,29 @@ export const renombrar_san02 = (admisionId: number, idusuario: string) => {
   };
 };
 
+export const renombrar_colmedica = (admisionId: number, idusuario: string) => {
+  return async (dispatch: Dispatch<any>) => {
+    try {
+      const url = `${API_ENDPOINT}/gedocumental/radicar-colmedica/${admisionId}/${idusuario}/`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (!response.ok) {
+        const errorMessage = data.detail || `Error ${response.status}: ${response.statusText}`;
+        control_error(errorMessage);
+        throw new Error(errorMessage);
+      }
+      if (data && data.success === true) {
+        control_success("Creación de archivos de manera exitosa!");
+      } else {
+        control_error("No hay datos disponibles para mostrar");
+      }
+      return dispatch({ type: "RENOMBRAR_COMPENSAR_EXITO", payload: data });
+    } catch (error: any) {
+      return dispatch({ type: "RENOMBRAR_COMPENSAR_ERROR", payload: error.message });
+    }
+  };
+};
+
 export const renombrar_ejercito = (admisionId: number, idusuario: string) => {
   return async (dispatch: Dispatch<any>) => {
     try {

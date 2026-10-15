@@ -17,7 +17,7 @@ import {
   renombrar_capitalsalud, renombrar_colsanitas, renombrar_compensar,
   renombrar_medisanitas, renombrar_otros, renombrar_saludtotal,
   renombrar_san02, renombrar_sanitasevento, renombrar_fomag,
-  renombrar_policia, renombrar_ejercito,
+  renombrar_policia, renombrar_ejercito, renombrar_colmedica,
 } from "../TalentoHumano/store/thunks/TalentoHumanoThunks.tsx";
 import { Title } from "../../../components/Title.tsx";
 import { AppDispatch, RootState } from "../../../store/store.ts";
@@ -110,6 +110,11 @@ export const TablaRadicacion = () => {
       "PONAL MEDICINA LABORAL 084-7-200062-26": renombrar_policia,
       "MEDISANITAS": renombrar_medisanitas,
       "EJERCITO": renombrar_ejercito,
+      "COLMEDICA LINEA ZAFIRO": renombrar_colmedica,
+      "COLMEDICA LINEA RUBI": renombrar_colmedica,
+      "COLMEDICA LINEA HUMANA PREFERENCIAL": renombrar_colmedica,
+      "COLMEDICA LINEA ESMERALDA": renombrar_colmedica,
+      "COLMEDICA TARIFA HUMANA TRADICIONAL": renombrar_colmedica,
     };
     const thunk = thunkMap[codigoEntidad] ?? renombrar_otros;
     await dispatch(thunk(admisionId, idusuario));
