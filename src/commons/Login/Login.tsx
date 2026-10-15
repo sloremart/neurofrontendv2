@@ -14,6 +14,7 @@ const API_ENDPOINT = CONFIG.API_ENDPOINT;
 const ROLE_ROUTES: Record<string, string> = {
   CuentasMedicas: "/cuentas_medicas",
   LiderCuentasMedicas: "/cuentas_medicas",
+  GerenciaCM: "/cuentas_medicas",
   EstudiosSueño: "/estudios_sueno",
   Asistencial: "/estudios_sueno",
   Contador: "/documental_programacion_pagos",
@@ -22,7 +23,7 @@ const ROLE_ROUTES: Record<string, string> = {
 };
 
 const CARGOS = [
-  "CuentasMedicas", "LiderCuentasMedicas", "EstudiosSueño", "Asistencial",
+  "CuentasMedicas", "LiderCuentasMedicas", "GerenciaCM", "EstudiosSueño", "Asistencial",
   "Contador", "Financiera", "Administrativo", "AdministrativoGerencia", "Sistemas",
 ];
 
