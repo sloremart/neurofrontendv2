@@ -63,16 +63,15 @@ const MENU: MenuGroup[] = [
       { label: 'Prog. Pagos',          path: '/documental_programacion_pagos', icon: <AccountBalanceWalletIcon />,  roles: ['Contador', 'Financiera'] },
       { label: 'Tesorería',            path: '/tesoreria',                     icon: <AccountBalanceIcon />,        roles: ['Contador'] },
       { label: 'Caja Facturación',    path: '/caja_facturacion',              icon: <SavingsIcon />,               roles: ['Facturador'] },
-      { label: 'Fact. Proveedores',    path: '/facturas_proveedores',          icon: <ReceiptLongIcon />,           roles: ['Contador', 'Financiera', 'AdministrativoGerencia'] },
+      { label: 'Fact. Proveedores',    path: '/facturas_proveedores',          icon: <ReceiptLongIcon />,           roles: ['Contador', 'Financiera', 'AdministrativoGerencia', 'GerenciaCM'] },
       { label: 'Autorizaciones',       path: '/carga_autorizaciones',          icon: <VerifiedUserIcon />,          roles: ['CuentasMedicas', 'LiderCuentasMedicas'] },
     ],
   },
   {
     group: 'Dashboard',
     items: [
-      { label: 'Facturación',          path: '/dashboard',               icon: <BarChartIcon />,      roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera'] },
-      { label: 'Aprobación facturas',  path: '/dashboard_facturacion',   icon: <BarChartIcon />,      roles: ['GerenciaCM'] },
-      { label: 'Agendamiento',         path: '/dashboard_agendamiento',  icon: <CalendarMonthIcon />, roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera', 'GerenciaCM'] },
+      { label: 'Facturación',   path: '/dashboard',               icon: <BarChartIcon />,      roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera'] },
+      { label: 'Agendamiento',  path: '/dashboard_agendamiento',  icon: <CalendarMonthIcon />, roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera', 'GerenciaCM'] },
     ],
   },
   {

@@ -83,7 +83,7 @@ export const AppRouter: React.FC = () => {
         </Route>
 
         {/* Contador / Financiera / Gerencia */}
-        <Route element={<ProtectedRoute allowedRoles={[...CONT_ROLES, 'AdministrativoGerencia']} />}>
+        <Route element={<ProtectedRoute allowedRoles={[...CONT_ROLES, 'AdministrativoGerencia', 'GerenciaCM']} />}>
           <Route path="/facturas_proveedores" element={<TablaProveedor />} />
         </Route>
 
