@@ -98,7 +98,7 @@ const Sidebar: React.FC = () => {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-  const userRole: string = userData?.cargo  || '';
+  const userRole: string = (userData?.cargo || '').trim();
   const userName: string = userData?.nombre || userData?.username || 'Usuario';
 
   const handleLogout = () => {

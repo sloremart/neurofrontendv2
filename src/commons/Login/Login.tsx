@@ -56,7 +56,7 @@ const LoginPanel = () => {
       if (res.ok) {
         saveToken(data.token);
         localStorage.setItem("userData", JSON.stringify(data.user));
-        navigate(ROLE_ROUTES[data.user.cargo] ?? "/ge_documental");
+        navigate(ROLE_ROUTES[data.user.cargo?.trim()] ?? "/ge_documental");
       } else {
         setError(data.detail ?? "Usuario o contraseña incorrectos.");
       }
