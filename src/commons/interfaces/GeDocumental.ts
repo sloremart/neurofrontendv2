@@ -116,5 +116,9 @@ export interface IAdmisiones {
   tRegimen?: string;
   ContratoAlias?: string;
   ContratoRegimen?: number;
+  ValidacionPaciente?: {
+    completo: boolean;
+    faltantes: { campo: string; motivo: string; obligatorio: boolean }[];
+  } | null;
 }
 

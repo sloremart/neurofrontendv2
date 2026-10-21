@@ -19,6 +19,7 @@ import { TablaProveedor } from '../commons/ProgramacionPagos/components/TablaIdR
 import CargaAutorizaciones from '../commons/Autorizaciones/CargaAutorizaciones.tsx';
 import { TablaEstudioSueno } from '../commons/EstudiosSueno/TablaEstudioSueno.tsx';
 import { CajaFacturacion } from '../commons/Gedocumental/Facturacion/components/CajaFacturacion.tsx';
+import { HallazgosIA } from '../commons/Gedocumental/HallazgosIA/HallazgosIA.tsx';
 
 // Dashboard
 import { DashBoardFacturacion } from '../commons/FacturacionDasboard/components/DashboardFacturacion.tsx';
@@ -28,6 +29,7 @@ import RecaudoDashboard from '../commons/Dashboard/components/DashboardRecaudo.t
 import DashboardMedicos from '../commons/Dashboard/components/DashboardMedicos.tsx';
 import DashboardProduccion from '../commons/Dashboard/components/DashboardProduccion.tsx';
 import DashboardResultados from '../commons/Dashboard/components/DashboardResultados.tsx';
+import DashboardDemandaInducida from '../commons/Dashboard/components/DashboardDemandaInducida.tsx';
 import InformeTotalFacturacion from '../commons/Auditoria/screen/InformeTotalFac.tsx';
 
 // Evaluación
@@ -45,6 +47,8 @@ const CM_ROLES     = ['CuentasMedicas', 'LiderCuentasMedicas', 'GerenciaCM'];
 const CONT_ROLES   = ['Contador', 'Financiera'];
 const EST_ROLES    = ['EstudiosSueño', 'Asistencial'];
 const AUTH_ROLES   = [...CM_ROLES, 'Administrativo', 'AdministrativoGerencia', 'Sistemas'];
+// Reporte Hallazgos IA: aún no visible para AdministrativoGerencia (pendiente de validación)
+const HALLAZGOS_IA_ROLES = [...CM_ROLES, 'Administrativo', 'Sistemas'];
 
 export const AppRouter: React.FC = () => {
   return (
@@ -90,6 +94,16 @@ export const AppRouter: React.FC = () => {
         {/* Autorizaciones */}
         <Route element={<ProtectedRoute allowedRoles={AUTH_ROLES} />}>
           <Route path="/carga_autorizaciones" element={<CargaAutorizaciones />} />
+        </Route>
+
+        {/* Demanda Inducida — solo AdministrativoGerencia */}
+        <Route element={<ProtectedRoute allowedRoles={['AdministrativoGerencia']} />}>
+          <Route path="/demanda_inducida" element={<DashboardDemandaInducida />} />
+        </Route>
+
+        {/* Hallazgos IA */}
+        <Route element={<ProtectedRoute allowedRoles={HALLAZGOS_IA_ROLES} />}>
+          <Route path="/hallazgos_ia" element={<HallazgosIA />} />
         </Route>
 
         {/* Dashboard / Administrativo */}

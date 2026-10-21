@@ -27,6 +27,8 @@ import { IAdmisiones } from "../../../interfaces/GeDocumental.ts";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../../store/store.ts";
 import { get_users } from "../../../Login/store/thunks/ThunksLogin.tsx";
+import { BandejaCuentasMedicas } from "../components/BandejaCuentasMedicas.tsx";
+import InboxIcon from "@mui/icons-material/Inbox";
 
 const API_ENDPOINT = CONFIG.API_ENDPOINT;
 
@@ -92,6 +94,19 @@ export const TalentoHumano = () => {
     if (archivos) determinarRegimenMayor(archivos);
     fetchAdmisionData();
   };
+
+  // Abrir una admisión desde la bandeja: la pone en el buscador y la consulta
+  const [buscarAlCambiar, setBuscarAlCambiar] = useState(false);
+  useEffect(() => {
+    if (buscarAlCambiar && consecutivoConsulta) { setBuscarAlCambiar(false); handleConsultaArchivos(); }
+  }, [consecutivoConsulta, buscarAlCambiar]); // eslint-disable-line react-hooks/exhaustive-deps
+  const abrirAdmision = (admision: number) => {
+    setConsecutivoConsulta(String(admision));
+    setBuscarAlCambiar(true);
+    document.getElementById("cm-buscar-admision")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+
 
   const fetchAdmisionData = async () => {
     try {
@@ -237,8 +252,16 @@ export const TalentoHumano = () => {
     <Box sx={{ p: 2 }}>
       <Title title={'MÓDULO DE GESTIÓN - CUENTAS MÉDICAS'} />
 
-      {/* ── Buscar admisión ── */}
+      {/* ── Bandeja de admisiones por revisar ── */}
       <Card variant="outlined" sx={{ mb: 3, borderRadius: 2, border: "1px solid #E5E7EB" }}>
+        <SectionHeader icon={<InboxIcon />} label="Bandeja de admisiones por revisar" />
+        <CardContent sx={{ pb: "16px !important" }}>
+          <BandejaCuentasMedicas onAbrir={abrirAdmision} />
+        </CardContent>
+      </Card>
+
+      {/* ── Buscar admisión ── */}
+      <Card id="cm-buscar-admision" variant="outlined" sx={{ mb: 3, borderRadius: 2, border: "1px solid #E5E7EB" }}>
         <SectionHeader icon={<SearchIcon />} label="Buscar admisión" />
         <CardContent sx={{ pb: "16px !important" }}>
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center" }}>
@@ -297,19 +320,19 @@ export const TalentoHumano = () => {
           {admisionData && (
             <Box sx={{ mt: 2.5 }}>
               <Divider sx={{ mb: 2 }} />
-              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 2, mb: 2 }}>
+              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 2 }}>
                 <TextField label="Factura No" value={`${admisionData.Prefijo || ""}${admisionData.FacturaNo}`} variant="filled" size="small" InputProps={{ readOnly: true }} />
                 <TextField label="Entidad / Contrato" value={(admisionData as any).NombreEntidad || (admisionData as any).ContratoAlias || admisionData.CodigoEntidad || ""} variant="filled" size="small" InputProps={{ readOnly: true }} />
                 <TextField label="Nombre completo" value={(admisionData as any).NombreCompleto || admisionData.NombreResponsable || ""} variant="filled" size="small" InputProps={{ readOnly: true }} />
                 <TextField label="Número de identificación" value={admisionData.IdPaciente || ""} variant="filled" size="small" InputProps={{ readOnly: true }} />
               </Box>
-              <TextField label="Código CUV" value={(admisionData as any).CUV || ""} variant="filled" size="small" fullWidth InputProps={{ readOnly: true }} />
             </Box>
           )}
         </CardContent>
       </Card>
 
-      {/* ── Documentos adjuntados ── */}
+      {/* ── Documentos adjuntados (solo con una admisión abierta) ── */}
+      {archivosPDF.length > 0 && (
       <Card variant="outlined" sx={{ mb: 3, borderRadius: 2, border: "1px solid #E5E7EB" }}>
         <SectionHeader icon={<FolderOpenIcon />} label="Documentos adjuntados" />
         <CardContent sx={{ pb: "16px !important" }}>
@@ -486,28 +509,25 @@ export const TalentoHumano = () => {
           )}
         </CardContent>
       </Card>
+      )}
 
-      {/* ── Revertir renombre ── */}
-      <Card variant="outlined" sx={{ mb: 3, borderRadius: 2, border: "1px solid #FEE2E2" }}>
-        <SectionHeader icon={<RestoreIcon />} label="Revertir renombre" />
-        <CardContent sx={{ pb: "16px !important" }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-            <Typography sx={{ fontSize: 13, color: "#374151" }}>
-              Revierte a <strong>0</strong> el campo de renombre de todos los archivos de la admisión actual.
-              Úsalo cuando sea necesario volver a procesar el renombramiento.
-            </Typography>
-            <Button
-              variant="outlined"
-              startIcon={<RestoreIcon />}
-              onClick={handleRevertirRadicado}
-              disabled={!consecutivoConsulta}
-              sx={{ borderColor: "#EF4444", color: "#EF4444", "&:hover": { bgcolor: "#FEF2F2", borderColor: "#DC2626" }, flexShrink: 0 }}
-            >
-              Revertir renombre
-            </Button>
-          </Box>
-        </CardContent>
-      </Card>
+      {/* ── Revertir renombre (solo leyenda y botón) ── */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap", mb: 3, px: 1 }}>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<RestoreIcon />}
+          onClick={handleRevertirRadicado}
+          disabled={!consecutivoConsulta}
+          sx={{ borderColor: "#EF4444", color: "#EF4444", "&:hover": { bgcolor: "#FEF2F2", borderColor: "#DC2626" }, flexShrink: 0 }}
+        >
+          Revertir renombre
+        </Button>
+        <Typography sx={{ fontSize: 12, color: "#6B7280" }}>
+          Revierte a <strong>0</strong> el campo de renombre de todos los archivos de la admisión actual,
+          para volver a procesar el renombramiento.
+        </Typography>
+      </Box>
 
       {/* ── Asignar observación sin archivo ── */}
       <Card variant="outlined" sx={{ borderRadius: 2, border: "1px solid #E5E7EB" }}>

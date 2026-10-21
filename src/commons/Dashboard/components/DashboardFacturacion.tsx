@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Chart from "react-apexcharts";
 import dayjs from "dayjs";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -64,6 +64,25 @@ interface AdmisionesData {
   usuarios_resumen: UsuarioResumen[];
   produccion_timeline: ProduccionTimeline[];
   resumen_meses: ResumenMes[];
+}
+
+// ── interfaces: facturación regular detallada ────────────────────────────────
+interface CarteraSegmento { segmento: string; label: string; color: string; estudios: number; valor: number }
+interface ContratoItem    { contrato: string; estudios: number; valor: number }
+interface ServicioItem    { servicio: string; estudios: number; valor: number }
+interface MedicoItem      { nombre: string; estudios: number; valor: number }
+interface ProcedimientoItem { contrato: string; cups: string; nombre: string; cantidad: number; valor_uni: number; total: number }
+interface TendenciaItem   { mes: string; estudios: number; valor: number }
+interface RegularDetalladaData {
+  kpis: { total_valor: number; total_estudios: number; total_contratos: number; total_medicos: number };
+  cartera: CarteraSegmento[];
+  tendencia: TendenciaItem[];
+  top_contratos: ContratoItem[];
+  por_servicio: ServicioItem[];
+  medicos: MedicoItem[];
+  procedimientos: ProcedimientoItem[];
+  filtros: { servicios: string[]; contratos: string[] };
+  filtros_activos: { cartera: string; servicio: string; contrato: string };
 }
 
 // ── paleta semáforo MRC ───────────────────────────────────────────────────────
@@ -232,14 +251,55 @@ const FacturacionDashboard = () => {
   const [activeTab,   setActiveTab]   = useState<"regular" | "mrc" | "admisiones">("regular");
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
+  // ── estado: facturación regular detallada ──────────────────────────────────
+  const [regularDetallada,  setRegularDetallada]  = useState<RegularDetalladaData | null>(null);
+  const [loadingDetallada,  setLoadingDetallada]  = useState(false);
+  const [carteraFilter,     setCarteraFilter]     = useState<string>('');
+  const [servicioFilter,    setServicioFilter]    = useState<string>('');
+  const [contratoFilter,    setContratoFilter]    = useState<string>('');
+  const [tablaProcActiva,   setTablaProcActiva]   = useState<"medicos" | "procedimientos">("medicos");
+  const detalladaFechas = useRef<{ fi: string; ff: string } | null>(null);
+
+  const fetchRegularDetallada = async (
+    fi: string, ff: string, cf: string, sf: string, cnf: string
+  ) => {
+    setLoadingDetallada(true);
+    try {
+      let url = `${API}/dashboard/facturacion-regular-detallada/?fecha_inicio=${fi}&fecha_fin=${ff}`;
+      if (cf)  url += `&cartera_filter=${encodeURIComponent(cf)}`;
+      if (sf)  url += `&servicio_filter=${encodeURIComponent(sf)}`;
+      if (cnf) url += `&contrato_filter=${encodeURIComponent(cnf)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Detallada: error ${res.status}`);
+      setRegularDetallada(await res.json());
+    } catch (e: any) {
+      console.error("Error cargando facturación detallada:", e.message);
+    } finally {
+      setLoadingDetallada(false);
+    }
+  };
+
+  // Re-fetch cuando cambian los filtros (solo si ya hay datos cargados)
+  useEffect(() => {
+    if (!detalladaFechas.current) return;
+    const { fi, ff } = detalladaFechas.current;
+    fetchRegularDetallada(fi, ff, carteraFilter, servicioFilter, contratoFilter);
+  }, [carteraFilter, servicioFilter, contratoFilter]);
+
   const handleBuscar = async () => {
     if (!fechaInicio || !fechaFin) return;
     setLoading(true);
     setError(null);
+    // Resetear filtros al buscar nuevas fechas
+    setCarteraFilter('');
+    setServicioFilter('');
+    setContratoFilter('');
     try {
       const fi = fechaInicio.format("YYYY-MM-DD");
       const ff = fechaFin.format("YYYY-MM-DD");
+      detalladaFechas.current = { fi, ff };
 
+      fetchRegularDetallada(fi, ff, '', '', '');
       const [resFactura, resAdm] = await Promise.all([
         fetch(`${API}/dashboard/facturacion-nuevo/?fecha_inicio=${fi}&fecha_fin=${ff}`),
         fetch(`${API}/dashboard/facturacion-admisiones/?fecha_inicio=${fi}&fecha_fin=${ff}`),
@@ -450,93 +510,221 @@ const FacturacionDashboard = () => {
           {activeTab === "regular" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-              {/* insights */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 10 }}>
-                <div style={{ background: "#fff", border: "1px solid #e0e7ff", borderLeft: "4px solid #6366f1", borderRadius: 8, padding: "14px 18px" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#3730a3", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>📊 Concentración (Pareto)</div>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: "#4f46e5" }}>{top2Pct}%</div>
-                  <div style={{ fontSize: 12, color: "#374151", marginTop: 2 }}>de la facturación proviene de solo <strong>2 entidades</strong></div>
-                  <div style={{ marginTop: 8 }}>
-                    {data.regular.entidades.slice(0, 2).map(e => (
-                      <div key={e.nombre} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6b7280", marginBottom: 3 }}>
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 170 }}>{e.nombre}</span>
-                        <span style={{ fontWeight: 700, color: "#4f46e5", marginLeft: 8, flexShrink: 0 }}>{totalRegular > 0 ? Math.round(e.valor / totalRegular * 100) : 0}%</span>
-                      </div>
-                    ))}
-                  </div>
+              {loadingDetallada && (
+                <div style={{ textAlign: "center", padding: 40, color: "#64748b" }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>⏳</div>Actualizando datos de cartera…
                 </div>
+              )}
 
-                <div style={{ background: "#fff", border: top2Pct > 70 ? "1px solid #fecaca" : "1px solid #d1fae5", borderLeft: `4px solid ${top2Pct > 70 ? "#ef4444" : "#22c55e"}`, borderRadius: 8, padding: "14px 18px" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: top2Pct > 70 ? "#7f1d1d" : "#14532d", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>
-                    {top2Pct > 70 ? "🚨 Riesgo de concentración" : "✅ Diversificación saludable"}
-                  </div>
-                  <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
-                    {top2Pct > 70
-                      ? `Alta dependencia de ${data.regular.entidades[0]?.nombre ?? ''} (${top1Pct}%). Perder este convenio impactaría la operación.`
-                      : `Los convenios están bien distribuidos. El principal representa solo el ${top1Pct}% del total.`
-                    }
-                  </div>
+              {!regularDetallada && !loadingDetallada && (
+                <div style={{ textAlign: "center", padding: 60, color: "#94a3b8" }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
+                  <p>Seleccione un período y haga clic en <strong>Consultar</strong> para ver el análisis de cartera.</p>
                 </div>
+              )}
 
-                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderLeft: `4px solid ${tlSlope > 0 ? "#22c55e" : tlSlope < 0 ? "#ef4444" : "#6366f1"}`, borderRadius: 8, padding: "14px 18px" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#374151", letterSpacing: "0.06em", textTransform: "uppercase" as const, marginBottom: 6 }}>📈 Tendencia de facturación</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: tlSlope > 0 ? "#16a34a" : tlSlope < 0 ? "#dc2626" : "#4f46e5" }}>
-                    {tendencia === "creciente" ? "↑ Creciente" : tendencia === "decreciente" ? "↓ Decreciente" : "→ Estable"}
-                  </div>
-                  <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>Promedio {fmt(tlAvg)} / día</div>
-                </div>
-              </div>
-
-              {/* gráficas */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-                <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
-                  <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: 0.5 }}>Top Entidades por Valor Facturado</h3>
-                  {topEntidades.length > 0
-                    ? <Chart type="bar" height={Math.max(260, topEntidades.length * 32)} series={[{ name: "Valor facturado", data: topEntidades.map(e => e.valor) }]} options={barOpts} />
-                    : <div style={{ textAlign: "center", color: "#94a3b8", padding: 40 }}>Sin datos</div>
-                  }
-                </div>
-                <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
-                  <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: 0.5 }}>Facturación por Día</h3>
-                  {timeline.length > 0
-                    ? <Chart type="area" height={260} series={[{ name: "Valor facturado", data: timeline.map(t => t.valor) }]} options={areaOpts} />
-                    : <div style={{ textAlign: "center", color: "#94a3b8", padding: 40 }}>Sin datos</div>
-                  }
-                </div>
-              </div>
-
-              {/* tabla entidades */}
-              <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)", overflowX: "auto" }}>
-                <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: 0.5 }}>Detalle por Entidad</h3>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-                      {["#", "Entidad", "Admisiones", "Valor Facturado", "% del Total"].map(h => (
-                        <th key={h} style={{ textAlign: h === "Entidad" ? "left" : "right", padding: "8px 12px",
-                          fontWeight: 700, color: "#475569", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.regular.entidades.map((e, i) => (
-                      <tr key={i} style={{ borderBottom: "1px solid #f8fafc", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-                        <td style={{ padding: "10px 12px", color: "#94a3b8", textAlign: "right" }}>{i + 1}</td>
-                        <td style={{ padding: "10px 12px", fontWeight: 600, color: "#0f172a" }}>{e.nombre}</td>
-                        <td style={{ padding: "10px 12px", textAlign: "right", color: "#475569", fontVariantNumeric: "tabular-nums" }}>{e.admisiones.toLocaleString("es-CO")}</td>
-                        <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "#1d4ed8", fontVariantNumeric: "tabular-nums" }}>{fmt(e.valor)}</td>
-                        <td style={{ padding: "10px 12px", textAlign: "right" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
-                            <div style={{ width: 60, height: 6, background: "#e2e8f0", borderRadius: 3 }}>
-                              <div style={{ width: `${Math.min((e.valor / data.regular.total) * 100, 100)}%`, height: "100%", background: "#1d4ed8", borderRadius: 3 }} />
-                            </div>
-                            <span style={{ fontSize: 12, color: "#475569", minWidth: 36 }}>{((e.valor / data.regular.total) * 100).toFixed(1)}%</span>
+              {regularDetallada && (
+                <>
+                  {/* Cartera segment cards */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+                    {regularDetallada.cartera.map(seg => {
+                      const isActive = carteraFilter === seg.segmento;
+                      return (
+                        <div key={seg.segmento} onClick={() => setCarteraFilter(isActive ? '' : seg.segmento)}
+                          style={{ background: isActive ? seg.color : "#fff", border: `2px solid ${seg.color}`,
+                            borderRadius: 12, padding: "16px 18px", cursor: "pointer", transition: "all 0.15s",
+                            boxShadow: isActive ? `0 4px 16px ${seg.color}44` : "0 1px 8px rgba(0,0,0,0.07)" }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" as const,
+                            letterSpacing: 0.5, marginBottom: 4,
+                            color: isActive ? "rgba(255,255,255,0.85)" : seg.color }}>{seg.label}</div>
+                          <div style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: "tabular-nums",
+                            color: isActive ? "#fff" : seg.color }}>
+                            {seg.estudios.toLocaleString("es-CO")}
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                          <div style={{ fontSize: 11, marginTop: 2, color: isActive ? "rgba(255,255,255,0.75)" : "#64748b" }}>estudios</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, marginTop: 6, fontVariantNumeric: "tabular-nums",
+                            color: isActive ? "rgba(255,255,255,0.9)" : "#1d4ed8" }}>{fmt(seg.valor)}</div>
+                          {isActive && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", marginTop: 4 }}>▲ Filtro activo — clic para quitar</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Filtros dropdowns */}
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center",
+                    background: "#fff", borderRadius: 10, padding: "12px 18px", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>Filtrar por:</span>
+                    <select value={servicioFilter} onChange={e => setServicioFilter(e.target.value)}
+                      style={{ fontSize: 12, border: "1px solid #e2e8f0", borderRadius: 6,
+                        padding: "5px 10px", color: "#0f172a", background: "#f8fafc", minWidth: 200 }}>
+                      <option value="">— Todos los servicios —</option>
+                      {regularDetallada.filtros.servicios.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <select value={contratoFilter} onChange={e => setContratoFilter(e.target.value)}
+                      style={{ fontSize: 12, border: "1px solid #e2e8f0", borderRadius: 6,
+                        padding: "5px 10px", color: "#0f172a", background: "#f8fafc", minWidth: 220 }}>
+                      <option value="">— Todos los contratos —</option>
+                      {regularDetallada.filtros.contratos.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    {(carteraFilter || servicioFilter || contratoFilter) && (
+                      <button onClick={() => { setCarteraFilter(''); setServicioFilter(''); setContratoFilter(''); }}
+                        style={{ fontSize: 11, color: "#ef4444", border: "1px solid #fecaca", background: "#fff",
+                          borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 600 }}>
+                        ✕ Limpiar filtros
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Charts row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                    <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
+                      <h3 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: 0.5 }}>Top Contratos por Estudios</h3>
+                      {regularDetallada.top_contratos.length > 0 ? (
+                        <Chart type="bar"
+                          height={Math.max(220, regularDetallada.top_contratos.length * 30)}
+                          series={[{ name: "Estudios", data: regularDetallada.top_contratos.map(c => c.estudios) }]}
+                          options={{
+                            chart: { type: "bar", toolbar: { show: false } },
+                            plotOptions: { bar: { horizontal: true, borderRadius: 4, dataLabels: { position: "top" } } },
+                            dataLabels: { enabled: true, formatter: (v: number) => v.toLocaleString("es-CO"), style: { fontSize: "10px", colors: ["#64748b"] }, offsetX: 6 },
+                            xaxis: { categories: regularDetallada.top_contratos.map(c => c.contrato.substring(0, 30)), labels: { style: { fontSize: "10px" } } },
+                            yaxis: { labels: { style: { fontSize: "10px", colors: "#475569" } } },
+                            colors: ["#1d4ed8"],
+                            fill: { type: "gradient", gradient: { shade: "light", type: "horizontal", gradientToColors: ["#0f766e"], stops: [0, 100] } },
+                            grid: { borderColor: "#f1f5f9" },
+                            tooltip: { y: { formatter: (v: number) => `${v.toLocaleString("es-CO")} estudios` } },
+                          }} />
+                      ) : <div style={{ textAlign: "center", color: "#94a3b8", padding: 40 }}>Sin datos</div>}
+                    </div>
+
+                    <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
+                      <h3 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: 0.5 }}>Distribución por Servicio</h3>
+                      {regularDetallada.por_servicio.length > 0 ? (
+                        <Chart type="donut" height={260}
+                          series={regularDetallada.por_servicio.map(s => s.estudios)}
+                          options={{
+                            chart: { type: "donut" },
+                            labels: regularDetallada.por_servicio.map(s => s.servicio),
+                            colors: ["#1d4ed8","#0f766e","#7c3aed","#f59e0b","#ef4444","#10b981","#0891b2","#6366f1"],
+                            legend: { position: "bottom" as const, fontSize: "11px" },
+                            dataLabels: { enabled: false },
+                            plotOptions: { pie: { donut: { size: "60%", labels: { show: true, total: {
+                              show: true, label: "Estudios", formatter: () => regularDetallada.kpis.total_estudios.toLocaleString("es-CO")
+                            } } } } },
+                            tooltip: { y: { formatter: (v: number) => `${v.toLocaleString("es-CO")} estudios` } },
+                          }} />
+                      ) : <div style={{ textAlign: "center", color: "#94a3b8", padding: 40 }}>Sin datos</div>}
+                    </div>
+                  </div>
+
+                  {/* Tendencia mensual */}
+                  <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
+                    <h3 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: 0.5 }}>Tendencia Mensual</h3>
+                    {regularDetallada.tendencia.length > 0 ? (
+                      <Chart type="area" height={220}
+                        series={[
+                          { name: "Valor facturado", data: regularDetallada.tendencia.map(t => t.valor) },
+                          { name: "Estudios",         data: regularDetallada.tendencia.map(t => t.estudios) },
+                        ]}
+                        options={{
+                          chart: { type: "area", toolbar: { show: false }, animations: { enabled: true, easing: "easeinout", speed: 600 } },
+                          dataLabels: { enabled: false },
+                          stroke: { curve: "smooth", width: 2 },
+                          xaxis: { categories: regularDetallada.tendencia.map(t => t.mes), labels: { style: { fontSize: "10px" } } },
+                          yaxis: [
+                            { labels: { formatter: fmtM, style: { fontSize: "11px" } } },
+                            { opposite: true, labels: { formatter: (v: number) => v.toLocaleString("es-CO"), style: { fontSize: "11px" } } },
+                          ],
+                          colors: ["#0f766e", "#1d4ed8"],
+                          fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.3, opacityTo: 0.03, stops: [0, 100] } },
+                          grid: { borderColor: "#f1f5f9" },
+                          legend: { position: "top" as const, fontSize: "12px" },
+                          tooltip: { y: [{ formatter: (v: number) => fmt(v) }, { formatter: (v: number) => `${v.toLocaleString("es-CO")} estudios` }] },
+                        }} />
+                    ) : <div style={{ textAlign: "center", color: "#94a3b8", padding: 40 }}>Sin datos</div>}
+                  </div>
+
+                  {/* Tablas: médicos / procedimientos */}
+                  <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 8px rgba(0,0,0,0.07)", overflow: "hidden" }}>
+                    <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0" }}>
+                      {(["medicos", "procedimientos"] as const).map(tab => (
+                        <button key={tab} onClick={() => setTablaProcActiva(tab)}
+                          style={{ padding: "12px 24px", border: "none", background: "none", cursor: "pointer",
+                            fontWeight: 700, fontSize: 13,
+                            color: tablaProcActiva === tab ? "#1d4ed8" : "#64748b",
+                            borderBottom: tablaProcActiva === tab ? "3px solid #1d4ed8" : "3px solid transparent" }}>
+                          {tab === "medicos" ? "👨‍⚕️ Estadísticas por Médico" : "🔬 Detalle Procedimientos"}
+                        </button>
+                      ))}
+                    </div>
+
+                    {tablaProcActiva === "medicos" && (
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                          <thead>
+                            <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
+                              {["#", "Médico", "Estudios", "Valor Facturado", "% Estudios"].map(h => (
+                                <th key={h} style={{ padding: "10px 14px", textAlign: h === "Médico" ? "left" : "right",
+                                  fontWeight: 700, color: "#475569", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {regularDetallada.medicos.map((m, i) => {
+                              const pct = regularDetallada.kpis.total_estudios > 0
+                                ? (m.estudios / regularDetallada.kpis.total_estudios * 100).toFixed(1) : "0.0";
+                              return (
+                                <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                                  <td style={{ padding: "9px 14px", color: "#94a3b8", textAlign: "right" }}>{i + 1}</td>
+                                  <td style={{ padding: "9px 14px", fontWeight: 600, color: "#0f172a" }}>{m.nombre}</td>
+                                  <td style={{ padding: "9px 14px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{m.estudios.toLocaleString("es-CO")}</td>
+                                  <td style={{ padding: "9px 14px", textAlign: "right", fontWeight: 700, color: "#1d4ed8", fontVariantNumeric: "tabular-nums" }}>{fmt(m.valor)}</td>
+                                  <td style={{ padding: "9px 14px", textAlign: "right" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
+                                      <div style={{ width: 50, height: 5, background: "#e2e8f0", borderRadius: 3 }}>
+                                        <div style={{ width: `${Math.min(parseFloat(pct), 100)}%`, height: "100%", background: "#1d4ed8", borderRadius: 3 }} />
+                                      </div>
+                                      <span style={{ fontSize: 11, color: "#475569", minWidth: 32 }}>{pct}%</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {tablaProcActiva === "procedimientos" && (
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
+                              {["Contrato", "CUPS", "Procedimiento", "Cantidad", "Valor Unit.", "Total"].map(h => (
+                                <th key={h} style={{ padding: "10px 12px",
+                                  textAlign: ["Contrato","CUPS","Procedimiento"].includes(h) ? "left" : "right",
+                                  fontWeight: 700, color: "#475569", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {regularDetallada.procedimientos.map((p, i) => (
+                              <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                                <td style={{ padding: "8px 12px", color: "#475569", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.contrato}</td>
+                                <td style={{ padding: "8px 12px", fontFamily: "monospace", color: "#0f766e", fontWeight: 700 }}>{p.cups}</td>
+                                <td style={{ padding: "8px 12px", color: "#0f172a", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</td>
+                                <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.cantidad.toLocaleString("es-CO")}</td>
+                                <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: "#475569" }}>{fmt(p.valor_uni)}</td>
+                                <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "#1d4ed8", fontVariantNumeric: "tabular-nums" }}>{fmt(p.total)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
 

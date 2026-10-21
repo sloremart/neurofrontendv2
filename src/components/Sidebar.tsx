@@ -28,6 +28,8 @@ import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
+import HealingIcon from '@mui/icons-material/Healing';
 
 const SIDEBAR_W = 248;
 const MINI_W    = 62;
@@ -65,6 +67,7 @@ const MENU: MenuGroup[] = [
       { label: 'Caja Facturación',    path: '/caja_facturacion',              icon: <SavingsIcon />,               roles: ['Facturador'] },
       { label: 'Fact. Proveedores',    path: '/facturas_proveedores',          icon: <ReceiptLongIcon />,           roles: ['Contador', 'Financiera', 'AdministrativoGerencia', 'GerenciaCM'] },
       { label: 'Autorizaciones',       path: '/carga_autorizaciones',          icon: <VerifiedUserIcon />,          roles: ['CuentasMedicas', 'LiderCuentasMedicas'] },
+      { label: 'Hallazgos IA',         path: '/hallazgos_ia',                  icon: <SmartToyIcon />,              roles: ['CuentasMedicas', 'LiderCuentasMedicas', 'GerenciaCM', 'Administrativo', 'Sistemas'] },
     ],
   },
   {
@@ -77,6 +80,7 @@ const MENU: MenuGroup[] = [
   {
     group: 'Evaluación',
     items: [
+      { label: 'Demanda Inducida', path: '/demanda_inducida',     icon: <HealingIcon />,          roles: ['AdministrativoGerencia'] },
       { label: 'Dashboard Eval.', path: '/evaluacion_dashboard', icon: <WorkspacePremiumIcon />, roles: ['AdministrativoGerencia'] },
       { label: 'Eval. Personal',  path: '/evaluacion_personal',  icon: <PersonOutlineIcon />,   roles: TODOS },
     ],

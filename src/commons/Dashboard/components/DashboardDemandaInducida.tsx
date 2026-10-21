@@ -1,0 +1,387 @@
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import CONFIG from "../../../config/api.js";
+
+const API: string = CONFIG.API_ENDPOINT;
+
+// ── tipos ─────────────────────────────────────────────────────────────────────
+interface Orden {
+  Id: string;
+  Fecha: string;
+  Paciente: string;
+  Documento: string;
+  Telefono: string;
+  Entidad: string;
+  EpsBot: string | null;   // código bot RPA o null si no soportada
+  Cups: string;
+  Orden: string;
+  Observacion: string;
+  Medico: string;
+  Estado: string;
+}
+
+interface AutorizacionResult {
+  status: string;           // AUTORIZADO | SIN_VOLANTE | SIN_CONTRATO | ERROR
+  num_autorizacion?: string;
+  fecha_vigencia?: string;
+  servicio?: string;
+  cups?: string;
+  mensaje?: string;
+}
+
+// ── helpers de clasificación (replica lógica Flask) ───────────────────────────
+function getOrdenBadge(orden: string): { bg: string; color: string } {
+  const u = (orden || "").toUpperCase();
+  if (u.includes("RESONANCIA")) return { bg: "#CFFAFE", color: "#155E75" };
+  if (u.includes("TELEMETR") || u.includes("MONITORIZACI") || u.includes("ELECTROENCEFALOGRAMA") || u.includes("POTENCIAL") || u.includes("NEURO"))
+    return { bg: "#DBEAFE", color: "#1D4ED8" };
+  if (u.includes(" TAC ") || u.includes("PET-CT")) return { bg: "#FEE2E2", color: "#991B1B" };
+  if (u.includes("ECOGRAFIA") || u.includes("ULTRASONOGRAFIA") || u.includes("DOPPLER"))
+    return { bg: "#D1FAE5", color: "#065F46" };
+  if (u.includes("MAMOGRAFIA") || u.includes("RAYOS X") || u.includes(" RX ") || u.includes("RADIOGRAFIA"))
+    return { bg: "#FEF9C3", color: "#713F12" };
+  if (u.includes("FISIATRIA") || u.includes("TERAPIA") || u.includes("BIOPSIA") || u.includes("INFILTRACION"))
+    return { bg: "#F1F5F9", color: "#334155" };
+  if (u.includes("MEDICAMENTO")) return { bg: "#E2E8F0", color: "#334155" };
+  if (u.includes("CONSULTA")) return { bg: "#F8FAFC", color: "#64748B" };
+  return { bg: "#F1F5F9", color: "#334155" };
+}
+
+function categorizarOrden(orden: string): "imagenes" | "neuro" | "fisi" | "otro" {
+  const u = (orden || "").toUpperCase();
+  if (u.includes("RESONANCIA") || u.includes(" TAC ") || u.includes("PET") || u.includes("RAYOS X") || u.includes(" RX ") || u.includes("ECOGRAF") || u.includes("MAMOGRAF") || u.includes("RADIOGRAFIA"))
+    return "imagenes";
+  if (u.includes("MONITORIZACI") || u.includes("TELEMETRIA") || u.includes("ELECTROENCEFALOGRAMA") || u.includes("POTENCIAL") || u.includes("NEURO"))
+    return "neuro";
+  if (u.includes("FISIATRIA") || u.includes("TERAPIA") || u.includes("REHABILITA") || u.includes("MEDICINA FISICA") || u.includes("INFILTRACION"))
+    return "fisi";
+  return "otro";
+}
+
+function exportarExcel(data: Orden[]) {
+  const encabezados = ["Fecha", "Paciente", "Documento", "Teléfono", "Entidad", "Médico", "CUPS", "Orden", "Observación", "Estado"];
+  const filas = data.map(r => [
+    r.Fecha, r.Paciente, r.Documento, r.Telefono, r.Entidad,
+    r.Medico, r.Cups, r.Orden, r.Observacion, r.Estado,
+  ]);
+  const contenido = [encabezados, ...filas]
+    .map(row => row.map(c => `"${(c || "").toString().replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob(["﻿" + contenido], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "Reporte_Demanda_Inducida.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── StatCard ──────────────────────────────────────────────────────────────────
+interface StatCardProps { label: string; value: string | number; icon: string; borderColor: string; iconColor: string; small?: boolean }
+const StatCard = ({ label, value, icon, borderColor, iconColor, small }: StatCardProps) => (
+  <div style={{ background: "#fff", borderRadius: 12, borderLeft: `5px solid ${borderColor}`, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", flex: 1, minWidth: 160 }}>
+    <div>
+      <div style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6B7280", marginBottom: 8 }}>{label}</div>
+      <div style={{ fontSize: small ? "1.25rem" : "1.75rem", fontWeight: 700, color: "#1F2937" }}>{value}</div>
+    </div>
+    <div style={{ fontSize: "2.2rem", color: iconColor, opacity: 0.8 }}>{icon}</div>
+  </div>
+);
+
+// ── Badge de autorización ─────────────────────────────────────────────────────
+const BadgeAut = ({ r }: { r: AutorizacionResult | "cargando" | null }) => {
+  if (!r) return <span style={{ color: "#9CA3AF", fontSize: "0.72rem" }}>-</span>;
+  if (r === "cargando") return (
+    <span style={{ background: "#EFF6FF", color: "#3B82F6", borderRadius: 9999, padding: "5px 10px", fontSize: "0.72rem", display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <span style={{ display: "inline-block", width: 10, height: 10, border: "2px solid #3B82F6", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }}></span> Consultando...
+    </span>
+  );
+  if (r.status === "AUTORIZADO") return (
+    <div>
+      <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "4px 8px", fontSize: "0.7rem", fontWeight: 600, display: "block", marginBottom: 2 }}>✅ AUTORIZADO</span>
+      {r.num_autorizacion && <div style={{ fontSize: "0.65rem", color: "#374151" }}>#{r.num_autorizacion}</div>}
+      {r.fecha_vigencia && <div style={{ fontSize: "0.65rem", color: "#6B7280" }}>Vence: {r.fecha_vigencia}</div>}
+    </div>
+  );
+  if (r.status === "SIN_VOLANTE") return <span style={{ background: "#FEF3C7", color: "#92400E", borderRadius: 9999, padding: "5px 10px", fontSize: "0.7rem" }}>⚠️ Sin volante</span>;
+  if (r.status === "SIN_CONTRATO") return <span style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 9999, padding: "5px 10px", fontSize: "0.7rem" }}>❌ Sin contrato</span>;
+  return <span style={{ background: "#F3F4F6", color: "#6B7280", borderRadius: 9999, padding: "5px 10px", fontSize: "0.7rem" }}>⚙ {r.status}</span>;
+};
+
+const ITEMS_POR_PAGINA = 10;
+
+// ── Componente principal ──────────────────────────────────────────────────────
+const DashboardDemandaInducida: React.FC = () => {
+  const [data, setData]       = useState<Orden[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState("");
+  const [pagina, setPagina]   = useState(1);
+
+  const hoy = new Date();
+  const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+  const hace30 = new Date(hoy); hace30.setDate(hace30.getDate() - 30);
+  const hace30Str = `${hace30.getFullYear()}-${String(hace30.getMonth() + 1).padStart(2, "0")}-${String(hace30.getDate()).padStart(2, "0")}`;
+  const [fechaDesde, setFechaDesde] = useState(hace30Str);
+  const [fechaHasta, setFechaHasta] = useState(hoyStr);
+
+  // Caché de autorizaciones: clave = "eps|doc_num"
+  const autCache = useRef<Record<string, AutorizacionResult | "cargando">>({});
+  const [autState, setAutState] = useState<Record<string, AutorizacionResult | "cargando">>({});
+  // Cola de validaciones pendientes
+  const colaRef = useRef<{ eps: string; docNum: string; clave: string }[]>([]);
+  const procesandoRef = useRef(false);
+
+  const actualizarAut = useCallback((clave: string, val: AutorizacionResult | "cargando") => {
+    autCache.current[clave] = val;
+    setAutState(prev => ({ ...prev, [clave]: val }));
+  }, []);
+
+  const procesarCola = useCallback(async () => {
+    if (procesandoRef.current) return;
+    procesandoRef.current = true;
+    while (colaRef.current.length > 0) {
+      const item = colaRef.current.shift()!;
+      if (autCache.current[item.clave] && autCache.current[item.clave] !== "cargando") continue;
+      actualizarAut(item.clave, "cargando");
+      try {
+        const res = await fetch(`${API}/gedocumental/consultar-autorizacion/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+          body: JSON.stringify({ eps: item.eps, doc_tipo: "CC", doc_num: item.docNum }),
+        });
+        const json = await res.json();
+        const resultado: AutorizacionResult = json.data || json;
+        actualizarAut(item.clave, resultado);
+      } catch {
+        actualizarAut(item.clave, { status: "ERROR", mensaje: "Sin conexión con RPA" });
+      }
+    }
+    procesandoRef.current = false;
+  }, [actualizarAut]);
+
+  const encolarValidaciones = useCallback((filas: Orden[]) => {
+    const nuevas: typeof colaRef.current = [];
+    const vistos = new Set<string>();
+    for (const fila of filas) {
+      if (!fila.EpsBot) continue;
+      const docLimpio = (fila.Documento || "").replace(/[^0-9A-Za-z]/g, "");
+      const clave = `${fila.EpsBot}|${docLimpio}`;
+      if (!vistos.has(clave) && !autCache.current[clave]) {
+        vistos.add(clave);
+        nuevas.push({ eps: fila.EpsBot, docNum: docLimpio, clave });
+      }
+    }
+    if (nuevas.length > 0) {
+      colaRef.current.push(...nuevas);
+      procesarCola();
+    }
+  }, [procesarCola]);
+
+  const cargarDatos = () => {
+    setLoading(true);
+    setError(null);
+    fetch(`${API}/gedocumental/demanda-inducida/`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+    })
+      .then(r => r.json())
+      .then(json => { setData(json.data || []); setLoading(false); })
+      .catch(e => { setError(e.message); setLoading(false); });
+  };
+
+  useEffect(() => { cargarDatos(); }, []);
+
+  const filtrados = useMemo(() => {
+    return data.filter(r => {
+      const fechaRow = r.Fecha.split(" ")[0];
+      if (fechaDesde && fechaRow < fechaDesde) return false;
+      if (fechaHasta && fechaRow > fechaHasta) return false;
+      if (busqueda) {
+        const q = busqueda.toLowerCase();
+        return (r.Paciente + r.Entidad + r.Medico + r.Orden + r.Documento + r.Cups).toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [data, fechaDesde, fechaHasta, busqueda]);
+
+  const stats = useMemo(() => {
+    let imagenes = 0, neuro = 0, fisi = 0, lastDate = "";
+    for (const r of filtrados) {
+      const cat = categorizarOrden(r.Orden);
+      if (cat === "imagenes") imagenes++;
+      else if (cat === "neuro") neuro++;
+      else if (cat === "fisi") fisi++;
+      if (!lastDate || r.Fecha > lastDate) lastDate = r.Fecha;
+    }
+    return { total: filtrados.length, imagenes, neuro, fisi, lastDate: lastDate ? lastDate.split(" ")[0] : "-" };
+  }, [filtrados]);
+
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / ITEMS_POR_PAGINA));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const filasPagina  = filtrados.slice((paginaActual - 1) * ITEMS_POR_PAGINA, paginaActual * ITEMS_POR_PAGINA);
+
+  // Auto-validar las filas de la página actual cuando cambian
+  useEffect(() => {
+    if (filasPagina.length > 0) encolarValidaciones(filasPagina);
+  }, [filasPagina, encolarValidaciones]);
+
+  const limpiarFiltro = () => { setFechaDesde(hace30Str); setFechaHasta(hoyStr); setBusqueda(""); setPagina(1); };
+
+  // Contadores de autorizaciones en los datos filtrados
+  const contAutorizados = useMemo(() => {
+    return filtrados.filter(r => {
+      if (!r.EpsBot) return false;
+      const clave = `${r.EpsBot}|${(r.Documento || "").replace(/[^0-9A-Za-z]/g, "")}`;
+      const aut = autState[clave];
+      return aut && aut !== "cargando" && (aut as AutorizacionResult).status === "AUTORIZADO";
+    }).length;
+  }, [filtrados, autState]);
+
+  return (
+    <div style={{ fontFamily: "'Inter', sans-serif", background: "#F3F4F6", minHeight: "100%", padding: "24px" }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+      {/* Tarjetas */}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
+        <StatCard label="Total Notificaciones"  value={stats.total}        icon="✉️"  borderColor="#DC143C" iconColor="#DC143C" />
+        <StatCard label="Imágenes Diagnósticas" value={stats.imagenes}     icon="🧲"  borderColor="#4B0082" iconColor="#4B0082" />
+        <StatCard label="Neurología y Estudios" value={stats.neuro}        icon="🧠"  borderColor="#173872" iconColor="#173872" />
+        <StatCard label="Fisiatría y Terapias"  value={stats.fisi}         icon="🚶"  borderColor="#20c997" iconColor="#20c997" />
+        <StatCard label="Autorizados (RPA)"     value={contAutorizados}    icon="✅"  borderColor="#16a34a" iconColor="#16a34a" />
+        <StatCard label="Última Actividad"      value={stats.lastDate}     icon="⚡"  borderColor="#28a745" iconColor="#28a745" small />
+      </div>
+
+      {/* Tabla */}
+      <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 10px 15px -3px rgba(0,0,0,0.05)" }}>
+        <div style={{ padding: "16px 24px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ fontWeight: 600, fontSize: "1.1rem", color: "#1F2937", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: "#9CA3AF" }}>⊞</span> Listado de Órdenes Generadas
+            <span style={{ fontSize: "0.72rem", color: "#6B7280", fontWeight: 400, marginLeft: 8 }}>
+              — Autorizaciones consultadas automáticamente para SANITAS · CAPITAL · FOMAG · SALUD TOTAL
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: "0.8rem" }}>
+            <input type="text" placeholder="Buscar..." value={busqueda} onChange={e => { setBusqueda(e.target.value); setPagina(1); }}
+              style={{ border: "1px solid #D1D5DB", borderRadius: 8, padding: "4px 10px", fontSize: "0.78rem", height: 28, width: 140 }} />
+            <span style={{ color: "#6B7280", fontWeight: 600 }}>Desde:</span>
+            <input type="date" value={fechaDesde} onChange={e => { setFechaDesde(e.target.value); setPagina(1); }}
+              style={{ border: "1px solid #D1D5DB", borderRadius: 8, padding: "2px 6px", fontSize: "0.78rem", height: 28, width: 128 }} />
+            <span style={{ color: "#6B7280", fontWeight: 600 }}>Hasta:</span>
+            <input type="date" value={fechaHasta} onChange={e => { setFechaHasta(e.target.value); setPagina(1); }}
+              style={{ border: "1px solid #D1D5DB", borderRadius: 8, padding: "2px 6px", fontSize: "0.78rem", height: 28, width: 128 }} />
+            <button onClick={limpiarFiltro} style={{ background: "linear-gradient(135deg,#9B7DD4,#7C5CBF)", color: "#fff", border: "none", borderRadius: 20, padding: "0 12px", height: 28, fontSize: "0.72rem", cursor: "pointer" }}>↺ Limpiar</button>
+            <button onClick={() => exportarExcel(filtrados)} style={{ background: "#556B2F", color: "#fff", border: "none", borderRadius: 20, padding: "0 12px", height: 28, fontSize: "0.72rem", cursor: "pointer" }}>⬇ Exportar Excel</button>
+            <button onClick={cargarDatos} style={{ background: "#173872", color: "#fff", border: "none", borderRadius: 20, padding: "0 12px", height: 28, fontSize: "0.72rem", cursor: "pointer" }}>⟳ Actualizar</button>
+          </div>
+        </div>
+
+        <div style={{ overflowX: "auto" }}>
+          {loading ? (
+            <div style={{ textAlign: "center", padding: 48, color: "#6B7280" }}>Cargando datos...</div>
+          ) : error ? (
+            <div style={{ textAlign: "center", padding: 48, color: "#DC2626" }}>Error: {error}</div>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  {["Fecha Registro","Paciente","Contacto","Entidad","Médico Solicitante","Orden Solicitada","Observación","Validación EPS","Autorización RPA"].map(h => (
+                    <th key={h} style={{ background: "#F9FAFB", color: "#6B7280", fontWeight: 600, textTransform: "uppercase", fontSize: "0.72rem", letterSpacing: "0.05em", borderBottom: "2px solid #E5E7EB", padding: "12px 16px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filasPagina.length === 0 ? (
+                  <tr><td colSpan={9} style={{ textAlign: "center", padding: 32, color: "#6B7280", fontSize: "0.875rem" }}>No hay registros para el rango de fechas seleccionado.</td></tr>
+                ) : filasPagina.map((r, i) => {
+                  const badge = getOrdenBadge(r.Orden);
+                  const partesFecha = r.Fecha.split(" ");
+                  const docLimpio = (r.Documento || "").replace(/[^0-9A-Za-z]/g, "");
+                  const claveAut = r.EpsBot ? `${r.EpsBot}|${docLimpio}` : null;
+                  const autResult = claveAut ? autState[claveAut] ?? null : null;
+
+                  return (
+                    <tr key={r.Id} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "#F9FAFB")}
+                      onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? "#fff" : "#FAFAFA")}>
+                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle" }}>
+                        <div style={{ fontWeight: 500, color: "#1F2937" }}>{partesFecha[0]}</div>
+                        <div style={{ color: "#9CA3AF", fontSize: "0.75rem" }}>⏰ {partesFecha[1] || "00:00"}</div>
+                      </td>
+                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle" }}>
+                        <div style={{ fontWeight: 700, color: "#1F2937" }}>{r.Paciente}</div>
+                        <div style={{ color: "#6B7280", fontSize: "0.75rem", marginTop: 2 }}>CC: {r.Documento}</div>
+                      </td>
+                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle" }}>
+                        <div style={{ color: "#6B7280" }}>📞 {r.Telefono}</div>
+                      </td>
+                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle", maxWidth: 200 }}>
+                        <div style={{ color: "#6B7280", fontWeight: 500, fontSize: "0.75rem", lineHeight: 1.3 }}>{r.Entidad}</div>
+                        {r.EpsBot && <div style={{ fontSize: "0.6rem", color: "#A78BFA", marginTop: 2 }}>🤖 {r.EpsBot}</div>}
+                      </td>
+                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ background: "#F1F5F9", borderRadius: "50%", padding: "6px 8px", color: "#3B82F6", fontSize: "0.9rem" }}>👤</div>
+                          <div style={{ fontSize: "0.8rem" }}>{r.Medico}</div>
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle", textAlign: "center" }}>
+                        <div style={{ display: "inline-block", background: badge.bg, color: badge.color, borderRadius: 9999, padding: "3px 10px", fontSize: "0.6rem", fontWeight: 500, lineHeight: 1.3, textAlign: "center", maxWidth: 160, wordBreak: "break-word" }}>
+                          {r.Orden || `PROCEDIMIENTO (${r.Cups})`}
+                        </div>
+                        <div style={{ color: "#9CA3AF", fontSize: "0.6rem", fontWeight: 600, marginTop: 3 }}>🔍 CUPS: {r.Cups}</div>
+                      </td>
+                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle", maxWidth: 180 }}>
+                        {r.Observacion && r.Observacion.trim()
+                          ? <div style={{ color: "#5a6268", fontSize: "0.75rem", fontStyle: "italic", lineHeight: 1.3 }}>💬 {r.Observacion}</div>
+                          : <span style={{ color: "#9CA3AF", fontSize: "0.75rem" }}>-</span>}
+                      </td>
+                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle" }}>
+                        <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "5px 10px", fontSize: "0.72rem", fontWeight: 500, whiteSpace: "nowrap" }}>✅ Válido y Contratado</span>
+                      </td>
+                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle" }}>
+                        {r.EpsBot
+                          ? <BadgeAut r={autResult} />
+                          : <span style={{ color: "#D1D5DB", fontSize: "0.72rem" }}>No aplica</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {!loading && !error && (
+          <div style={{ padding: "12px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, borderTop: "1px solid #F3F4F6" }}>
+            <div style={{ fontSize: "0.8rem", color: "#6B7280" }}>
+              Mostrando {filtrados.length === 0 ? 0 : (paginaActual - 1) * ITEMS_POR_PAGINA + 1}–{Math.min(paginaActual * ITEMS_POR_PAGINA, filtrados.length)} de {filtrados.length} registros
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={paginaActual === 1}
+                style={{ border: "1px solid #D1D5DB", borderRadius: 6, padding: "4px 10px", cursor: paginaActual === 1 ? "default" : "pointer", background: paginaActual === 1 ? "#F9FAFB" : "#fff", color: paginaActual === 1 ? "#9CA3AF" : "#1F2937" }}>‹</button>
+              {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
+                let num = i + 1;
+                if (totalPaginas > 5) {
+                  if (paginaActual <= 3) num = i + 1;
+                  else if (paginaActual >= totalPaginas - 2) num = totalPaginas - 4 + i;
+                  else num = paginaActual - 2 + i;
+                }
+                return (
+                  <button key={num} onClick={() => setPagina(num)}
+                    style={{ border: "1px solid #D1D5DB", borderRadius: 6, padding: "4px 10px", cursor: "pointer", background: paginaActual === num ? "#173872" : "#fff", color: paginaActual === num ? "#fff" : "#1F2937" }}>{num}</button>
+                );
+              })}
+              <button onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))} disabled={paginaActual === totalPaginas}
+                style={{ border: "1px solid #D1D5DB", borderRadius: 6, padding: "4px 10px", cursor: paginaActual === totalPaginas ? "default" : "pointer", background: paginaActual === totalPaginas ? "#F9FAFB" : "#fff", color: paginaActual === totalPaginas ? "#9CA3AF" : "#1F2937" }}>›</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ textAlign: "center", marginTop: 16, color: "#9CA3AF", fontSize: "0.85rem" }}>
+        Desarrollado por tecnología <strong>NeurDx</strong>
+      </div>
+    </div>
+  );
+};
+
+export default DashboardDemandaInducida;
