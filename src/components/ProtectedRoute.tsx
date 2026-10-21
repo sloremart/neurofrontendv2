@@ -8,12 +8,14 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
   const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-  const userRole = userData?.cargo;
+  const userRole: string = (userData?.cargo || "").trim();
   if (!userRole) {
     return <Navigate to="/login" />;
   }
 
-  if (!allowedRoles.includes(userRole)) {
+  // Sin distinguir mayúsculas ni espacios ("Sistemas", "SISTEMAS", "Sistemas ")
+  const normalizar = (r: string) => r.trim().toLowerCase();
+  if (!allowedRoles.some((r) => normalizar(r) === normalizar(userRole))) {
     return <Navigate to="/no-autorizado" />;
   }
 

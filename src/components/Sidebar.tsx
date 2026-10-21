@@ -89,7 +89,7 @@ const MENU: MenuGroup[] = [
 ];
 
 const canAccess = (roles: Rol[], userRole: string) =>
-  roles.length === 0 || roles.includes(userRole as Rol);
+  roles.length === 0 || roles.some((r) => r.toLowerCase() === userRole.trim().toLowerCase());
 
 const getInitials = (name: string) =>
   name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
