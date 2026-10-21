@@ -67,7 +67,8 @@ const MENU: MenuGroup[] = [
       { label: 'Caja Facturación',    path: '/caja_facturacion',              icon: <SavingsIcon />,               roles: ['Facturador'] },
       { label: 'Fact. Proveedores',    path: '/facturas_proveedores',          icon: <ReceiptLongIcon />,           roles: ['Contador', 'Financiera', 'AdministrativoGerencia', 'GerenciaCM'] },
       { label: 'Autorizaciones',       path: '/carga_autorizaciones',          icon: <VerifiedUserIcon />,          roles: ['CuentasMedicas', 'LiderCuentasMedicas'] },
-      { label: 'Hallazgos IA',         path: '/hallazgos_ia',                  icon: <SmartToyIcon />,              roles: ['CuentasMedicas', 'LiderCuentasMedicas', 'GerenciaCM', 'Administrativo', 'Sistemas'] },
+      // Hallazgos IA: por ahora oculto para Cuentas Médicas (se abre por URL /hallazgos_ia)
+      { label: 'Hallazgos IA',         path: '/hallazgos_ia',                  icon: <SmartToyIcon />,              roles: ['Administrativo', 'Sistemas'] },
     ],
   },
   {

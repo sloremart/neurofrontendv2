@@ -49,6 +49,7 @@ interface HallazgoIA {
   IdArchivo: number | null;
   Admision: number;
   Paciente: string;
+  Procedimiento: string;
   TipoDocumento: string;
   TipoHallazgo: string;
   Descripcion: string;
@@ -494,6 +495,12 @@ export const GeDocumental = () => {
       ),
     },
     { field: "Paciente", headerName: "Paciente", width: 170 },
+    {
+      field: "Procedimiento", headerName: "Procedimiento (CUPS)", width: 240,
+      renderCell: (p: GridRenderCellParams<HallazgoIA>) => (
+        <Typography sx={{ fontSize: 12, whiteSpace: "normal", lineHeight: 1.35 }}>{p.row.Procedimiento}</Typography>
+      ),
+    },
     { field: "Identificacion", headerName: "Identificación", width: 110 },
     { field: "Entidad", headerName: "EPS", width: 80 },
     { field: "TipoDocumento", headerName: "Documento", width: 135 },

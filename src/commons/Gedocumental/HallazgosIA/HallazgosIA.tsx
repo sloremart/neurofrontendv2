@@ -56,6 +56,7 @@ interface Hallazgo {
   IdArchivo: number | null;
   Admision: number;
   Paciente: string;
+  Procedimiento: string;
   Identificacion: string;
   Entidad: string;
   TipoDocumento: string;
@@ -149,6 +150,12 @@ export const HallazgosIA: React.FC = () => {
     },
     { field: "Admision", headerName: "Admisión", width: 95 },
     { field: "Paciente", headerName: "Paciente", width: 200 },
+    {
+      field: "Procedimiento", headerName: "Procedimiento (CUPS)", width: 260,
+      renderCell: ({ value }) => (
+        <Typography sx={{ fontSize: 12, whiteSpace: "normal", lineHeight: 1.35 }}>{value}</Typography>
+      ),
+    },
     { field: "Identificacion", headerName: "Identificación", width: 120 },
     { field: "Entidad", headerName: "EPS", width: 90 },
     { field: "TipoDocumento", headerName: "Documento", width: 130 },
