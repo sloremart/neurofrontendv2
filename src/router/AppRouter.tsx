@@ -47,8 +47,8 @@ const CM_ROLES     = ['CuentasMedicas', 'LiderCuentasMedicas', 'GerenciaCM'];
 const CONT_ROLES   = ['Contador', 'Financiera'];
 const EST_ROLES    = ['EstudiosSueño', 'Asistencial'];
 const AUTH_ROLES   = [...CM_ROLES, 'Administrativo', 'AdministrativoGerencia', 'Sistemas'];
-// Reporte Hallazgos IA: aún no visible para AdministrativoGerencia (pendiente de validación)
-const HALLAZGOS_IA_ROLES = [...CM_ROLES, 'Administrativo', 'Sistemas'];
+// Reporte Hallazgos IA: se abre por URL (/hallazgos_ia); en el menú solo lo ven Administrativo y Sistemas
+const HALLAZGOS_IA_ROLES = [...CM_ROLES, 'Administrativo', 'AdministrativoGerencia', 'Sistemas'];
 
 export const AppRouter: React.FC = () => {
   return (
