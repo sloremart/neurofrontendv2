@@ -6,6 +6,8 @@ const API: string = CONFIG.API_ENDPOINT;
 // ── tipos ─────────────────────────────────────────────────────────────────────
 interface Orden {
   Id: string;
+  NroOrden: string;
+  NroAdmision: string;
   Fecha: string;
   Paciente: string;
   Documento: string;
@@ -180,7 +182,10 @@ const DashboardDemandaInducida: React.FC = () => {
   const cargarDatos = () => {
     setLoading(true);
     setError(null);
-    fetch(`${API}/gedocumental/demanda-inducida/`, {
+    const params = new URLSearchParams();
+    if (fechaDesde) params.set("fecha_desde", fechaDesde);
+    if (fechaHasta) params.set("fecha_hasta", fechaHasta);
+    fetch(`${API}/gedocumental/demanda-inducida/?${params.toString()}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
     })
       .then(r => r.json())
@@ -204,15 +209,16 @@ const DashboardDemandaInducida: React.FC = () => {
   }, [data, fechaDesde, fechaHasta, busqueda]);
 
   const stats = useMemo(() => {
-    let imagenes = 0, neuro = 0, fisi = 0, lastDate = "";
+    let imagenes = 0, neuro = 0, fisi = 0, otro = 0, lastDate = "";
     for (const r of filtrados) {
       const cat = categorizarOrden(r.Orden);
       if (cat === "imagenes") imagenes++;
       else if (cat === "neuro") neuro++;
       else if (cat === "fisi") fisi++;
+      else otro++;
       if (!lastDate || r.Fecha > lastDate) lastDate = r.Fecha;
     }
-    return { total: filtrados.length, imagenes, neuro, fisi, lastDate: lastDate ? lastDate.split(" ")[0] : "-" };
+    return { total: filtrados.length, imagenes, neuro, fisi, otro, lastDate: lastDate ? lastDate.split(" ")[0] : "-" };
   }, [filtrados]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / ITEMS_POR_PAGINA));
@@ -246,6 +252,7 @@ const DashboardDemandaInducida: React.FC = () => {
         <StatCard label="Imágenes Diagnósticas" value={stats.imagenes}     icon="🧲"  borderColor="#4B0082" iconColor="#4B0082" />
         <StatCard label="Neurología y Estudios" value={stats.neuro}        icon="🧠"  borderColor="#173872" iconColor="#173872" />
         <StatCard label="Fisiatría y Terapias"  value={stats.fisi}         icon="🚶"  borderColor="#20c997" iconColor="#20c997" />
+        <StatCard label="Otros Servicios"       value={stats.otro}         icon="📋"  borderColor="#F59E0B" iconColor="#F59E0B" />
         <StatCard label="Autorizados (RPA)"     value={contAutorizados}    icon="✅"  borderColor="#16a34a" iconColor="#16a34a" />
         <StatCard label="Última Actividad"      value={stats.lastDate}     icon="⚡"  borderColor="#28a745" iconColor="#28a745" small />
       </div>
@@ -268,9 +275,9 @@ const DashboardDemandaInducida: React.FC = () => {
             <span style={{ color: "#6B7280", fontWeight: 600 }}>Hasta:</span>
             <input type="date" value={fechaHasta} onChange={e => { setFechaHasta(e.target.value); setPagina(1); }}
               style={{ border: "1px solid #D1D5DB", borderRadius: 8, padding: "2px 6px", fontSize: "0.78rem", height: 28, width: 128 }} />
+            <button onClick={cargarDatos} style={{ background: "#173872", color: "#fff", border: "none", borderRadius: 20, padding: "0 12px", height: 28, fontSize: "0.72rem", cursor: "pointer" }}>🔍 Consultar</button>
             <button onClick={limpiarFiltro} style={{ background: "linear-gradient(135deg,#9B7DD4,#7C5CBF)", color: "#fff", border: "none", borderRadius: 20, padding: "0 12px", height: 28, fontSize: "0.72rem", cursor: "pointer" }}>↺ Limpiar</button>
             <button onClick={() => exportarExcel(filtrados)} style={{ background: "#556B2F", color: "#fff", border: "none", borderRadius: 20, padding: "0 12px", height: 28, fontSize: "0.72rem", cursor: "pointer" }}>⬇ Exportar Excel</button>
-            <button onClick={cargarDatos} style={{ background: "#173872", color: "#fff", border: "none", borderRadius: 20, padding: "0 12px", height: 28, fontSize: "0.72rem", cursor: "pointer" }}>⟳ Actualizar</button>
           </div>
         </div>
 
@@ -283,64 +290,103 @@ const DashboardDemandaInducida: React.FC = () => {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  {["Fecha Registro","Paciente","Contacto","Entidad","Médico Solicitante","Orden Solicitada","Observación","Validación EPS","Autorización RPA"].map(h => (
-                    <th key={h} style={{ background: "#F9FAFB", color: "#6B7280", fontWeight: 600, textTransform: "uppercase", fontSize: "0.72rem", letterSpacing: "0.05em", borderBottom: "2px solid #E5E7EB", padding: "12px 16px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+                  {(["Nro. Orden","Fecha Registro","Paciente","Contacto","Entidad","Médico Solicitante","Orden Solicitada","Observación","Validación EPS","Orden EPS"] as string[]).map((h, hi) => (
+                    <th key={h} style={{ background: "#F9FAFB", color: "#6B7280", fontWeight: 600, textTransform: "uppercase", fontSize: "0.62rem", letterSpacing: "0.04em", borderBottom: "2px solid #E5E7EB", padding: "8px 12px", textAlign: "left", whiteSpace: "nowrap", ...(hi === 0 ? { position: "sticky", left: 0, zIndex: 2, boxShadow: "2px 0 4px -1px rgba(0,0,0,0.06)" } : {}) }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filasPagina.length === 0 ? (
-                  <tr><td colSpan={9} style={{ textAlign: "center", padding: 32, color: "#6B7280", fontSize: "0.875rem" }}>No hay registros para el rango de fechas seleccionado.</td></tr>
+                  <tr><td colSpan={10} style={{ textAlign: "center", padding: 32, color: "#6B7280", fontSize: "0.875rem" }}>No hay registros para el rango de fechas seleccionado.</td></tr>
                 ) : filasPagina.map((r, i) => {
                   const badge = getOrdenBadge(r.Orden);
                   const partesFecha = r.Fecha.split(" ");
                   const docLimpio = (r.Documento || "").replace(/[^0-9A-Za-z]/g, "");
                   const claveAut = r.EpsBot ? `${r.EpsBot}|${docLimpio}` : null;
                   const autResult = claveAut ? autState[claveAut] ?? null : null;
+                  const puedeValidar = !!r.EpsBot && (!autResult || autResult === null);
+
+                  const validarManual = () => {
+                    if (!r.EpsBot || !docLimpio) return;
+                    const clave = `${r.EpsBot}|${docLimpio}`;
+                    if (autCache.current[clave] && autCache.current[clave] !== "cargando") {
+                      // Forzar re-consulta: limpiar caché
+                      delete autCache.current[clave];
+                    }
+                    colaRef.current.unshift({ eps: r.EpsBot, docNum: docLimpio, clave });
+                    procesarCola();
+                  };
 
                   return (
                     <tr key={r.Id} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}
                       onMouseEnter={e => (e.currentTarget.style.background = "#F9FAFB")}
                       onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? "#fff" : "#FAFAFA")}>
-                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle" }}>
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", whiteSpace: "nowrap", position: "sticky", left: 0, background: i % 2 === 0 ? "#fff" : "#FAFAFA", zIndex: 1, boxShadow: "2px 0 4px -1px rgba(0,0,0,0.06)" }}>
+                        <div style={{ fontWeight: 600, color: "#173872" }}>#{r.NroOrden}</div>
+                        {r.NroAdmision && <div style={{ color: "#9CA3AF", fontSize: "0.6rem" }}>Adm: {r.NroAdmision}</div>}
+                      </td>
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle" }}>
                         <div style={{ fontWeight: 500, color: "#1F2937" }}>{partesFecha[0]}</div>
-                        <div style={{ color: "#9CA3AF", fontSize: "0.75rem" }}>⏰ {partesFecha[1] || "00:00"}</div>
+                        <div style={{ color: "#9CA3AF", fontSize: "0.65rem" }}>{partesFecha[1] || "00:00"}</div>
                       </td>
-                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle" }}>
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle" }}>
                         <div style={{ fontWeight: 700, color: "#1F2937" }}>{r.Paciente}</div>
-                        <div style={{ color: "#6B7280", fontSize: "0.75rem", marginTop: 2 }}>CC: {r.Documento}</div>
+                        <div style={{ color: "#6B7280", fontSize: "0.65rem", marginTop: 1 }}>CC: {r.Documento}</div>
                       </td>
-                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle" }}>
-                        <div style={{ color: "#6B7280" }}>📞 {r.Telefono}</div>
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle" }}>
+                        <div style={{ color: "#6B7280" }}>{r.Telefono}</div>
                       </td>
-                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle", maxWidth: 200 }}>
-                        <div style={{ color: "#6B7280", fontWeight: 500, fontSize: "0.75rem", lineHeight: 1.3 }}>{r.Entidad}</div>
-                        {r.EpsBot && <div style={{ fontSize: "0.6rem", color: "#A78BFA", marginTop: 2 }}>🤖 {r.EpsBot}</div>}
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", maxWidth: 180 }}>
+                        <div style={{ color: "#6B7280", lineHeight: 1.3 }}>{r.Entidad}</div>
+                        {r.EpsBot && <div style={{ fontSize: "0.58rem", color: "#A78BFA", marginTop: 1 }}>{r.EpsBot}</div>}
                       </td>
-                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <div style={{ background: "#F1F5F9", borderRadius: "50%", padding: "6px 8px", color: "#3B82F6", fontSize: "0.9rem" }}>👤</div>
-                          <div style={{ fontSize: "0.8rem" }}>{r.Medico}</div>
-                        </div>
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle" }}>
+                        <div style={{ color: "#1F2937" }}>{r.Medico}</div>
                       </td>
-                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle", textAlign: "center" }}>
-                        <div style={{ display: "inline-block", background: badge.bg, color: badge.color, borderRadius: 9999, padding: "3px 10px", fontSize: "0.6rem", fontWeight: 500, lineHeight: 1.3, textAlign: "center", maxWidth: 160, wordBreak: "break-word" }}>
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center" }}>
+                        <div style={{ display: "inline-block", background: badge.bg, color: badge.color, borderRadius: 9999, padding: "2px 8px", fontSize: "0.58rem", fontWeight: 500, lineHeight: 1.3, textAlign: "center", maxWidth: 150, wordBreak: "break-word" }}>
                           {r.Orden || `PROCEDIMIENTO (${r.Cups})`}
                         </div>
-                        <div style={{ color: "#9CA3AF", fontSize: "0.6rem", fontWeight: 600, marginTop: 3 }}>🔍 CUPS: {r.Cups}</div>
+                        <div style={{ color: "#9CA3AF", fontSize: "0.58rem", marginTop: 2 }}>CUPS: {r.Cups}</div>
+                        {r.NroOrden && r.NroAdmision && (
+                          <a
+                            href={`${API}/gedocumental/ver-pdf-orden/?estudio=${r.NroAdmision}&numero=${r.NroOrden}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ display: "inline-block", marginTop: 4, background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 9999, padding: "2px 7px", fontSize: "0.58rem", textDecoration: "none", whiteSpace: "nowrap" }}
+                          >
+                            📄 Orden Neuro
+                          </a>
+                        )}
                       </td>
-                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle", maxWidth: 180 }}>
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", maxWidth: 160 }}>
                         {r.Observacion && r.Observacion.trim()
-                          ? <div style={{ color: "#5a6268", fontSize: "0.75rem", fontStyle: "italic", lineHeight: 1.3 }}>💬 {r.Observacion}</div>
-                          : <span style={{ color: "#9CA3AF", fontSize: "0.75rem" }}>-</span>}
+                          ? <div style={{ color: "#5a6268", fontSize: "0.68rem", fontStyle: "italic", lineHeight: 1.3 }}>{r.Observacion}</div>
+                          : <span style={{ color: "#9CA3AF" }}>-</span>}
                       </td>
-                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle" }}>
-                        <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "5px 10px", fontSize: "0.72rem", fontWeight: 500, whiteSpace: "nowrap" }}>✅ Válido y Contratado</span>
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle" }}>
+                        <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "3px 8px", fontSize: "0.65rem", fontWeight: 500, whiteSpace: "nowrap" }}>Válido y Contratado</span>
                       </td>
-                      <td style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6", fontSize: "0.875rem", verticalAlign: "middle" }}>
-                        {r.EpsBot
-                          ? <BadgeAut r={autResult} />
-                          : <span style={{ color: "#D1D5DB", fontSize: "0.72rem" }}>No aplica</span>}
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle" }}>
+                        {r.EpsBot ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
+                            <BadgeAut r={autResult} />
+                            {puedeValidar && (
+                              <button onClick={validarManual}
+                                style={{ background: "#EFF6FF", color: "#3B82F6", border: "1px solid #BFDBFE", borderRadius: 9999, padding: "2px 7px", fontSize: "0.58rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+                                ▶ Validar ahora
+                              </button>
+                            )}
+                            {autResult && autResult !== "cargando" && (
+                              <button onClick={validarManual}
+                                style={{ background: "#F9FAFB", color: "#6B7280", border: "1px solid #E5E7EB", borderRadius: 9999, padding: "2px 7px", fontSize: "0.58rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+                                ↺ Re-consultar
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: "#D1D5DB", fontSize: "0.65rem" }}>No aplica</span>
+                        )}
                       </td>
                     </tr>
                   );
