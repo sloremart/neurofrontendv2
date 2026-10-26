@@ -89,24 +89,58 @@ const StatCard = ({ label, value, icon, borderColor, iconColor, small }: StatCar
   </div>
 );
 
-// ── Badge de autorización ─────────────────────────────────────────────────────
-const BadgeAut = ({ r }: { r: AutorizacionResult | "cargando" | null }) => {
-  if (!r) return <span style={{ color: "#9CA3AF", fontSize: "0.72rem" }}>-</span>;
+// ── Badge de validación EPS (columna Validación EPS) ─────────────────────────
+const BadgeValidacionEps = ({ r, onValidar, onRevalidar }: {
+  r: AutorizacionResult | "cargando" | null;
+  onValidar: () => void;
+  onRevalidar: () => void;
+}) => {
   if (r === "cargando") return (
-    <span style={{ background: "#EFF6FF", color: "#3B82F6", borderRadius: 9999, padding: "5px 10px", fontSize: "0.72rem", display: "inline-flex", alignItems: "center", gap: 4 }}>
-      <span style={{ display: "inline-block", width: 10, height: 10, border: "2px solid #3B82F6", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }}></span> Consultando...
-    </span>
-  );
-  if (r.status === "AUTORIZADO") return (
-    <div>
-      <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "4px 8px", fontSize: "0.7rem", fontWeight: 600, display: "block", marginBottom: 2 }}>✅ AUTORIZADO</span>
-      {r.num_autorizacion && <div style={{ fontSize: "0.65rem", color: "#374151" }}>#{r.num_autorizacion}</div>}
-      {r.fecha_vigencia && <div style={{ fontSize: "0.65rem", color: "#6B7280" }}>Vence: {r.fecha_vigencia}</div>}
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+      <span style={{ background: "#EFF6FF", color: "#3B82F6", borderRadius: 9999, padding: "3px 8px", fontSize: "0.65rem", display: "inline-flex", alignItems: "center", gap: 3 }}>
+        <span style={{ display: "inline-block", width: 8, height: 8, border: "2px solid #3B82F6", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }}></span> Consultando...
+      </span>
     </div>
   );
-  if (r.status === "SIN_VOLANTE") return <span style={{ background: "#FEF3C7", color: "#92400E", borderRadius: 9999, padding: "5px 10px", fontSize: "0.7rem" }}>⚠️ Sin volante</span>;
-  if (r.status === "SIN_CONTRATO") return <span style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 9999, padding: "5px 10px", fontSize: "0.7rem" }}>❌ Sin contrato</span>;
-  return <span style={{ background: "#F3F4F6", color: "#6B7280", borderRadius: 9999, padding: "5px 10px", fontSize: "0.7rem" }}>⚙ {r.status}</span>;
+  if (!r) return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+      <span style={{ background: "#F1F5F9", color: "#64748B", border: "1px solid #E2E8F0", borderRadius: 9999, padding: "2px 7px", fontSize: "0.63rem", fontWeight: 500, whiteSpace: "nowrap" }}>
+        Contratado
+      </span>
+      <button onClick={onValidar} style={{ background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 9999, padding: "2px 8px", fontSize: "0.6rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+        Validar EPS
+      </button>
+    </div>
+  );
+  if (r.status === "AUTORIZADO") return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+      <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "3px 8px", fontSize: "0.65rem", fontWeight: 600, whiteSpace: "nowrap" }}>
+        Autorizado
+      </span>
+      {r.num_autorizacion && <div style={{ fontSize: "0.58rem", color: "#374151", textAlign: "center" }}>#{r.num_autorizacion.substring(0, 18)}</div>}
+      {r.fecha_vigencia && <div style={{ fontSize: "0.58rem", color: "#6B7280" }}>Vence: {r.fecha_vigencia}</div>}
+      <button onClick={onRevalidar} style={{ background: "none", color: "#9CA3AF", border: "none", padding: 0, fontSize: "0.58rem", cursor: "pointer" }}>↺ Revalidar</button>
+    </div>
+  );
+  if (r.status === "SIN_VOLANTE" || r.status === "SIN_ORDENES") return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+      <span style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #F59E0B", borderRadius: 9999, padding: "2px 7px", fontSize: "0.63rem", fontWeight: 500, whiteSpace: "nowrap" }}>
+        Sin Volante
+      </span>
+      <button onClick={onRevalidar} style={{ background: "#F9FAFB", color: "#6B7280", border: "1px solid #E5E7EB", borderRadius: 9999, padding: "2px 7px", fontSize: "0.6rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+        ↺ Revalidar
+      </button>
+    </div>
+  );
+  if (r.status === "SIN_CONTRATO") return (
+    <span style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 9999, padding: "3px 8px", fontSize: "0.63rem", fontWeight: 500 }}>Sin contrato</span>
+  );
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+      <span style={{ background: "#F3F4F6", color: "#6B7280", borderRadius: 9999, padding: "2px 7px", fontSize: "0.63rem" }}>{r.status}</span>
+      <button onClick={onRevalidar} style={{ background: "none", color: "#9CA3AF", border: "none", padding: 0, fontSize: "0.58rem", cursor: "pointer" }}>↺ Revalidar</button>
+    </div>
+  );
 };
 
 const ITEMS_POR_PAGINA = 10;
@@ -247,14 +281,14 @@ const DashboardDemandaInducida: React.FC = () => {
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
       {/* Tarjetas */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
-        <StatCard label="Total Notificaciones"  value={stats.total}        icon="✉️"  borderColor="#DC143C" iconColor="#DC143C" />
-        <StatCard label="Imágenes Diagnósticas" value={stats.imagenes}     icon="🧲"  borderColor="#4B0082" iconColor="#4B0082" />
-        <StatCard label="Neurología y Estudios" value={stats.neuro}        icon="🧠"  borderColor="#173872" iconColor="#173872" />
-        <StatCard label="Fisiatría y Terapias"  value={stats.fisi}         icon="🚶"  borderColor="#20c997" iconColor="#20c997" />
-        <StatCard label="Otros Servicios"       value={stats.otro}         icon="📋"  borderColor="#F59E0B" iconColor="#F59E0B" />
-        <StatCard label="Autorizados (RPA)"     value={contAutorizados}    icon="✅"  borderColor="#16a34a" iconColor="#16a34a" />
-        <StatCard label="Última Actividad"      value={stats.lastDate}     icon="⚡"  borderColor="#28a745" iconColor="#28a745" small />
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
+        <StatCard label="Total Notificaciones"  value={stats.total}        icon="✉"   borderColor="#DC143C" iconColor="#DC143C" />
+        <StatCard label="Imágenes Diagnósticas" value={stats.imagenes}     icon="◉"   borderColor="#4B0082" iconColor="#4B0082" />
+        <StatCard label="Neurología y Estudios" value={stats.neuro}        icon="✦"   borderColor="#173872" iconColor="#173872" />
+        <StatCard label="Fisiatría y Terapias"  value={stats.fisi}         icon="▲"   borderColor="#20c997" iconColor="#20c997" />
+        <StatCard label="Otros Servicios"       value={stats.otro}         icon="▪"   borderColor="#F59E0B" iconColor="#F59E0B" />
+        <StatCard label="Autorizados EPS"       value={contAutorizados}    icon="✓"   borderColor="#16a34a" iconColor="#16a34a" />
+        <StatCard label="Última Actividad"      value={stats.lastDate}     icon="◆"   borderColor="#28a745" iconColor="#28a745" small />
       </div>
 
       {/* Tabla */}
@@ -343,6 +377,7 @@ const DashboardDemandaInducida: React.FC = () => {
                       <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle" }}>
                         <div style={{ color: "#1F2937" }}>{r.Medico}</div>
                       </td>
+                      {/* Orden Solicitada */}
                       <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center" }}>
                         <div style={{ display: "inline-block", background: badge.bg, color: badge.color, borderRadius: 9999, padding: "2px 8px", fontSize: "0.58rem", fontWeight: 500, lineHeight: 1.3, textAlign: "center", maxWidth: 150, wordBreak: "break-word" }}>
                           {r.Orden || `PROCEDIMIENTO (${r.Cups})`}
@@ -351,41 +386,42 @@ const DashboardDemandaInducida: React.FC = () => {
                         {r.NroOrden && r.NroAdmision && (
                           <a
                             href={`${API}/gedocumental/ver-pdf-orden/?estudio=${r.NroAdmision}&numero=${r.NroOrden}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ display: "inline-block", marginTop: 4, background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 9999, padding: "2px 7px", fontSize: "0.58rem", textDecoration: "none", whiteSpace: "nowrap" }}
+                            download={`Orden_${r.NroOrden}.pdf`}
+                            style={{ display: "inline-block", marginTop: 4, background: "#173872", color: "#fff", borderRadius: 9999, padding: "2px 8px", fontSize: "0.58rem", textDecoration: "none", whiteSpace: "nowrap", fontWeight: 600 }}
                           >
-                            📄 Orden Neuro
+                            Orden Neuro
                           </a>
                         )}
                       </td>
+                      {/* Observación */}
                       <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", maxWidth: 160 }}>
                         {r.Observacion && r.Observacion.trim()
                           ? <div style={{ color: "#5a6268", fontSize: "0.68rem", fontStyle: "italic", lineHeight: 1.3 }}>{r.Observacion}</div>
                           : <span style={{ color: "#9CA3AF" }}>-</span>}
                       </td>
-                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle" }}>
-                        <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "3px 8px", fontSize: "0.65rem", fontWeight: 500, whiteSpace: "nowrap" }}>Válido y Contratado</span>
-                      </td>
-                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle" }}>
+                      {/* Validación EPS — muestra estado real del bot */}
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center" }}>
                         {r.EpsBot ? (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
-                            <BadgeAut r={autResult} />
-                            {puedeValidar && (
-                              <button onClick={validarManual}
-                                style={{ background: "#EFF6FF", color: "#3B82F6", border: "1px solid #BFDBFE", borderRadius: 9999, padding: "2px 7px", fontSize: "0.58rem", cursor: "pointer", whiteSpace: "nowrap" }}>
-                                ▶ Validar ahora
-                              </button>
-                            )}
-                            {autResult && autResult !== "cargando" && (
-                              <button onClick={validarManual}
-                                style={{ background: "#F9FAFB", color: "#6B7280", border: "1px solid #E5E7EB", borderRadius: 9999, padding: "2px 7px", fontSize: "0.58rem", cursor: "pointer", whiteSpace: "nowrap" }}>
-                                ↺ Re-consultar
-                              </button>
+                          <BadgeValidacionEps r={autResult} onValidar={validarManual} onRevalidar={validarManual} />
+                        ) : (
+                          <span style={{ background: "#F1F5F9", color: "#64748B", border: "1px solid #E2E8F0", borderRadius: 9999, padding: "3px 8px", fontSize: "0.63rem", whiteSpace: "nowrap" }}>
+                            Contratado
+                          </span>
+                        )}
+                      </td>
+                      {/* Orden EPS — número de autorización si está disponible */}
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center" }}>
+                        {r.EpsBot && autResult && autResult !== "cargando" && (autResult as AutorizacionResult).status === "AUTORIZADO" ? (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                            <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "3px 8px", fontSize: "0.63rem", fontWeight: 600 }}>Autorizada</span>
+                            {(autResult as AutorizacionResult).num_autorizacion && (
+                              <span style={{ fontSize: "0.58rem", color: "#374151" }}>#{(autResult as AutorizacionResult).num_autorizacion}</span>
                             )}
                           </div>
+                        ) : r.EpsBot ? (
+                          <span style={{ color: "#D1D5DB", fontSize: "0.65rem" }}>Pendiente</span>
                         ) : (
-                          <span style={{ color: "#D1D5DB", fontSize: "0.65rem" }}>No aplica</span>
+                          <span style={{ color: "#D1D5DB", fontSize: "0.65rem" }}>—</span>
                         )}
                       </td>
                     </tr>
