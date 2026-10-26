@@ -346,13 +346,15 @@ const DashboardDemandaInducida: React.FC = () => {
     }
     const toDesglose = (m: Record<string, number>): DesglosItem[] =>
       Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([familia, cantidad]) => ({ familia, cantidad }));
+    const mapTotal: Record<string, number> = {};
+    for (const r of dataSinFiltroCategoria) {
+      const fam = obtenerFamiliaOrden(r.Orden);
+      mapTotal[fam] = (mapTotal[fam] || 0) + 1;
+    }
     return {
       total: dataSinFiltroCategoria.length, imagenes, neuro, fisi, otro,
       lastDate: lastDate ? lastDate.split(" ")[0] : "-",
-      desgloseImagenes: toDesglose(mapFamilias.imagenes),
-      desgloseNeuro: toDesglose(mapFamilias.neuro),
-      desgloseFisi: toDesglose(mapFamilias.fisi),
-      desgloseOtro: toDesglose(mapFamilias.otro),
+      desgloseTotal: toDesglose(mapTotal),
     };
   }, [dataSinFiltroCategoria]);
 
@@ -396,18 +398,15 @@ const DashboardDemandaInducida: React.FC = () => {
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
         <StatCard label="Total Notificaciones"  value={stats.total}    icon="✉"  borderColor="#DC143C" iconColor="#DC143C" />
         <StatCard label="Imágenes Diagnósticas" value={stats.imagenes} icon="◉"  borderColor="#4B0082" iconColor="#4B0082"
-          onClick={() => toggleCategoria("imagenes")} active={filtroCategoria === "imagenes"}
-          desglose={stats.desgloseImagenes} onClickFamilia={toggleFamilia} familiaActiva={filtroFamilia || undefined} />
+          onClick={() => toggleCategoria("imagenes")} active={filtroCategoria === "imagenes"} />
         <StatCard label="Neurología y Estudios" value={stats.neuro}    icon="✦"  borderColor="#173872" iconColor="#173872"
-          onClick={() => toggleCategoria("neuro")} active={filtroCategoria === "neuro"}
-          desglose={stats.desgloseNeuro} onClickFamilia={toggleFamilia} familiaActiva={filtroFamilia || undefined} />
+          onClick={() => toggleCategoria("neuro")} active={filtroCategoria === "neuro"} />
         <StatCard label="Fisiatría y Terapias"  value={stats.fisi}     icon="▲"  borderColor="#20c997" iconColor="#20c997"
-          onClick={() => toggleCategoria("fisi")} active={filtroCategoria === "fisi"}
-          desglose={stats.desgloseFisi} onClickFamilia={toggleFamilia} familiaActiva={filtroFamilia || undefined} />
+          onClick={() => toggleCategoria("fisi")} active={filtroCategoria === "fisi"} />
         <StatCard label="Otros Servicios"       value={stats.otro}     icon="▪"  borderColor="#F59E0B" iconColor="#F59E0B"
-          onClick={() => toggleCategoria("otro")} active={filtroCategoria === "otro"}
-          desglose={stats.desgloseOtro} onClickFamilia={toggleFamilia} familiaActiva={filtroFamilia || undefined} />
-        <StatCard label="Autorizados EPS"       value={contAutorizados} icon="✓" borderColor="#16a34a" iconColor="#16a34a" />
+          onClick={() => toggleCategoria("otro")} active={filtroCategoria === "otro"} />
+        <StatCard label="Pendiente Cita (Aut. EPS)" value={contAutorizados} icon="✓" borderColor="#16a34a" iconColor="#16a34a"
+          desglose={stats.desgloseTotal} onClickFamilia={toggleFamilia} familiaActiva={filtroFamilia || undefined} />
         <StatCard label="Última Actividad"      value={stats.lastDate}  icon="◆" borderColor="#28a745" iconColor="#28a745" small />
       </div>
 
@@ -422,7 +421,7 @@ const DashboardDemandaInducida: React.FC = () => {
                 style={{ background: "#F59E0B", color: "#1F2937", borderRadius: 9999, padding: "3px 10px", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}
                 title="Clic para quitar filtro"
               >
-                Filtro activo: {filtroFamilia || { imagenes: "Imágenes", neuro: "Neurología", fisi: "Fisiatría", otro: "Otros" }[filtroCategoria!]} ×
+                Filtro activo: {filtroFamilia ? filtroFamilia : ({ imagenes: "Imágenes", neuro: "Neurología", fisi: "Fisiatría", otro: "Otros" } as Record<string,string>)[filtroCategoria!]} ×
               </span>
             )}
             {!filtroCategoria && !filtroFamilia && (
