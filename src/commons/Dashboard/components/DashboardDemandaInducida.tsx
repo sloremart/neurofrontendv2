@@ -19,6 +19,12 @@ interface Orden {
   Observacion: string;
   Medico: string;
   Estado: string;
+  // Validación RPA pre-cargada desde AutorizacionRPA
+  ValEpsEstado: string;        // AUTORIZADO | SIN_VOLANTE | SIN_CONTRATO | ERROR | ""
+  ValEpsAutorizacion: string;
+  ValEpsVigencia: string;
+  ValEpsMensaje: string;
+  ValEpsArchivos: Array<{ tipo: string; nombre_archivo: string; url_descarga: string }>;
 }
 
 interface AutorizacionResult {
@@ -454,105 +460,175 @@ const DashboardDemandaInducida: React.FC = () => {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  {(["Nro. Orden","Fecha Registro","Paciente","Contacto","Entidad","Médico Solicitante","Orden Solicitada","Observación","Validación EPS","Orden EPS"] as string[]).map((h, hi) => (
-                    <th key={h} style={{ background: "#F9FAFB", color: "#6B7280", fontWeight: 600, textTransform: "uppercase", fontSize: "0.62rem", letterSpacing: "0.04em", borderBottom: "2px solid #E5E7EB", padding: "8px 12px", textAlign: "left", whiteSpace: "nowrap", ...(hi === 0 ? { position: "sticky", left: 0, zIndex: 2, boxShadow: "2px 0 4px -1px rgba(0,0,0,0.06)" } : {}) }}>{h}</th>
+                  {(["Fecha","Paciente","Contacto","Entidad","Médico","Orden Solicitada","Obs. Médica","Validación EPS","Orden Adjunta","Seguimiento Cita"] as string[]).map(h => (
+                    <th key={h} style={{ background: "#F9FAFB", color: "#6B7280", fontWeight: 600, textTransform: "uppercase", fontSize: "0.62rem", letterSpacing: "0.04em", borderBottom: "2px solid #E5E7EB", padding: "8px 12px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filasPagina.length === 0 ? (
                   <tr><td colSpan={10} style={{ textAlign: "center", padding: 32, color: "#6B7280", fontSize: "0.875rem" }}>No hay registros para el rango de fechas seleccionado.</td></tr>
+
                 ) : filasPagina.map((r, i) => {
                   const badge = getOrdenBadge(r.Orden);
                   const partesFecha = r.Fecha.split(" ");
                   const docLimpio = (r.Documento || "").replace(/[^0-9A-Za-z]/g, "");
-                  const claveAut = r.EpsBot ? `${r.EpsBot}|${docLimpio}` : null;
-                  const autResult = claveAut ? autState[claveAut] ?? null : null;
-                  const puedeValidar = !!r.EpsBot && (!autResult || autResult === null);
 
-                  const validarManual = () => {
+                  // Validación: usa datos pre-cargados, con posibilidad de re-consulta
+                  const claveAut = r.EpsBot ? `${r.EpsBot}|${docLimpio}` : null;
+                  const autDinamico = claveAut ? autState[claveAut] : undefined;
+                  // Si hay resultado dinámico (del botón Revalidar) lo usa, si no usa el pre-cargado
+                  const valEstado = autDinamico && autDinamico !== "cargando"
+                    ? (autDinamico as AutorizacionResult).status
+                    : (r.ValEpsEstado || "");
+                  const valAutorizacion = autDinamico && autDinamico !== "cargando"
+                    ? ((autDinamico as AutorizacionResult).num_autorizacion || "")
+                    : (r.ValEpsAutorizacion || "");
+                  const valVigencia = autDinamico && autDinamico !== "cargando"
+                    ? ((autDinamico as AutorizacionResult).fecha_vigencia || "")
+                    : (r.ValEpsVigencia || "");
+                  const cargando = autDinamico === "cargando";
+
+                  const revalidar = () => {
                     if (!r.EpsBot || !docLimpio) return;
                     const clave = `${r.EpsBot}|${docLimpio}`;
-                    if (autCache.current[clave] && autCache.current[clave] !== "cargando") {
-                      // Forzar re-consulta: limpiar caché
-                      delete autCache.current[clave];
-                    }
+                    delete autCache.current[clave];
                     colaRef.current.unshift({ eps: r.EpsBot, docNum: docLimpio, clave });
                     procesarCola();
                   };
+
+                  // Archivos adjuntos: de la pre-carga (val_eps_archivos del bot)
+                  const archivos: Array<{tipo:string;nombre_archivo:string;url_descarga:string}> = r.ValEpsArchivos || [];
 
                   return (
                     <tr key={r.Id} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}
                       onMouseEnter={e => (e.currentTarget.style.background = "#F9FAFB")}
                       onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? "#fff" : "#FAFAFA")}>
-                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", whiteSpace: "nowrap", position: "sticky", left: 0, background: i % 2 === 0 ? "#fff" : "#FAFAFA", zIndex: 1, boxShadow: "2px 0 4px -1px rgba(0,0,0,0.06)" }}>
-                        <div style={{ fontWeight: 600, color: "#173872" }}>#{r.NroOrden}</div>
-                        {r.NroAdmision && <div style={{ color: "#9CA3AF", fontSize: "0.6rem" }}>Adm: {r.NroAdmision}</div>}
-                      </td>
-                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle" }}>
+
+                      {/* FECHA */}
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", whiteSpace: "nowrap" }}>
                         <div style={{ fontWeight: 500, color: "#1F2937" }}>{partesFecha[0]}</div>
                         <div style={{ color: "#9CA3AF", fontSize: "0.65rem" }}>{partesFecha[1] || "00:00"}</div>
+                        <div style={{ color: "#CBD5E1", fontSize: "0.58rem" }}>#{r.NroOrden}</div>
                       </td>
+
+                      {/* PACIENTE */}
                       <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle" }}>
                         <div style={{ fontWeight: 700, color: "#1F2937" }}>{r.Paciente}</div>
                         <div style={{ color: "#6B7280", fontSize: "0.65rem", marginTop: 1 }}>CC: {r.Documento}</div>
                       </td>
+
+                      {/* CONTACTO */}
                       <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle" }}>
                         <div style={{ color: "#6B7280" }}>{r.Telefono}</div>
                       </td>
-                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", maxWidth: 180 }}>
-                        <div style={{ color: "#6B7280", lineHeight: 1.3 }}>{r.Entidad}</div>
+
+                      {/* ENTIDAD */}
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", maxWidth: 170 }}>
+                        <div style={{ color: "#374151", lineHeight: 1.3 }}>{r.Entidad}</div>
                         {r.EpsBot && <div style={{ fontSize: "0.58rem", color: "#A78BFA", marginTop: 1 }}>{r.EpsBot}</div>}
                       </td>
+
+                      {/* MÉDICO */}
                       <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle" }}>
                         <div style={{ color: "#1F2937" }}>{r.Medico}</div>
                       </td>
-                      {/* Orden Solicitada */}
+
+                      {/* ORDEN SOLICITADA */}
                       <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center" }}>
                         <div style={{ display: "inline-block", background: badge.bg, color: badge.color, borderRadius: 9999, padding: "2px 8px", fontSize: "0.58rem", fontWeight: 500, lineHeight: 1.3, textAlign: "center", maxWidth: 150, wordBreak: "break-word" }}>
                           {r.Orden || `PROCEDIMIENTO (${r.Cups})`}
                         </div>
                         <div style={{ color: "#9CA3AF", fontSize: "0.58rem", marginTop: 2 }}>CUPS: {r.Cups}</div>
                         {r.NroOrden && r.NroAdmision && (
-                          <a
-                            href={`${API}/gedocumental/ver-pdf-orden/?estudio=${r.NroAdmision}&numero=${r.NroOrden}`}
+                          <a href={`${API}/gedocumental/ver-pdf-orden/?estudio=${r.NroAdmision}&numero=${r.NroOrden}`}
                             download={`Orden_${r.NroOrden}.pdf`}
-                            style={{ display: "inline-block", marginTop: 4, background: "#173872", color: "#fff", borderRadius: 9999, padding: "2px 8px", fontSize: "0.58rem", textDecoration: "none", whiteSpace: "nowrap", fontWeight: 600 }}
-                          >
-                            Orden Neuro
+                            style={{ display: "inline-flex", alignItems: "center", gap: 3, marginTop: 4, background: "#F1F5F9", color: "#334155", border: "1px solid #CBD5E1", borderRadius: 6, padding: "2px 7px", fontSize: "0.58rem", textDecoration: "none", whiteSpace: "nowrap" }}>
+                            □ Orden Neuro
                           </a>
                         )}
                       </td>
-                      {/* Observación */}
-                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", maxWidth: 160 }}>
+
+                      {/* OBS. MÉDICA */}
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", maxWidth: 150 }}>
                         {r.Observacion && r.Observacion.trim()
-                          ? <div style={{ color: "#5a6268", fontSize: "0.68rem", fontStyle: "italic", lineHeight: 1.3 }}>{r.Observacion}</div>
-                          : <span style={{ color: "#9CA3AF" }}>-</span>}
+                          ? <div style={{ color: "#5a6268", fontSize: "0.67rem", fontStyle: "italic", lineHeight: 1.3 }}>{r.Observacion}</div>
+                          : <span style={{ color: "#D1D5DB" }}>—</span>}
                       </td>
-                      {/* Validación EPS — muestra estado real del bot */}
-                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center" }}>
-                        {r.EpsBot ? (
-                          <BadgeValidacionEps r={autResult} onValidar={validarManual} onRevalidar={validarManual} />
-                        ) : (
-                          <span style={{ background: "#F1F5F9", color: "#64748B", border: "1px solid #E2E8F0", borderRadius: 9999, padding: "3px 8px", fontSize: "0.63rem", whiteSpace: "nowrap" }}>
-                            Contratado
-                          </span>
-                        )}
-                      </td>
-                      {/* Orden EPS — número de autorización si está disponible */}
-                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center" }}>
-                        {r.EpsBot && autResult && autResult !== "cargando" && (autResult as AutorizacionResult).status === "AUTORIZADO" ? (
+
+                      {/* VALIDACIÓN EPS */}
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center", minWidth: 120 }}>
+                        {!r.EpsBot ? (
+                          <span style={{ background: "#F1F5F9", color: "#64748B", border: "1px solid #E2E8F0", borderRadius: 9999, padding: "3px 8px", fontSize: "0.63rem" }}>Contratado</span>
+                        ) : cargando ? (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                            <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "3px 8px", fontSize: "0.63rem", fontWeight: 600 }}>Autorizada</span>
-                            {(autResult as AutorizacionResult).num_autorizacion && (
-                              <span style={{ fontSize: "0.58rem", color: "#374151" }}>#{(autResult as AutorizacionResult).num_autorizacion}</span>
-                            )}
+                            <span style={{ background: "#EFF6FF", color: "#3B82F6", borderRadius: 9999, padding: "3px 8px", fontSize: "0.65rem", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                              <span style={{ display: "inline-block", width: 8, height: 8, border: "2px solid #3B82F6", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }}></span> Consultando...
+                            </span>
                           </div>
-                        ) : r.EpsBot ? (
-                          <span style={{ color: "#D1D5DB", fontSize: "0.65rem" }}>Pendiente</span>
+                        ) : valEstado === "AUTORIZADO" ? (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                            <span style={{ fontSize: "0.7rem", color: "#16a34a" }}>●</span>
+                            {valAutorizacion && <div style={{ fontSize: "0.62rem", color: "#374151", fontWeight: 600 }}>#{valAutorizacion.substring(0, 18)}</div>}
+                            {valVigencia && <div style={{ fontSize: "0.58rem", color: "#6B7280" }}>Vence: {valVigencia}</div>}
+                            <button onClick={revalidar} style={{ background: "none", color: "#9CA3AF", border: "none", padding: 0, fontSize: "0.58rem", cursor: "pointer" }}>↺ Revalidar</button>
+                          </div>
+                        ) : valEstado === "SIN_VOLANTE" || valEstado === "SIN_ORDENES" ? (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                            <span style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #F59E0B", borderRadius: 9999, padding: "2px 7px", fontSize: "0.63rem", fontWeight: 500 }}>Sin Volante</span>
+                            <button onClick={revalidar} style={{ background: "#F9FAFB", color: "#6B7280", border: "1px solid #E5E7EB", borderRadius: 9999, padding: "2px 7px", fontSize: "0.6rem", cursor: "pointer" }}>↺ Revalidar</button>
+                          </div>
+                        ) : valEstado === "SIN_CONTRATO" ? (
+                          <span style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 9999, padding: "3px 8px", fontSize: "0.63rem", fontWeight: 500 }}>Sin contrato</span>
                         ) : (
-                          <span style={{ color: "#D1D5DB", fontSize: "0.65rem" }}>—</span>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                            <span style={{ background: "#F3F4F6", color: "#6B7280", border: "1px solid #E5E7EB", borderRadius: 9999, padding: "2px 7px", fontSize: "0.63rem" }}>
+                              {valEstado || "Pendiente"}
+                            </span>
+                            <button onClick={revalidar} style={{ background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 9999, padding: "2px 8px", fontSize: "0.6rem", cursor: "pointer" }}>Validar EPS</button>
+                          </div>
                         )}
+                      </td>
+
+                      {/* ORDEN ADJUNTA */}
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center" }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                          {archivos.filter(a => a.tipo === "ORDEN_PDF").map((a, ai) => (
+                            <a key={ai} href={a.url_descarga} target="_blank" rel="noreferrer"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#16a34a", color: "#fff", borderRadius: 6, padding: "3px 8px", fontSize: "0.6rem", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}>
+                              □ Orden PDF
+                            </a>
+                          ))}
+                          {archivos.filter(a => a.tipo === "ADJUNTO").map((a, ai) => (
+                            <a key={ai} href={a.url_descarga} target="_blank" rel="noreferrer"
+                              title={a.nombre_archivo}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#2563EB", color: "#fff", borderRadius: 6, padding: "3px 8px", fontSize: "0.6rem", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" }}>
+                              ⊕ {a.nombre_archivo.length > 14 ? a.nombre_archivo.substring(0, 14) + "…" : a.nombre_archivo}
+                            </a>
+                          ))}
+                          <button style={{ background: "none", border: "1px dashed #CBD5E1", color: "#9CA3AF", borderRadius: 6, padding: "3px 8px", fontSize: "0.6rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+                            + Adjuntar
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* SEGUIMIENTO CITA */}
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center", minWidth: 120 }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                          {!r.EpsBot ? (
+                            <span style={{ background: "#EFF6FF", color: "#1D4ED8", borderRadius: 9999, padding: "2px 7px", fontSize: "0.6rem", fontWeight: 500 }}>Pendiente Cita</span>
+                          ) : valEstado === "AUTORIZADO" ? (
+                            <>
+                              <span style={{ background: "#FEF3C7", color: "#92400E", borderRadius: 9999, padding: "2px 7px", fontSize: "0.6rem", fontWeight: 500 }}>Pendiente Cita</span>
+                              <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "2px 7px", fontSize: "0.6rem", fontWeight: 600 }}>Aut. Confirmada EPS</span>
+                            </>
+                          ) : (
+                            <span style={{ background: "#F3F4F6", color: "#6B7280", borderRadius: 9999, padding: "2px 7px", fontSize: "0.6rem" }}>Pendiente</span>
+                          )}
+                          <button style={{ background: "#0D9488", color: "#fff", border: "none", borderRadius: 6, padding: "3px 10px", fontSize: "0.6rem", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                            Agendar Cita
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
