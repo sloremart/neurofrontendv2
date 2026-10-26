@@ -30,6 +30,35 @@ interface AutorizacionResult {
   mensaje?: string;
 }
 
+// ── Familia de orden (replica obtenerFamiliaOrden del Flask app) ──────────────
+function obtenerFamiliaOrden(nombre: string): string {
+  const s = (nombre || "").trim().toUpperCase();
+  if (!s) return "SIN ESPECIFICAR";
+  if (s.includes("RESONANCIA")) return "RESONANCIA MAGNÉTICA";
+  if (s.includes("TOMOGRAF") || s.includes(" TAC ") || s.includes("PET")) return "TOMOGRAFÍA (TAC)";
+  if (s.includes("ELECTROMIOGRAF")) return "ELECTROMIOGRAFÍA";
+  if (s.includes("NEUROCONDUCCI") || s.includes("VELOCIDAD DE CONDUCCI")) return "NEUROCONDUCCIÓN";
+  if (s.includes("REFLEJO H")) return "REFLEJO H";
+  if (s.includes("ONDA F")) return "ONDA F";
+  if (s.includes("MONITORIZACI") || s.includes("TELEMETRIA")) return "MONITORIZACIÓN EEG";
+  if (s.includes("ELECTROENCEFALOGRAMA") || s.includes(" EEG ")) return "ELECTROENCEFALOGRAMA";
+  if (s.includes("POLISOMNOGRAF") || s.includes("POLISOMNOGRAMA") || s.includes("SUEÑO") || s.includes("SUENO")) return "POLISOMNOGRAFÍA";
+  if (s.includes("POTENCIAL")) return "POTENCIALES EVOCADOS";
+  if (s.includes("BLOQUEO")) return "BLOQUEO";
+  if (s.includes("INFILTRACI")) return "INFILTRACIÓN";
+  if (s.includes("TOXINA") || s.includes("MIORELAJANTE") || s.includes("INYECCION")) return "TOXINA BOTULÍNICA";
+  if (s.includes("ECOGRAF") || s.includes("DOPPLER")) return "ECOGRAFÍA";
+  if (s.includes("RADIOGRAF") || s.includes(" RAYOS ") || s.includes(" RX ")) return "RADIOGRAFÍA (RX)";
+  if (s.includes("SEDACI")) return "SOPORTE SEDACIÓN";
+  if (s.includes("PEDIAT") && (s.includes("CONSULTA") || s.includes("NEUROLOG"))) return "CONSULTA NEUROLOGÍA PEDIÁTRICA";
+  if ((s.includes("FISICA") || s.includes("REHABILITA")) && s.includes("CONSULTA")) return "CONSULTA FISIATRÍA";
+  if (s.includes("FISIATRIA") && s.includes("CONSULTA")) return "CONSULTA FISIATRÍA";
+  if (s.includes("TERAPIA")) return "TERAPIAS";
+  if (s.includes("CONSULTA") || s.includes("NEUROLOG") || s.includes("CONTROL")) return "CONSULTA / CONTROL NEUROLOGÍA";
+  const palabras = s.split(/[^A-ZÁÉÍÓÚÑ0-9]+/).filter(w => w && !["DE","DEL","LA","EL","LOS","LAS","EN","POR","CON","PARA","O","Y","UN","UNA"].includes(w));
+  return palabras.length ? palabras.slice(0, 2).join(" ") : s.slice(0, 25);
+}
+
 // ── helpers de clasificación (replica lógica Flask) ───────────────────────────
 function getOrdenBadge(orden: string): { bg: string; color: string } {
   const u = (orden || "").toUpperCase();
@@ -78,14 +107,53 @@ function exportarExcel(data: Orden[]) {
 }
 
 // ── StatCard ──────────────────────────────────────────────────────────────────
-interface StatCardProps { label: string; value: string | number; icon: string; borderColor: string; iconColor: string; small?: boolean }
-const StatCard = ({ label, value, icon, borderColor, iconColor, small }: StatCardProps) => (
-  <div style={{ background: "#fff", borderRadius: 12, borderLeft: `5px solid ${borderColor}`, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", flex: 1, minWidth: 160 }}>
-    <div>
-      <div style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6B7280", marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: small ? "1.25rem" : "1.75rem", fontWeight: 700, color: "#1F2937" }}>{value}</div>
+interface DesglosItem { familia: string; cantidad: number }
+interface StatCardProps {
+  label: string; value: string | number; icon: string; borderColor: string; iconColor: string;
+  small?: boolean; onClick?: () => void; active?: boolean;
+  desglose?: DesglosItem[]; onClickFamilia?: (f: string) => void; familiaActiva?: string;
+}
+const StatCard = ({ label, value, icon, borderColor, iconColor, small, onClick, active, desglose, onClickFamilia, familiaActiva }: StatCardProps) => (
+  <div
+    onClick={onClick}
+    style={{
+      background: active ? `${borderColor}10` : "#fff",
+      borderRadius: 12,
+      borderLeft: `5px solid ${borderColor}`,
+      boxShadow: active ? `0 0 0 2px ${borderColor}40, 0 4px 6px -1px rgba(0,0,0,0.05)` : "0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)",
+      padding: desglose ? "10px 14px" : "14px 18px",
+      flex: 1, minWidth: 160, cursor: onClick ? "pointer" : "default",
+      transition: "box-shadow 0.15s"
+    }}
+  >
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div>
+        <div style={{ fontSize: "0.70rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6B7280", marginBottom: 4 }}>{label}</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+          <div style={{ fontSize: small ? "1.2rem" : "1.65rem", fontWeight: 700, color: "#1F2937" }}>{value}</div>
+          {active && <span style={{ fontSize: "0.6rem", background: borderColor, color: "#fff", borderRadius: 9999, padding: "1px 6px", fontWeight: 600 }}>Activo</span>}
+        </div>
+      </div>
+      <div style={{ fontSize: "1.9rem", color: iconColor, opacity: 0.75, marginTop: 2 }}>{icon}</div>
     </div>
-    <div style={{ fontSize: "2.2rem", color: iconColor, opacity: 0.8 }}>{icon}</div>
+    {desglose && desglose.length > 0 && (
+      <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid #F1F5F9", maxHeight: 72, overflowY: "auto" }}>
+        {desglose.map(g => (
+          <div key={g.familia}
+            onClick={e => { e.stopPropagation(); onClickFamilia?.(g.familia); }}
+            style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "1px 4px", borderRadius: 4, cursor: "pointer", marginBottom: 1,
+              background: familiaActiva === g.familia ? "#FEF3C7" : "transparent",
+              fontWeight: familiaActiva === g.familia ? 700 : 400
+            }}
+          >
+            <span style={{ fontSize: "0.61rem", color: "#1F2937", maxWidth: 155, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>• {g.familia}</span>
+            <span style={{ fontSize: "0.6rem", background: "#F59E0B", color: "#fff", borderRadius: 9999, padding: "0 5px", fontWeight: 700 }}>{g.cantidad}</span>
+          </div>
+        ))}
+      </div>
+    )}
   </div>
 );
 
@@ -152,6 +220,8 @@ const DashboardDemandaInducida: React.FC = () => {
   const [error, setError]     = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina]   = useState(1);
+  const [filtroCategoria, setFiltroCategoria] = useState<string | null>(null);  // "imagenes"|"neuro"|"fisi"|"otro"
+  const [filtroFamilia, setFiltroFamilia]     = useState<string | null>(null);  // sub-especialidad exacta
 
   const hoy = new Date();
   const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
@@ -236,7 +306,27 @@ const DashboardDemandaInducida: React.FC = () => {
       if (fechaHasta && fechaRow > fechaHasta) return false;
       if (busqueda) {
         const q = busqueda.toLowerCase();
-        return (r.Paciente + r.Entidad + r.Medico + r.Orden + r.Documento + r.Cups).toLowerCase().includes(q);
+        if (!(r.Paciente + r.Entidad + r.Medico + r.Orden + r.Documento + r.Cups).toLowerCase().includes(q)) return false;
+      }
+      if (filtroCategoria) {
+        if (categorizarOrden(r.Orden) !== filtroCategoria) return false;
+      }
+      if (filtroFamilia) {
+        if (obtenerFamiliaOrden(r.Orden) !== filtroFamilia) return false;
+      }
+      return true;
+    });
+  }, [data, fechaDesde, fechaHasta, busqueda, filtroCategoria, filtroFamilia]);
+
+  // Para stats usamos los datos SIN filtro de categoría/familia (para mostrar totales reales)
+  const dataSinFiltroCategoria = useMemo(() => {
+    return data.filter(r => {
+      const fechaRow = r.Fecha.split(" ")[0];
+      if (fechaDesde && fechaRow < fechaDesde) return false;
+      if (fechaHasta && fechaRow > fechaHasta) return false;
+      if (busqueda) {
+        const q = busqueda.toLowerCase();
+        if (!(r.Paciente + r.Entidad + r.Medico + r.Orden + r.Documento + r.Cups).toLowerCase().includes(q)) return false;
       }
       return true;
     });
@@ -244,16 +334,27 @@ const DashboardDemandaInducida: React.FC = () => {
 
   const stats = useMemo(() => {
     let imagenes = 0, neuro = 0, fisi = 0, otro = 0, lastDate = "";
-    for (const r of filtrados) {
+    const mapFamilias: Record<string, Record<string, number>> = { imagenes: {}, neuro: {}, fisi: {}, otro: {} };
+    for (const r of dataSinFiltroCategoria) {
       const cat = categorizarOrden(r.Orden);
-      if (cat === "imagenes") imagenes++;
-      else if (cat === "neuro") neuro++;
-      else if (cat === "fisi") fisi++;
-      else otro++;
+      const fam = obtenerFamiliaOrden(r.Orden);
+      if (cat === "imagenes") { imagenes++; mapFamilias.imagenes[fam] = (mapFamilias.imagenes[fam] || 0) + 1; }
+      else if (cat === "neuro") { neuro++; mapFamilias.neuro[fam] = (mapFamilias.neuro[fam] || 0) + 1; }
+      else if (cat === "fisi") { fisi++; mapFamilias.fisi[fam] = (mapFamilias.fisi[fam] || 0) + 1; }
+      else { otro++; mapFamilias.otro[fam] = (mapFamilias.otro[fam] || 0) + 1; }
       if (!lastDate || r.Fecha > lastDate) lastDate = r.Fecha;
     }
-    return { total: filtrados.length, imagenes, neuro, fisi, otro, lastDate: lastDate ? lastDate.split(" ")[0] : "-" };
-  }, [filtrados]);
+    const toDesglose = (m: Record<string, number>): DesglosItem[] =>
+      Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([familia, cantidad]) => ({ familia, cantidad }));
+    return {
+      total: dataSinFiltroCategoria.length, imagenes, neuro, fisi, otro,
+      lastDate: lastDate ? lastDate.split(" ")[0] : "-",
+      desgloseImagenes: toDesglose(mapFamilias.imagenes),
+      desgloseNeuro: toDesglose(mapFamilias.neuro),
+      desgloseFisi: toDesglose(mapFamilias.fisi),
+      desgloseOtro: toDesglose(mapFamilias.otro),
+    };
+  }, [dataSinFiltroCategoria]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / ITEMS_POR_PAGINA));
   const paginaActual = Math.min(pagina, totalPaginas);
@@ -264,7 +365,18 @@ const DashboardDemandaInducida: React.FC = () => {
     if (filasPagina.length > 0) encolarValidaciones(filasPagina);
   }, [filasPagina, encolarValidaciones]);
 
-  const limpiarFiltro = () => { setFechaDesde(hace30Str); setFechaHasta(hoyStr); setBusqueda(""); setPagina(1); };
+  const limpiarFiltro = () => { setFechaDesde(hace30Str); setFechaHasta(hoyStr); setBusqueda(""); setPagina(1); setFiltroCategoria(null); setFiltroFamilia(null); };
+
+  const toggleCategoria = (cat: string) => {
+    if (filtroCategoria === cat) { setFiltroCategoria(null); setFiltroFamilia(null); }
+    else { setFiltroCategoria(cat); setFiltroFamilia(null); }
+    setPagina(1);
+  };
+  const toggleFamilia = (fam: string) => {
+    if (filtroFamilia === fam) { setFiltroFamilia(null); }
+    else { setFiltroFamilia(fam); }
+    setPagina(1);
+  };
 
   // Contadores de autorizaciones en los datos filtrados
   const contAutorizados = useMemo(() => {
@@ -282,23 +394,42 @@ const DashboardDemandaInducida: React.FC = () => {
 
       {/* Tarjetas */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
-        <StatCard label="Total Notificaciones"  value={stats.total}        icon="✉"   borderColor="#DC143C" iconColor="#DC143C" />
-        <StatCard label="Imágenes Diagnósticas" value={stats.imagenes}     icon="◉"   borderColor="#4B0082" iconColor="#4B0082" />
-        <StatCard label="Neurología y Estudios" value={stats.neuro}        icon="✦"   borderColor="#173872" iconColor="#173872" />
-        <StatCard label="Fisiatría y Terapias"  value={stats.fisi}         icon="▲"   borderColor="#20c997" iconColor="#20c997" />
-        <StatCard label="Otros Servicios"       value={stats.otro}         icon="▪"   borderColor="#F59E0B" iconColor="#F59E0B" />
-        <StatCard label="Autorizados EPS"       value={contAutorizados}    icon="✓"   borderColor="#16a34a" iconColor="#16a34a" />
-        <StatCard label="Última Actividad"      value={stats.lastDate}     icon="◆"   borderColor="#28a745" iconColor="#28a745" small />
+        <StatCard label="Total Notificaciones"  value={stats.total}    icon="✉"  borderColor="#DC143C" iconColor="#DC143C" />
+        <StatCard label="Imágenes Diagnósticas" value={stats.imagenes} icon="◉"  borderColor="#4B0082" iconColor="#4B0082"
+          onClick={() => toggleCategoria("imagenes")} active={filtroCategoria === "imagenes"}
+          desglose={stats.desgloseImagenes} onClickFamilia={toggleFamilia} familiaActiva={filtroFamilia || undefined} />
+        <StatCard label="Neurología y Estudios" value={stats.neuro}    icon="✦"  borderColor="#173872" iconColor="#173872"
+          onClick={() => toggleCategoria("neuro")} active={filtroCategoria === "neuro"}
+          desglose={stats.desgloseNeuro} onClickFamilia={toggleFamilia} familiaActiva={filtroFamilia || undefined} />
+        <StatCard label="Fisiatría y Terapias"  value={stats.fisi}     icon="▲"  borderColor="#20c997" iconColor="#20c997"
+          onClick={() => toggleCategoria("fisi")} active={filtroCategoria === "fisi"}
+          desglose={stats.desgloseFisi} onClickFamilia={toggleFamilia} familiaActiva={filtroFamilia || undefined} />
+        <StatCard label="Otros Servicios"       value={stats.otro}     icon="▪"  borderColor="#F59E0B" iconColor="#F59E0B"
+          onClick={() => toggleCategoria("otro")} active={filtroCategoria === "otro"}
+          desglose={stats.desgloseOtro} onClickFamilia={toggleFamilia} familiaActiva={filtroFamilia || undefined} />
+        <StatCard label="Autorizados EPS"       value={contAutorizados} icon="✓" borderColor="#16a34a" iconColor="#16a34a" />
+        <StatCard label="Última Actividad"      value={stats.lastDate}  icon="◆" borderColor="#28a745" iconColor="#28a745" small />
       </div>
 
       {/* Tabla */}
       <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 10px 15px -3px rgba(0,0,0,0.05)" }}>
         <div style={{ padding: "16px 24px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-          <div style={{ fontWeight: 600, fontSize: "1.1rem", color: "#1F2937", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ fontWeight: 600, fontSize: "1.1rem", color: "#1F2937", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ color: "#9CA3AF" }}>⊞</span> Listado de Órdenes Generadas
-            <span style={{ fontSize: "0.72rem", color: "#6B7280", fontWeight: 400, marginLeft: 8 }}>
-              — Autorizaciones consultadas automáticamente para SANITAS · CAPITAL · FOMAG · SALUD TOTAL
-            </span>
+            {(filtroCategoria || filtroFamilia) && (
+              <span
+                onClick={() => { setFiltroCategoria(null); setFiltroFamilia(null); setPagina(1); }}
+                style={{ background: "#F59E0B", color: "#1F2937", borderRadius: 9999, padding: "3px 10px", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}
+                title="Clic para quitar filtro"
+              >
+                Filtro activo: {filtroFamilia || { imagenes: "Imágenes", neuro: "Neurología", fisi: "Fisiatría", otro: "Otros" }[filtroCategoria!]} ×
+              </span>
+            )}
+            {!filtroCategoria && !filtroFamilia && (
+              <span style={{ fontSize: "0.72rem", color: "#6B7280", fontWeight: 400 }}>
+                — Autorizaciones consultadas automáticamente para SANITAS · CAPITAL · FOMAG · SALUD TOTAL
+              </span>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: "0.8rem" }}>
             <input type="text" placeholder="Buscar..." value={busqueda} onChange={e => { setBusqueda(e.target.value); setPagina(1); }}
