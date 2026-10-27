@@ -25,6 +25,9 @@ interface Orden {
   ValEpsVigencia: string;
   ValEpsMensaje: string;
   ValEpsArchivos: Array<{ tipo: string; nombre_archivo: string; url_descarga: string }>;
+  // Cita agendada en ZeusSalud (mismos CUPS, fecha >= hoy)
+  TieneCita: boolean;
+  FechaCita: string;
 }
 
 interface AutorizacionResult {
@@ -613,17 +616,25 @@ const DashboardDemandaInducida: React.FC = () => {
                       </td>
 
                       {/* SEGUIMIENTO CITA */}
-                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center", minWidth: 120 }}>
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center", minWidth: 130 }}>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                          {!r.EpsBot ? (
-                            <span style={{ background: "#EFF6FF", color: "#1D4ED8", borderRadius: 9999, padding: "2px 7px", fontSize: "0.6rem", fontWeight: 500 }}>Pendiente Cita</span>
-                          ) : valEstado === "AUTORIZADO" ? (
+                          {r.TieneCita ? (
                             <>
-                              <span style={{ background: "#FEF3C7", color: "#92400E", borderRadius: 9999, padding: "2px 7px", fontSize: "0.6rem", fontWeight: 500 }}>Pendiente Cita</span>
-                              <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "2px 7px", fontSize: "0.6rem", fontWeight: 600 }}>Aut. Confirmada EPS</span>
+                              <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "2px 8px", fontSize: "0.6rem", fontWeight: 700 }}>✓ Cita Agendada</span>
+                              {r.FechaCita && (
+                                <span style={{ fontSize: "0.58rem", color: "#374151", fontWeight: 500 }}>{r.FechaCita}</span>
+                              )}
+                              {valEstado === "AUTORIZADO" && (
+                                <span style={{ background: "#ECFDF5", color: "#059669", borderRadius: 9999, padding: "1px 6px", fontSize: "0.55rem", fontWeight: 600 }}>Aut. EPS ✓</span>
+                              )}
                             </>
                           ) : (
-                            <span style={{ background: "#F3F4F6", color: "#6B7280", borderRadius: 9999, padding: "2px 7px", fontSize: "0.6rem" }}>Pendiente</span>
+                            <>
+                              <span style={{ background: "#FEF3C7", color: "#92400E", borderRadius: 9999, padding: "2px 8px", fontSize: "0.6rem", fontWeight: 600 }}>Sin Cita</span>
+                              {valEstado === "AUTORIZADO" && (
+                                <span style={{ background: "#ECFDF5", color: "#059669", borderRadius: 9999, padding: "1px 6px", fontSize: "0.55rem", fontWeight: 600 }}>Aut. EPS ✓</span>
+                              )}
+                            </>
                           )}
                           <button style={{ background: "#0D9488", color: "#fff", border: "none", borderRadius: 6, padding: "3px 10px", fontSize: "0.6rem", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
                             Agendar Cita
