@@ -279,6 +279,8 @@ const DashboardDemandaInducida: React.FC = () => {
     const vistos = new Set<string>();
     for (const fila of filas) {
       if (!fila.EpsBot) continue;
+      // Si ya tiene estado desde la BD, no re-consultar automáticamente
+      if (fila.ValEpsEstado) continue;
       const docLimpio = (fila.Documento || "").replace(/[^0-9A-Za-z]/g, "");
       const clave = `${fila.EpsBot}|${docLimpio}`;
       if (!vistos.has(clave) && !autCache.current[clave]) {
@@ -501,9 +503,14 @@ const DashboardDemandaInducida: React.FC = () => {
                   };
 
                   // Archivos adjuntos: del resultado dinámico (Revalidar) o de la pre-carga
-                  const archivos: Array<{tipo:string;nombre_archivo:string;url_descarga:string}> =
+                  const archivosRaw: Array<{tipo:string;nombre_archivo:string;url_descarga:string}> =
                     (autDinamico && autDinamico !== "cargando" ? (autDinamico as any).ValEpsArchivos : null)
                     || r.ValEpsArchivos || [];
+                  // Filtrar solo el PDF cuyo nombre coincide con el CUPS de esta fila
+                  const cupsFila = (r.Cups || "").split("-")[0];
+                  const archivos = cupsFila
+                    ? archivosRaw.filter(a => a.url_descarga.includes(`CUPS_${cupsFila}`))
+                    : archivosRaw;
 
                   return (
                     <tr key={r.Id} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}
