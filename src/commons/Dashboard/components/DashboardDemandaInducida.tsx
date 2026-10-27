@@ -239,11 +239,11 @@ const DashboardDemandaInducida: React.FC = () => {
   const [fechaDesde, setFechaDesde] = useState(hace30Str);
   const [fechaHasta, setFechaHasta] = useState(hoyStr);
 
-  // Caché de autorizaciones: clave = "eps|doc_num"
+  // Caché de autorizaciones: clave = "eps|doc_num|cups"
   const autCache = useRef<Record<string, AutorizacionResult | "cargando">>({});
   const [autState, setAutState] = useState<Record<string, AutorizacionResult | "cargando">>({});
   // Cola de validaciones pendientes
-  const colaRef = useRef<{ eps: string; docNum: string; clave: string }[]>([]);
+  const colaRef = useRef<{ eps: string; docNum: string; cups: string; fechaOrden: string; clave: string }[]>([]);
   const procesandoRef = useRef(false);
 
   const actualizarAut = useCallback((clave: string, val: AutorizacionResult | "cargando") => {
@@ -262,7 +262,10 @@ const DashboardDemandaInducida: React.FC = () => {
         const res = await fetch(`${API}/gedocumental/consultar-autorizacion/`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
-          body: JSON.stringify({ eps: item.eps, doc_tipo: "CC", doc_num: item.docNum }),
+          body: JSON.stringify({
+            eps: item.eps, doc_tipo: "CC", doc_num: item.docNum,
+            cups: item.cups, fecha_orden: item.fechaOrden,
+          }),
         });
         const json = await res.json();
         const resultado: AutorizacionResult = json.data || json;
@@ -281,11 +284,13 @@ const DashboardDemandaInducida: React.FC = () => {
       if (!fila.EpsBot) continue;
       // Si ya tiene estado desde la BD, no re-consultar automáticamente
       if (fila.ValEpsEstado) continue;
-      const docLimpio = (fila.Documento || "").replace(/[^0-9A-Za-z]/g, "");
-      const clave = `${fila.EpsBot}|${docLimpio}`;
+      const docLimpio  = (fila.Documento || "").replace(/[^0-9A-Za-z]/g, "");
+      const cupsLimpio = (fila.Cups || "").trim().split("-")[0];
+      const fechaOrden = (fila.Fecha || "").split(" ")[0];
+      const clave = `${fila.EpsBot}|${docLimpio}|${cupsLimpio}`;
       if (!vistos.has(clave) && !autCache.current[clave]) {
         vistos.add(clave);
-        nuevas.push({ eps: fila.EpsBot, docNum: docLimpio, clave });
+        nuevas.push({ eps: fila.EpsBot, docNum: docLimpio, cups: cupsLimpio, fechaOrden, clave });
       }
     }
     if (nuevas.length > 0) {
@@ -319,8 +324,9 @@ const DashboardDemandaInducida: React.FC = () => {
       if (r.ValEpsEstado === "SIN_CONTRATO") return false;
       // Ocultar filas cuya validación en vivo ya retornó "Sin contrato"
       if (r.EpsBot) {
-        const docLimpio = (r.Documento || "").replace(/[^0-9A-Za-z]/g, "");
-        const clave = `${r.EpsBot}|${docLimpio}`;
+        const docLimpio  = (r.Documento || "").replace(/[^0-9A-Za-z]/g, "");
+        const cupsLimpio = (r.Cups || "").trim().split("-")[0];
+        const clave = `${r.EpsBot}|${docLimpio}|${cupsLimpio}`;
         const aut = autState[clave];
         if (aut && aut !== "cargando" && (aut as AutorizacionResult).status === "SIN_CONTRATO") return false;
       }
@@ -404,7 +410,7 @@ const DashboardDemandaInducida: React.FC = () => {
   const contAutorizados = useMemo(() => {
     return filtrados.filter(r => {
       if (!r.EpsBot) return false;
-      const clave = `${r.EpsBot}|${(r.Documento || "").replace(/[^0-9A-Za-z]/g, "")}`;
+      const clave = `${r.EpsBot}|${(r.Documento || "").replace(/[^0-9A-Za-z]/g, "")}|${(r.Cups || "").trim().split("-")[0]}`;
       const aut = autState[clave];
       return aut && aut !== "cargando" && (aut as AutorizacionResult).status === "AUTORIZADO";
     }).length;
@@ -489,7 +495,8 @@ const DashboardDemandaInducida: React.FC = () => {
                   const docLimpio = (r.Documento || "").replace(/[^0-9A-Za-z]/g, "");
 
                   // Validación: usa datos pre-cargados, con posibilidad de re-consulta
-                  const claveAut = r.EpsBot ? `${r.EpsBot}|${docLimpio}` : null;
+                  const cupsLimpioRow = (r.Cups || "").trim().split("-")[0];
+                  const claveAut = r.EpsBot ? `${r.EpsBot}|${docLimpio}|${cupsLimpioRow}` : null;
                   const autDinamico = claveAut ? autState[claveAut] : undefined;
                   // Si hay resultado dinámico (del botón Revalidar) lo usa, si no usa el pre-cargado
                   const valEstado = autDinamico && autDinamico !== "cargando"
@@ -505,9 +512,13 @@ const DashboardDemandaInducida: React.FC = () => {
 
                   const revalidar = () => {
                     if (!r.EpsBot || !docLimpio) return;
-                    const clave = `${r.EpsBot}|${docLimpio}`;
+                    const cups_ = (r.Cups || "").trim().split("-")[0];
+                    const clave = `${r.EpsBot}|${docLimpio}|${cups_}`;
                     delete autCache.current[clave];
-                    colaRef.current.unshift({ eps: r.EpsBot, docNum: docLimpio, clave });
+                    colaRef.current.unshift({
+                      eps: r.EpsBot, docNum: docLimpio,
+                      cups: cups_, fechaOrden: (r.Fecha || "").split(" ")[0], clave
+                    });
                     procesarCola();
                   };
 
