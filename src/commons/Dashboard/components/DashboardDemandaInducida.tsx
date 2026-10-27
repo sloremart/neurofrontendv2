@@ -315,6 +315,15 @@ const DashboardDemandaInducida: React.FC = () => {
       const fechaRow = r.Fecha.split(" ")[0];
       if (fechaDesde && fechaRow < fechaDesde) return false;
       if (fechaHasta && fechaRow > fechaHasta) return false;
+      // Ocultar filas que ya tienen "Sin contrato" en BD
+      if (r.ValEpsEstado === "SIN_CONTRATO") return false;
+      // Ocultar filas cuya validación en vivo ya retornó "Sin contrato"
+      if (r.EpsBot) {
+        const docLimpio = (r.Documento || "").replace(/[^0-9A-Za-z]/g, "");
+        const clave = `${r.EpsBot}|${docLimpio}`;
+        const aut = autState[clave];
+        if (aut && aut !== "cargando" && (aut as AutorizacionResult).status === "SIN_CONTRATO") return false;
+      }
       if (busqueda) {
         const q = busqueda.toLowerCase();
         if (!(r.Paciente + r.Entidad + r.Medico + r.Orden + r.Documento + r.Cups).toLowerCase().includes(q)) return false;
@@ -327,7 +336,7 @@ const DashboardDemandaInducida: React.FC = () => {
       }
       return true;
     });
-  }, [data, fechaDesde, fechaHasta, busqueda, filtroCategoria, filtroFamilia]);
+  }, [data, fechaDesde, fechaHasta, busqueda, filtroCategoria, filtroFamilia, autState]);
 
   // Para stats usamos los datos SIN filtro de categoría/familia (para mostrar totales reales)
   const dataSinFiltroCategoria = useMemo(() => {
