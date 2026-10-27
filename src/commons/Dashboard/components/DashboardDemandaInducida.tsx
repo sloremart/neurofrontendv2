@@ -405,18 +405,18 @@ const DashboardDemandaInducida: React.FC = () => {
 
       {/* Tarjetas */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
-        <StatCard label="Total Notificaciones"  value={stats.total}    icon="✉"  borderColor="#DC143C" iconColor="#DC143C" />
-        <StatCard label="Imágenes Diagnósticas" value={stats.imagenes} icon="◉"  borderColor="#4B0082" iconColor="#4B0082"
+        <StatCard label="Total Notificaciones"  value={stats.total}    icon="✉️"  borderColor="#DC143C" iconColor="#DC143C" />
+        <StatCard label="Imágenes Diagnósticas" value={stats.imagenes} icon="🧲"  borderColor="#4B0082" iconColor="#4B0082"
           onClick={() => toggleCategoria("imagenes")} active={filtroCategoria === "imagenes"} />
-        <StatCard label="Neurología y Estudios" value={stats.neuro}    icon="✦"  borderColor="#173872" iconColor="#173872"
+        <StatCard label="Neurología y Estudios" value={stats.neuro}    icon="🧠"  borderColor="#173872" iconColor="#173872"
           onClick={() => toggleCategoria("neuro")} active={filtroCategoria === "neuro"} />
-        <StatCard label="Fisiatría y Terapias"  value={stats.fisi}     icon="▲"  borderColor="#20c997" iconColor="#20c997"
+        <StatCard label="Fisiatría y Terapias"  value={stats.fisi}     icon="🚶"  borderColor="#20c997" iconColor="#20c997"
           onClick={() => toggleCategoria("fisi")} active={filtroCategoria === "fisi"} />
-        <StatCard label="Otros Servicios"       value={stats.otro}     icon="▪"  borderColor="#F59E0B" iconColor="#F59E0B"
+        <StatCard label="Otros Servicios"       value={stats.otro}     icon="📋"  borderColor="#F59E0B" iconColor="#F59E0B"
           onClick={() => toggleCategoria("otro")} active={filtroCategoria === "otro"} />
-        <StatCard label="Pendiente Cita (Aut. EPS)" value={contAutorizados} icon="✓" borderColor="#16a34a" iconColor="#16a34a"
+        <StatCard label="Pendiente Cita (Aut. EPS)" value={contAutorizados} icon="✅" borderColor="#16a34a" iconColor="#16a34a"
           desglose={stats.desgloseTotal} onClickFamilia={toggleFamilia} familiaActiva={filtroFamilia || undefined} />
-        <StatCard label="Última Actividad"      value={stats.lastDate}  icon="◆" borderColor="#28a745" iconColor="#28a745" small />
+        <StatCard label="Última Actividad"      value={stats.lastDate}  icon="⚡" borderColor="#28a745" iconColor="#28a745" small />
       </div>
 
       {/* Tabla */}
