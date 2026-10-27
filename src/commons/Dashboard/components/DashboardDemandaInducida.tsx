@@ -194,7 +194,7 @@ const BadgeValidacionEps = ({ r, onValidar, onRevalidar }: {
       <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "3px 8px", fontSize: "0.65rem", fontWeight: 600, whiteSpace: "nowrap" }}>
         Autorizado
       </span>
-      {r.num_autorizacion && <div style={{ fontSize: "0.58rem", color: "#374151", textAlign: "center" }}>#{r.num_autorizacion.substring(0, 18)}</div>}
+      {r.num_autorizacion && <div style={{ fontSize: "0.58rem", color: "#374151", textAlign: "center" }}>#{r.num_autorizacion.replace(/^#+/, "").substring(0, 18)}</div>}
       {r.fecha_vigencia && <div style={{ fontSize: "0.58rem", color: "#6B7280" }}>Vence: {r.fecha_vigencia}</div>}
       <button onClick={onRevalidar} style={{ background: "none", color: "#9CA3AF", border: "none", padding: 0, fontSize: "0.58rem", cursor: "pointer" }}>↺ Revalidar</button>
     </div>
@@ -572,7 +572,7 @@ const DashboardDemandaInducida: React.FC = () => {
                         ) : valEstado === "AUTORIZADO" ? (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                             <span style={{ fontSize: "0.7rem", color: "#16a34a" }}>●</span>
-                            {valAutorizacion && <div style={{ fontSize: "0.62rem", color: "#374151", fontWeight: 600 }}>#{valAutorizacion.substring(0, 18)}</div>}
+                            {valAutorizacion && <div style={{ fontSize: "0.62rem", color: "#374151", fontWeight: 600 }}>#{valAutorizacion.replace(/^#+/, "").substring(0, 18)}</div>}
                             {valVigencia && <div style={{ fontSize: "0.58rem", color: "#6B7280" }}>Vence: {valVigencia}</div>}
                             <button onClick={revalidar} style={{ background: "none", color: "#9CA3AF", border: "none", padding: 0, fontSize: "0.58rem", cursor: "pointer" }}>↺ Revalidar</button>
                           </div>
