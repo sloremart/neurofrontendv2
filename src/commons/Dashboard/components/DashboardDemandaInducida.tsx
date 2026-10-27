@@ -500,8 +500,10 @@ const DashboardDemandaInducida: React.FC = () => {
                     procesarCola();
                   };
 
-                  // Archivos adjuntos: de la pre-carga (val_eps_archivos del bot)
-                  const archivos: Array<{tipo:string;nombre_archivo:string;url_descarga:string}> = r.ValEpsArchivos || [];
+                  // Archivos adjuntos: del resultado dinámico (Revalidar) o de la pre-carga
+                  const archivos: Array<{tipo:string;nombre_archivo:string;url_descarga:string}> =
+                    (autDinamico && autDinamico !== "cargando" ? (autDinamico as any).ValEpsArchivos : null)
+                    || r.ValEpsArchivos || [];
 
                   return (
                     <tr key={r.Id} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}
