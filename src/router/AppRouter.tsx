@@ -7,6 +7,7 @@ import { ProtectedRoute } from '../components/ProtectedRoute.tsx';
 
 // Auth
 import Login from '../commons/Login/Login.tsx';
+import { RegisterForm } from '../commons/Login/Login.tsx';
 import NoAutorizado from '../pages/Unauthorized.tsx';
 
 // Gedocumental
@@ -55,6 +56,7 @@ export const AppRouter: React.FC = () => {
     <Routes>
       {/* Rutas públicas — sin sidebar */}
       <Route path="/login"    element={<Login />} />
+      <Route path="/registro" element={<RegisterForm />} />
       <Route path="/no-autorizado" element={<NoAutorizado />} />
 
       {/* Todas las rutas autenticadas envueltas en SidebarLayout */}
@@ -96,8 +98,8 @@ export const AppRouter: React.FC = () => {
           <Route path="/carga_autorizaciones" element={<CargaAutorizaciones />} />
         </Route>
 
-        {/* Demanda Inducida — solo AdministrativoGerencia */}
-        <Route element={<ProtectedRoute allowedRoles={['AdministrativoGerencia']} />}>
+        {/* Demanda Inducida */}
+        <Route element={<ProtectedRoute allowedRoles={['AdministrativoGerencia', 'Facturador']} />}>
           <Route path="/demanda_inducida" element={<DashboardDemandaInducida />} />
         </Route>
 

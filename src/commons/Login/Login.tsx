@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   Box, Button, TextField, Alert, CircularProgress,
-  Paper, Typography, InputAdornment, IconButton, Tabs, Tab, MenuItem,
+  Paper, Typography, InputAdornment, IconButton, MenuItem,
 } from "@mui/material";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
@@ -20,11 +20,12 @@ const ROLE_ROUTES: Record<string, string> = {
   Contador: "/documental_programacion_pagos",
   Financiera: "/documental_programacion_pagos",
   AdministrativoGerencia: "/facturas_proveedores",
+  Facturador: "/caja_facturacion",
 };
 
 const CARGOS = [
   "CuentasMedicas", "LiderCuentasMedicas", "GerenciaCM", "EstudiosSueño", "Asistencial",
-  "Contador", "Financiera", "Administrativo", "AdministrativoGerencia", "Sistemas",
+  "Contador", "Financiera", "Administrativo", "AdministrativoGerencia", "Sistemas", "Facturador",
 ];
 
 const emptyRegister = { nombre: "", email: "", cargo: "", password: "", password_confirm: "" };
@@ -196,61 +197,68 @@ const RegisterPanel = () => {
   );
 };
 
-/* ── Vista combinada ────────────────────────────────────────── */
-const LoginForm = () => {
-  const [tab, setTab] = useState(0);
-
-  return (
+/* ── Vista Login ────────────────────────────────────────────── */
+const LoginForm = () => (
+  <Box sx={{
+    minHeight: "100vh", display: "flex", alignItems: "center",
+    justifyContent: "center", position: "relative", overflow: "hidden", bgcolor: "#f0f2f5",
+  }}>
     <Box sx={{
-      minHeight: "100vh", display: "flex", alignItems: "center",
-      justifyContent: "center", position: "relative", overflow: "hidden", bgcolor: "#f0f2f5",
-    }}>
-      {/* Fondo desvanecido */}
+      position: "absolute", inset: 0,
+      backgroundImage: "url(/logo192.jpeg)",
+      backgroundSize: "contain", backgroundPosition: "center",
+      backgroundRepeat: "no-repeat", opacity: 0.18, filter: "blur(4px)",
+    }} />
+    <Paper elevation={6} sx={{ width: 400, borderRadius: 3, zIndex: 1, overflow: "hidden" }}>
       <Box sx={{
-        position: "absolute", inset: 0,
-        backgroundImage: "url(/logo192.jpeg)",
-        backgroundSize: "contain", backgroundPosition: "center",
-        backgroundRepeat: "no-repeat", opacity: 0.18, filter: "blur(4px)",
-      }} />
+        px: 4, pt: 4, pb: 2,
+        background: "linear-gradient(135deg, #381A73 0%, #1E2E71 60%, #0F4374 100%)",
+        textAlign: "center",
+      }}>
+        <Typography variant="h5" fontWeight={800} sx={{ color: "#fff", letterSpacing: 1 }}>
+          NEURODX
+        </Typography>
+        <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)", mt: 0.5 }}>
+          Su diagnóstico, nuestro compromiso
+        </Typography>
+      </Box>
+      <Box sx={{ px: 4, pb: 4, pt: 3 }}>
+        <LoginPanel />
+      </Box>
+    </Paper>
+  </Box>
+);
 
-      <Paper elevation={6} sx={{ width: tab === 0 ? 400 : 460, borderRadius: 3, zIndex: 1, overflow: "hidden" }}>
-        {/* Encabezado */}
-        <Box sx={{
-          px: 4, pt: 4, pb: 2,
-          background: "linear-gradient(135deg, #381A73 0%, #1E2E71 60%, #0F4374 100%)",
-          textAlign: "center",
-        }}>
-          <Typography variant="h5" fontWeight={800} sx={{ color: "#fff", letterSpacing: 1 }}>
-            NEURODX
-          </Typography>
-          <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)", mt: 0.5 }}>
-            Su diagnóstico, nuestro compromiso
-          </Typography>
-        </Box>
-
-        {/* Tabs */}
-        <Tabs
-          value={tab}
-          onChange={(_, v) => setTab(v)}
-          variant="fullWidth"
-          sx={{
-            borderBottom: "1px solid #E5E7EB",
-            "& .MuiTab-root": { fontWeight: 600, fontSize: 13 },
-            "& .MuiTabs-indicator": { background: "linear-gradient(90deg, #381A73, #1E2E71)", height: 3 },
-            "& .Mui-selected": { color: "#1E2E71 !important" },
-          }}
-        >
-          <Tab label="Iniciar Sesión" />
-          <Tab label="Registro" />
-        </Tabs>
-
-        {/* Contenido del tab activo */}
-        <Box sx={{ px: 4, pb: 4, pt: 1 }}>
-          {tab === 0 ? <LoginPanel /> : <RegisterPanel />}
-        </Box>
-      </Paper>
-    </Box>
-  );
-};
+/* ── Vista Registro (página separada) ───────────────────────── */
+export const RegisterForm = () => (
+  <Box sx={{
+    minHeight: "100vh", display: "flex", alignItems: "center",
+    justifyContent: "center", position: "relative", overflow: "hidden", bgcolor: "#f0f2f5",
+  }}>
+    <Box sx={{
+      position: "absolute", inset: 0,
+      backgroundImage: "url(/logo192.jpeg)",
+      backgroundSize: "contain", backgroundPosition: "center",
+      backgroundRepeat: "no-repeat", opacity: 0.18, filter: "blur(4px)",
+    }} />
+    <Paper elevation={6} sx={{ width: 460, borderRadius: 3, zIndex: 1, overflow: "hidden" }}>
+      <Box sx={{
+        px: 4, pt: 4, pb: 2,
+        background: "linear-gradient(135deg, #381A73 0%, #1E2E71 60%, #0F4374 100%)",
+        textAlign: "center",
+      }}>
+        <Typography variant="h5" fontWeight={800} sx={{ color: "#fff", letterSpacing: 1 }}>
+          NEURODX
+        </Typography>
+        <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)", mt: 0.5 }}>
+          Registro de usuario
+        </Typography>
+      </Box>
+      <Box sx={{ px: 4, pb: 4, pt: 2 }}>
+        <RegisterPanel />
+      </Box>
+    </Paper>
+  </Box>
+);
 
 export default LoginForm;
