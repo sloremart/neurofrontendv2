@@ -236,7 +236,7 @@ const DashboardDemandaInducida: React.FC = () => {
   const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
   const hace30 = new Date(hoy); hace30.setDate(hace30.getDate() - 30);
   const hace30Str = `${hace30.getFullYear()}-${String(hace30.getMonth() + 1).padStart(2, "0")}-${String(hace30.getDate()).padStart(2, "0")}`;
-  const [fechaDesde, setFechaDesde] = useState(hace30Str);
+  const [fechaDesde, setFechaDesde] = useState(hoyStr);
   const [fechaHasta, setFechaHasta] = useState(hoyStr);
 
   // Caché de autorizaciones: clave = "eps|doc_num|cups"
