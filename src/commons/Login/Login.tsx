@@ -20,7 +20,7 @@ const ROLE_ROUTES: Record<string, string> = {
   Contador: "/documental_programacion_pagos",
   Financiera: "/documental_programacion_pagos",
   AdministrativoGerencia: "/facturas_proveedores",
-  Facturador: "/caja_facturacion",
+  Facturador: "/ge_documental",
 };
 
 const CARGOS = [
