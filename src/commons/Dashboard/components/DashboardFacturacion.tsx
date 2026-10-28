@@ -81,8 +81,8 @@ interface RegularDetalladaData {
   por_servicio: ServicioItem[];
   medicos: MedicoItem[];
   procedimientos: ProcedimientoItem[];
-  filtros: { servicios: string[]; contratos: string[] };
-  filtros_activos: { cartera: string; servicio: string; contrato: string };
+  filtros: { servicios: string[]; contratos: string[]; empresas: string[] };
+  filtros_activos: { cartera: string; servicio: string; contrato: string; empresa: string };
 }
 
 // ── paleta semáforo MRC ───────────────────────────────────────────────────────
@@ -257,13 +257,14 @@ const FacturacionDashboard = () => {
   const [carteraFilter,     setCarteraFilter]     = useState<string>('');
   const [servicioFilter,    setServicioFilter]    = useState<string>('');
   const [contratoFilter,    setContratoFilter]    = useState<string>('');
+  const [empresaFilter,     setEmpresaFilter]     = useState<string>('');
   const [tablaProcActiva,   setTablaProcActiva]   = useState<"medicos" | "procedimientos">("medicos");
   const [searchMedico,      setSearchMedico]      = useState<string>('');
   const [searchProc,        setSearchProc]        = useState<string>('');
   const detalladaFechas = useRef<{ fi: string; ff: string } | null>(null);
 
   const fetchRegularDetallada = async (
-    fi: string, ff: string, cf: string, sf: string, cnf: string
+    fi: string, ff: string, cf: string, sf: string, cnf: string, ef: string
   ) => {
     setLoadingDetallada(true);
     try {
@@ -271,6 +272,7 @@ const FacturacionDashboard = () => {
       if (cf)  url += `&cartera_filter=${encodeURIComponent(cf)}`;
       if (sf)  url += `&servicio_filter=${encodeURIComponent(sf)}`;
       if (cnf) url += `&contrato_filter=${encodeURIComponent(cnf)}`;
+      if (ef)  url += `&empresa_filter=${encodeURIComponent(ef)}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Detallada: error ${res.status}`);
       setRegularDetallada(await res.json());
@@ -285,8 +287,8 @@ const FacturacionDashboard = () => {
   useEffect(() => {
     if (!detalladaFechas.current) return;
     const { fi, ff } = detalladaFechas.current;
-    fetchRegularDetallada(fi, ff, carteraFilter, servicioFilter, contratoFilter);
-  }, [carteraFilter, servicioFilter, contratoFilter]);
+    fetchRegularDetallada(fi, ff, carteraFilter, servicioFilter, contratoFilter, empresaFilter);
+  }, [carteraFilter, servicioFilter, contratoFilter, empresaFilter]);
 
   const handleBuscar = async () => {
     if (!fechaInicio || !fechaFin) return;
@@ -296,12 +298,13 @@ const FacturacionDashboard = () => {
     setCarteraFilter('');
     setServicioFilter('');
     setContratoFilter('');
+    setEmpresaFilter('');
     try {
       const fi = fechaInicio.format("YYYY-MM-DD");
       const ff = fechaFin.format("YYYY-MM-DD");
       detalladaFechas.current = { fi, ff };
 
-      fetchRegularDetallada(fi, ff, '', '', '');
+      fetchRegularDetallada(fi, ff, '', '', '', '');
       const [resFactura, resAdm] = await Promise.all([
         fetch(`${API}/dashboard/facturacion-nuevo/?fecha_inicio=${fi}&fecha_fin=${ff}`),
         fetch(`${API}/dashboard/facturacion-admisiones/?fecha_inicio=${fi}&fecha_fin=${ff}`),
@@ -609,8 +612,14 @@ const FacturacionDashboard = () => {
                       <option value="">— Todos los contratos —</option>
                       {regularDetallada.filtros.contratos.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
-                    {(carteraFilter || servicioFilter || contratoFilter) && (
-                      <button onClick={() => { setCarteraFilter(''); setServicioFilter(''); setContratoFilter(''); }}
+                    <select value={empresaFilter} onChange={e => setEmpresaFilter(e.target.value)}
+                      style={{ fontSize: 12, border: "1px solid #e2e8f0", borderRadius: 6,
+                        padding: "5px 10px", color: "#0f172a", background: "#f8fafc", minWidth: 200 }}>
+                      <option value="">— Todas las empresas —</option>
+                      {(regularDetallada.filtros.empresas ?? []).map(e => <option key={e} value={e}>{e}</option>)}
+                    </select>
+                    {(carteraFilter || servicioFilter || contratoFilter || empresaFilter) && (
+                      <button onClick={() => { setCarteraFilter(''); setServicioFilter(''); setContratoFilter(''); setEmpresaFilter(''); }}
                         style={{ fontSize: 11, color: "#ef4444", border: "1px solid #fecaca", background: "#fff",
                           borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 600 }}>
                         ✕ Limpiar filtros
