@@ -478,25 +478,6 @@ const FacturacionDashboard = () => {
       {data && !loading && (
         <div style={{ padding: "24px 32px" }}>
 
-          {/* ── KPI row ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 14, marginBottom: 24 }}>
-            {[
-              { label: "Total Facturado Regular",   value: fmt(data.regular.total),       sub: `${data.regular.admisiones.toLocaleString("es-CO")} admisiones`, color: "#1d4ed8", icon: "🏥" },
-              { label: "MRC SANITAS",              value: fmt(data.mrc.total_valor),    sub: `${data.mrc.grupos.length} grupos`,                              color: "#7c3aed", icon: "📋" },
-              { label: "Estudios del período",     value: (admisiones?.total_admisiones ?? 0).toLocaleString("es-CO"), sub: "Estudios ingresados (fecha admisión)", color: "#0f766e", icon: "📥" },
-              { label: "Estudios facturados",    value: (admisiones?.total_facturadas ?? 0).toLocaleString("es-CO"), sub: "Del período con FES emitida",          color: "#10b981", icon: "✅" },
-              { label: "Valor facturado FES",      value: fmt(admisiones?.total_valor ?? 0),                           sub: "Valor de los estudios del período",      color: "#0891b2", icon: "💰" },
-            ].map((k, i) => (
-              <div key={i} style={{ background: "#fff", borderRadius: 12, padding: "16px 18px",
-                boxShadow: "0 1px 8px rgba(0,0,0,0.07)", borderLeft: `4px solid ${k.color}` }}>
-                <div style={{ fontSize: 20, marginBottom: 6 }}>{k.icon}</div>
-                <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{k.label}</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: k.color, margin: "4px 0 2px", lineHeight: 1.2 }}>{k.value}</div>
-                <div style={{ fontSize: 11, color: "#94a3b8" }}>{k.sub}</div>
-              </div>
-            ))}
-          </div>
-
           {/* ── tabs ── */}
           <div style={{ display: "flex", gap: 0, marginBottom: 24, background: "#e2e8f0", borderRadius: 10, padding: 4, width: "fit-content" }}>
             {([["regular","🏥 Facturación Regular"], ["mrc","🔬 MRC SANITAS"], ["admisiones","📥 Admisiones vs Facturación"]] as const).map(([tab, label]) => (
