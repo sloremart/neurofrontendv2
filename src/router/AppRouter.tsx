@@ -56,7 +56,7 @@ export const AppRouter: React.FC = () => {
     <Routes>
       {/* Rutas públicas — sin sidebar */}
       <Route path="/login"    element={<Login />} />
-      <Route path="/registro" element={<RegisterForm />} />
+      <Route path="/register" element={<RegisterForm />} />
       <Route path="/no-autorizado" element={<NoAutorizado />} />
 
       {/* Todas las rutas autenticadas envueltas en SidebarLayout */}
