@@ -548,28 +548,23 @@ const FacturacionDashboard = () => {
                     ))}
                   </div>
 
-                  {/* Cartera segment cards — con 5ª tarjeta "Total" */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
-                    {/* Total (todas las carteras) */}
+                  {/* Cartera segment cards — estilo oscuro */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
+                    {/* Total */}
                     {(() => {
                       const totalValor    = regularDetallada.cartera.reduce((a, s) => a + s.valor, 0);
                       const totalEstudios = regularDetallada.cartera.reduce((a, s) => a + s.estudios, 0);
                       const isAllActive   = carteraFilter === '';
+                      const c = "#00d2ff";
                       return (
                         <div onClick={() => setCarteraFilter('')}
-                          style={{ background: isAllActive ? "#0ea5e9" : "#fff",
-                            border: `2px solid #0ea5e9`, borderRadius: 12, padding: "16px 18px",
-                            cursor: "pointer", transition: "all 0.15s",
-                            boxShadow: isAllActive ? "0 4px 16px #0ea5e944" : "0 1px 8px rgba(0,0,0,0.07)" }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 4,
-                            color: isAllActive ? "rgba(255,255,255,0.85)" : "#0ea5e9" }}>Total Ventas</div>
-                          <div style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: isAllActive ? "#fff" : "#0ea5e9" }}>
-                            {totalEstudios.toLocaleString("es-CO")}
-                          </div>
-                          <div style={{ fontSize: 11, marginTop: 2, color: isAllActive ? "rgba(255,255,255,0.75)" : "#64748b" }}>estudios</div>
-                          <div style={{ fontSize: 13, fontWeight: 700, marginTop: 6, fontVariantNumeric: "tabular-nums",
-                            color: isAllActive ? "rgba(255,255,255,0.9)" : "#1d4ed8" }}>{fmt(totalValor)}</div>
-                          {isAllActive && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", marginTop: 4 }}>▲ Mostrando todo</div>}
+                          style={{ background: "#141824", borderLeft: `4px solid ${c}`,
+                            borderRadius: 12, padding: "20px 22px", cursor: "pointer", transition: "all 0.15s",
+                            boxShadow: isAllActive ? `0 0 0 1px ${c}55, 0 4px 20px ${c}22` : "0 2px 10px rgba(0,0,0,0.35)" }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, color: c, marginBottom: 10 }}>Total Ventas</div>
+                          <div style={{ fontSize: 28, fontWeight: 800, color: c, fontVariantNumeric: "tabular-nums", lineHeight: 1.1 }}>{fmt(totalValor)}</div>
+                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>{totalEstudios.toLocaleString("es-CO")} estudios</div>
+                          {isAllActive && <div style={{ fontSize: 10, color: `${c}88`, marginTop: 6 }}>▲ Mostrando todo</div>}
                         </div>
                       );
                     })()}
@@ -577,20 +572,13 @@ const FacturacionDashboard = () => {
                       const isActive = carteraFilter === seg.segmento;
                       return (
                         <div key={seg.segmento} onClick={() => setCarteraFilter(isActive ? '' : seg.segmento)}
-                          style={{ background: isActive ? seg.color : "#fff", border: `2px solid ${seg.color}`,
-                            borderRadius: 12, padding: "16px 18px", cursor: "pointer", transition: "all 0.15s",
-                            boxShadow: isActive ? `0 4px 16px ${seg.color}44` : "0 1px 8px rgba(0,0,0,0.07)" }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" as const,
-                            letterSpacing: 0.5, marginBottom: 4,
-                            color: isActive ? "rgba(255,255,255,0.85)" : seg.color }}>{seg.label}</div>
-                          <div style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: "tabular-nums",
-                            color: isActive ? "#fff" : seg.color }}>
-                            {seg.estudios.toLocaleString("es-CO")}
-                          </div>
-                          <div style={{ fontSize: 11, marginTop: 2, color: isActive ? "rgba(255,255,255,0.75)" : "#64748b" }}>estudios</div>
-                          <div style={{ fontSize: 13, fontWeight: 700, marginTop: 6, fontVariantNumeric: "tabular-nums",
-                            color: isActive ? "rgba(255,255,255,0.9)" : "#1d4ed8" }}>{fmt(seg.valor)}</div>
-                          {isActive && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", marginTop: 4 }}>▲ Filtro activo — clic para quitar</div>}
+                          style={{ background: "#141824", borderLeft: `4px solid ${seg.color}`,
+                            borderRadius: 12, padding: "20px 22px", cursor: "pointer", transition: "all 0.15s",
+                            boxShadow: isActive ? `0 0 0 1px ${seg.color}55, 0 4px 20px ${seg.color}22` : "0 2px 10px rgba(0,0,0,0.35)" }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, color: seg.color, marginBottom: 10 }}>{seg.label}</div>
+                          <div style={{ fontSize: 28, fontWeight: 800, color: seg.color, fontVariantNumeric: "tabular-nums", lineHeight: 1.1 }}>{fmt(seg.valor)}</div>
+                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>{seg.estudios.toLocaleString("es-CO")} estudios</div>
+                          {isActive && <div style={{ fontSize: 10, color: `${seg.color}88`, marginTop: 6 }}>▲ Filtro activo — clic para quitar</div>}
                         </div>
                       );
                     })}
@@ -696,48 +684,57 @@ const FacturacionDashboard = () => {
                     ) : <div style={{ textAlign: "center", color: "#94a3b8", padding: 40 }}>Sin datos</div>}
                   </div>
 
-                  {/* Análisis de Cartera — gráfica mixta (barras por segmento + línea estudios) */}
-                  <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
+                  {/* Análisis de Cartera — cada segmento como categoría X, fondo oscuro */}
+                  <div style={{ background: "#141824", borderRadius: 12, padding: "20px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.4)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                      <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: 0.5 }}>Análisis de Cartera: Facturación vs. Radicación</h3>
-                      <span style={{ fontSize: 11, background: "#fef2f2", color: "#ef4444", padding: "3px 10px", borderRadius: 12, fontWeight: 600 }}>Auditoría</span>
+                      <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#e2e8f0", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Análisis de Cartera: Facturación vs. Radicación</h3>
+                      <span style={{ fontSize: 11, background: "rgba(239,68,68,.15)", color: "#ef4444", padding: "3px 10px", borderRadius: 12, fontWeight: 600 }}>Auditoría</span>
                     </div>
                     {regularDetallada.cartera.some(s => s.valor > 0) ? (
-                      <Chart type="bar" height={280}
+                      <Chart type="bar" height={300}
                         series={[
-                          ...regularDetallada.cartera.map(seg => ({
-                            name: seg.label,
-                            type: "bar" as const,
-                            data: [seg.valor],
-                          })),
                           {
-                            name: "Estudios",
+                            name: "Valor Facturado (COP)",
+                            type: "bar" as const,
+                            data: regularDetallada.cartera.map(seg => ({
+                              x: seg.label,
+                              y: seg.valor,
+                              fillColor: seg.color,
+                            })) as any[],
+                          },
+                          {
+                            name: "Estudios Únicos",
                             type: "line" as const,
-                            data: [regularDetallada.cartera.reduce((a, s) => a + s.estudios, 0)],
+                            data: regularDetallada.cartera.map(seg => ({
+                              x: seg.label,
+                              y: seg.estudios,
+                            })),
                           },
                         ]}
                         options={{
-                          chart: { type: "bar", toolbar: { show: false }, stacked: false },
+                          chart: { type: "bar", toolbar: { show: false }, background: "#141824" },
+                          theme: { mode: "dark" as const },
                           plotOptions: { bar: { horizontal: false, borderRadius: 6, columnWidth: "50%", dataLabels: { position: "top" } } },
-                          dataLabels: { enabled: true, formatter: (v: number) => fmtM(v), style: { fontSize: "10px", colors: ["#334155"] }, offsetY: -16 },
-                          xaxis: { categories: ["Cartera"], labels: { style: { fontSize: "11px" } } },
+                          dataLabels: { enabled: true, formatter: (v: number) => fmtM(v), style: { fontSize: "10px", colors: ["#cbd5e1"] }, offsetY: -18 },
+                          xaxis: { labels: { style: { fontSize: "11px", colors: "#94a3b8" }, rotate: -10 }, axisBorder: { color: "#334155" }, axisTicks: { color: "#334155" } },
                           yaxis: [
-                            { title: { text: "Valor (COP)" }, labels: { formatter: fmtM, style: { fontSize: "10px" } } },
-                            { opposite: true, title: { text: "Estudios" }, labels: { formatter: (v: number) => v.toLocaleString("es-CO"), style: { fontSize: "10px" } } },
+                            { title: { text: "Valor (COP)", style: { color: "#94a3b8" } }, labels: { formatter: fmtM, style: { fontSize: "10px", colors: "#94a3b8" } } },
+                            { opposite: true, title: { text: "Estudios Únicos", style: { color: "#00d2ff" } }, labels: { formatter: (v: number) => v.toLocaleString("es-CO"), style: { fontSize: "10px", colors: "#00d2ff" } } },
                           ],
-                          colors: ["#10b981","#f59e0b","#ef4444","#6366f1","#0ea5e9"],
-                          stroke: { width: [0,0,0,0,3], curve: "smooth" as const },
-                          markers: { size: [0,0,0,0,6] },
-                          legend: { position: "top" as const, fontSize: "12px" },
-                          grid: { borderColor: "#f1f5f9" },
+                          colors: ["#10b981", "#00d2ff"],
+                          stroke: { width: [0, 3], curve: "smooth" as const },
+                          markers: { size: [0, 7], colors: ["#00d2ff"], strokeColors: "#141824", strokeWidth: 2 },
+                          legend: { position: "top" as const, fontSize: "12px", labels: { colors: "#94a3b8" } },
+                          grid: { borderColor: "#1e2a3a" },
                           tooltip: {
+                            theme: "dark",
                             y: {
                               formatter: (v: number, { seriesIndex }: { seriesIndex: number }) =>
-                                seriesIndex < 4 ? fmt(v) : `${v.toLocaleString("es-CO")} estudios`
+                                seriesIndex === 0 ? fmt(v) : `${v.toLocaleString("es-CO")} estudios`
                             }
                           },
                         }} />
-                    ) : <div style={{ textAlign: "center", color: "#94a3b8", padding: 40 }}>Sin datos</div>}
+                    ) : <div style={{ textAlign: "center", color: "#475569", padding: 40 }}>Sin datos</div>}
                   </div>
 
                   {/* Tablas lado a lado: médicos + procedimientos */}
