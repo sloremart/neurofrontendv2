@@ -530,22 +530,130 @@ const FacturacionDashboard = () => {
 
               {regularDetallada && (
                 <>
-                  {/* Fila KPI general — Total Ventas, Servicios, Pacientes, Estudios */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}>
+                  {/* KPI: Total Ventas, Servicios, Pacientes, Estudios — oscuro */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
                     {[
-                      { label: "Total Ventas",       value: fmt(regularDetallada.kpis.total_valor),                              sub: "Suma Total Servicio",     color: "#0ea5e9", icon: "💵" },
-                      { label: "Cantidad Servicios", value: (regularDetallada.kpis.cantidad_servicios).toLocaleString("es-CO"),   sub: "Servicios prestados",     color: "#22c55e", icon: "🩺" },
-                      { label: "Pacientes Únicos",   value: (regularDetallada.kpis.total_pacientes).toLocaleString("es-CO"),      sub: "Documentos únicos",       color: "#f59e0b", icon: "👥" },
-                      { label: "Total Estudios",     value: (regularDetallada.kpis.total_estudios).toLocaleString("es-CO"),       sub: "Estudios realizados",     color: "#a78bfa", icon: "🔬" },
+                      { label: "Total Ventas",       value: fmt(regularDetallada.kpis.total_valor),                            sub: "Suma de Total Servicio",  color: "#00d2ff" },
+                      { label: "Cantidad Servicios", value: regularDetallada.kpis.cantidad_servicios.toLocaleString("es-CO"),  sub: "Servicios prestados",     color: "#10b981" },
+                      { label: "Pacientes Únicos",   value: regularDetallada.kpis.total_pacientes.toLocaleString("es-CO"),     sub: "Nro. Documentos únicos",  color: "#f59e0b" },
+                      { label: "Total Estudios",     value: regularDetallada.kpis.total_estudios.toLocaleString("es-CO"),      sub: "Estudios realizados",     color: "#a78bfa" },
                     ].map((k, i) => (
-                      <div key={i} style={{ background: "#fff", borderRadius: 12, padding: "16px 18px",
-                        boxShadow: "0 1px 8px rgba(0,0,0,0.07)", borderLeft: `4px solid ${k.color}` }}>
-                        <div style={{ fontSize: 18, marginBottom: 4 }}>{k.icon}</div>
-                        <div style={{ fontSize: 10, color: "#64748b", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>{k.label}</div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: k.color, margin: "4px 0 2px", lineHeight: 1.2, fontVariantNumeric: "tabular-nums" }}>{k.value}</div>
-                        <div style={{ fontSize: 11, color: "#94a3b8" }}>{k.sub}</div>
+                      <div key={i} style={{ background: "#141824", borderLeft: `4px solid ${k.color}`,
+                        borderRadius: 12, padding: "20px 22px", boxShadow: "0 2px 10px rgba(0,0,0,0.35)" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, color: k.color, marginBottom: 10 }}>{k.label}</div>
+                        <div style={{ fontSize: 28, fontWeight: 800, color: k.color, fontVariantNumeric: "tabular-nums", lineHeight: 1.1 }}>{k.value}</div>
+                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>{k.sub}</div>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Filtros — oscuro */}
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center",
+                    background: "#141824", borderRadius: 10, padding: "12px 18px", boxShadow: "0 1px 6px rgba(0,0,0,0.3)" }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b" }}>Filtrar por:</span>
+                    <select value={servicioFilter} onChange={e => setServicioFilter(e.target.value)}
+                      style={{ fontSize: 12, border: "1px solid #334155", borderRadius: 6, padding: "5px 10px", color: "#e2e8f0", background: "#1e2a3a", minWidth: 200 }}>
+                      <option value="">— Todos los servicios —</option>
+                      {regularDetallada.filtros.servicios.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <select value={contratoFilter} onChange={e => setContratoFilter(e.target.value)}
+                      style={{ fontSize: 12, border: "1px solid #334155", borderRadius: 6, padding: "5px 10px", color: "#e2e8f0", background: "#1e2a3a", minWidth: 220 }}>
+                      <option value="">— Todos los contratos —</option>
+                      {regularDetallada.filtros.contratos.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <select value={empresaFilter} onChange={e => setEmpresaFilter(e.target.value)}
+                      style={{ fontSize: 12, border: "1px solid #334155", borderRadius: 6, padding: "5px 10px", color: "#e2e8f0", background: "#1e2a3a", minWidth: 200 }}>
+                      <option value="">— Todas las empresas —</option>
+                      {(regularDetallada.filtros.empresas ?? []).map(e => <option key={e} value={e}>{e}</option>)}
+                    </select>
+                    {(carteraFilter || servicioFilter || contratoFilter || empresaFilter) && (
+                      <button onClick={() => { setCarteraFilter(''); setServicioFilter(''); setContratoFilter(''); setEmpresaFilter(''); }}
+                        style={{ fontSize: 11, color: "#ef4444", border: "1px solid #7f1d1d", background: "transparent",
+                          borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 600 }}>
+                        ✕ Limpiar filtros
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Charts: Top 10 Servicios por Contrato + Total por Servicio — oscuro */}
+                  <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 20 }}>
+                    <div style={{ background: "#141824", borderRadius: 12, padding: "20px 24px", boxShadow: "0 2px 10px rgba(0,0,0,0.35)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#e2e8f0", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Top 10 Servicios por Contrato</h3>
+                        <span style={{ fontSize: 11, background: "#1e2a3a", color: "#64748b", padding: "3px 10px", borderRadius: 12, fontWeight: 600 }}>Barras</span>
+                      </div>
+                      {regularDetallada.top_contratos.length > 0 ? (
+                        <Chart type="bar"
+                          height={Math.max(220, regularDetallada.top_contratos.length * 30)}
+                          series={[{ name: "Estudios", data: regularDetallada.top_contratos.map(c => c.estudios) }]}
+                          options={{
+                            chart: { type: "bar", toolbar: { show: false }, background: "#141824" },
+                            theme: { mode: "dark" as const },
+                            plotOptions: { bar: { horizontal: true, borderRadius: 4, dataLabels: { position: "top" } } },
+                            dataLabels: { enabled: true, formatter: (v: number) => v.toLocaleString("es-CO"), style: { fontSize: "10px", colors: ["#64748b"] }, offsetX: 6 },
+                            xaxis: { categories: regularDetallada.top_contratos.map(c => c.contrato.substring(0, 35)), labels: { style: { fontSize: "10px", colors: "#64748b" } } },
+                            yaxis: { labels: { style: { fontSize: "10px", colors: "#64748b" } } },
+                            colors: ["#10b981"],
+                            grid: { borderColor: "#1e2a3a" },
+                            tooltip: { theme: "dark", y: { formatter: (v: number) => `${v.toLocaleString("es-CO")} estudios` } },
+                          }} />
+                      ) : <div style={{ textAlign: "center", color: "#475569", padding: 40 }}>Sin datos</div>}
+                    </div>
+
+                    <div style={{ background: "#141824", borderRadius: 12, padding: "20px 24px", boxShadow: "0 2px 10px rgba(0,0,0,0.35)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#e2e8f0", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Total por Servicio</h3>
+                        <span style={{ fontSize: 11, background: "#1e2a3a", color: "#64748b", padding: "3px 10px", borderRadius: 12, fontWeight: 600 }}>Donut</span>
+                      </div>
+                      {regularDetallada.por_servicio.length > 0 ? (
+                        <Chart type="donut" height={280}
+                          series={regularDetallada.por_servicio.map(s => s.estudios)}
+                          options={{
+                            chart: { type: "donut", background: "#141824" },
+                            theme: { mode: "dark" as const },
+                            labels: regularDetallada.por_servicio.map(s => s.servicio),
+                            colors: ["#1d4ed8","#10b981","#7c3aed","#f59e0b","#ef4444","#06b6d4","#8b5cf6","#ec4899","#f97316","#14b8a6","#a78bfa","#84cc16"],
+                            legend: { position: "bottom" as const, fontSize: "10px", labels: { colors: "#64748b" } },
+                            dataLabels: { enabled: false },
+                            plotOptions: { pie: { donut: { size: "60%", labels: { show: true, total: {
+                              show: true, label: "Estudios", color: "#94a3b8",
+                              formatter: () => regularDetallada.kpis.total_estudios.toLocaleString("es-CO")
+                            } } } } },
+                            tooltip: { theme: "dark", y: { formatter: (v: number) => `${v.toLocaleString("es-CO")} estudios` } },
+                          }} />
+                      ) : <div style={{ textAlign: "center", color: "#475569", padding: 40 }}>Sin datos</div>}
+                    </div>
+                  </div>
+
+                  {/* Tendencia mensual — oscuro */}
+                  <div style={{ background: "#141824", borderRadius: 12, padding: "20px 24px", boxShadow: "0 2px 10px rgba(0,0,0,0.35)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                      <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#e2e8f0", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Tendencia Mensual de Facturación</h3>
+                      <span style={{ fontSize: 11, background: "#1e2a3a", color: "#64748b", padding: "3px 10px", borderRadius: 12, fontWeight: 600 }}>Línea</span>
+                    </div>
+                    {regularDetallada.tendencia.length > 0 ? (
+                      <Chart type="area" height={220}
+                        series={[
+                          { name: "Valor facturado", data: regularDetallada.tendencia.map(t => t.valor) },
+                          { name: "Estudios",         data: regularDetallada.tendencia.map(t => t.estudios) },
+                        ]}
+                        options={{
+                          chart: { type: "area", toolbar: { show: false }, background: "#141824", animations: { enabled: true, easing: "easeinout", speed: 600 } },
+                          theme: { mode: "dark" as const },
+                          dataLabels: { enabled: false },
+                          stroke: { curve: "smooth", width: 2 },
+                          xaxis: { categories: regularDetallada.tendencia.map(t => t.mes), labels: { style: { fontSize: "10px", colors: "#64748b" } } },
+                          yaxis: [
+                            { labels: { formatter: fmtM, style: { fontSize: "11px", colors: "#64748b" } } },
+                            { opposite: true, labels: { formatter: (v: number) => v.toLocaleString("es-CO"), style: { fontSize: "11px", colors: "#64748b" } } },
+                          ],
+                          colors: ["#0f766e", "#00d2ff"],
+                          fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.3, opacityTo: 0.03, stops: [0, 100] } },
+                          grid: { borderColor: "#1e2a3a" },
+                          legend: { position: "top" as const, fontSize: "12px", labels: { colors: "#94a3b8" } },
+                          tooltip: { theme: "dark", y: [{ formatter: (v: number) => fmt(v) }, { formatter: (v: number) => `${v.toLocaleString("es-CO")} estudios` }] },
+                        }} />
+                    ) : <div style={{ textAlign: "center", color: "#475569", padding: 40 }}>Sin datos</div>}
                   </div>
 
                   {/* Cartera segment cards — estilo oscuro */}
@@ -582,106 +690,6 @@ const FacturacionDashboard = () => {
                         </div>
                       );
                     })}
-                  </div>
-
-                  {/* Filtros dropdowns */}
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center",
-                    background: "#fff", borderRadius: 10, padding: "12px 18px", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>Filtrar por:</span>
-                    <select value={servicioFilter} onChange={e => setServicioFilter(e.target.value)}
-                      style={{ fontSize: 12, border: "1px solid #e2e8f0", borderRadius: 6,
-                        padding: "5px 10px", color: "#0f172a", background: "#f8fafc", minWidth: 200 }}>
-                      <option value="">— Todos los servicios —</option>
-                      {regularDetallada.filtros.servicios.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <select value={contratoFilter} onChange={e => setContratoFilter(e.target.value)}
-                      style={{ fontSize: 12, border: "1px solid #e2e8f0", borderRadius: 6,
-                        padding: "5px 10px", color: "#0f172a", background: "#f8fafc", minWidth: 220 }}>
-                      <option value="">— Todos los contratos —</option>
-                      {regularDetallada.filtros.contratos.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    <select value={empresaFilter} onChange={e => setEmpresaFilter(e.target.value)}
-                      style={{ fontSize: 12, border: "1px solid #e2e8f0", borderRadius: 6,
-                        padding: "5px 10px", color: "#0f172a", background: "#f8fafc", minWidth: 200 }}>
-                      <option value="">— Todas las empresas —</option>
-                      {(regularDetallada.filtros.empresas ?? []).map(e => <option key={e} value={e}>{e}</option>)}
-                    </select>
-                    {(carteraFilter || servicioFilter || contratoFilter || empresaFilter) && (
-                      <button onClick={() => { setCarteraFilter(''); setServicioFilter(''); setContratoFilter(''); setEmpresaFilter(''); }}
-                        style={{ fontSize: 11, color: "#ef4444", border: "1px solid #fecaca", background: "#fff",
-                          borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 600 }}>
-                        ✕ Limpiar filtros
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Charts row */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-                    <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
-                      <h3 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: 0.5 }}>Top Contratos por Estudios</h3>
-                      {regularDetallada.top_contratos.length > 0 ? (
-                        <Chart type="bar"
-                          height={Math.max(220, regularDetallada.top_contratos.length * 30)}
-                          series={[{ name: "Estudios", data: regularDetallada.top_contratos.map(c => c.estudios) }]}
-                          options={{
-                            chart: { type: "bar", toolbar: { show: false } },
-                            plotOptions: { bar: { horizontal: true, borderRadius: 4, dataLabels: { position: "top" } } },
-                            dataLabels: { enabled: true, formatter: (v: number) => v.toLocaleString("es-CO"), style: { fontSize: "10px", colors: ["#64748b"] }, offsetX: 6 },
-                            xaxis: { categories: regularDetallada.top_contratos.map(c => c.contrato.substring(0, 30)), labels: { style: { fontSize: "10px" } } },
-                            yaxis: { labels: { style: { fontSize: "10px", colors: "#475569" } } },
-                            colors: ["#1d4ed8"],
-                            fill: { type: "gradient", gradient: { shade: "light", type: "horizontal", gradientToColors: ["#0f766e"], stops: [0, 100] } },
-                            grid: { borderColor: "#f1f5f9" },
-                            tooltip: { y: { formatter: (v: number) => `${v.toLocaleString("es-CO")} estudios` } },
-                          }} />
-                      ) : <div style={{ textAlign: "center", color: "#94a3b8", padding: 40 }}>Sin datos</div>}
-                    </div>
-
-                    <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
-                      <h3 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: 0.5 }}>Distribución por Servicio</h3>
-                      {regularDetallada.por_servicio.length > 0 ? (
-                        <Chart type="donut" height={260}
-                          series={regularDetallada.por_servicio.map(s => s.estudios)}
-                          options={{
-                            chart: { type: "donut" },
-                            labels: regularDetallada.por_servicio.map(s => s.servicio),
-                            colors: ["#1d4ed8","#0f766e","#7c3aed","#f59e0b","#ef4444","#10b981","#0891b2","#6366f1"],
-                            legend: { position: "bottom" as const, fontSize: "11px" },
-                            dataLabels: { enabled: false },
-                            plotOptions: { pie: { donut: { size: "60%", labels: { show: true, total: {
-                              show: true, label: "Estudios", formatter: () => regularDetallada.kpis.total_estudios.toLocaleString("es-CO")
-                            } } } } },
-                            tooltip: { y: { formatter: (v: number) => `${v.toLocaleString("es-CO")} estudios` } },
-                          }} />
-                      ) : <div style={{ textAlign: "center", color: "#94a3b8", padding: 40 }}>Sin datos</div>}
-                    </div>
-                  </div>
-
-                  {/* Tendencia mensual */}
-                  <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}>
-                    <h3 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: 0.5 }}>Tendencia Mensual</h3>
-                    {regularDetallada.tendencia.length > 0 ? (
-                      <Chart type="area" height={220}
-                        series={[
-                          { name: "Valor facturado", data: regularDetallada.tendencia.map(t => t.valor) },
-                          { name: "Estudios",         data: regularDetallada.tendencia.map(t => t.estudios) },
-                        ]}
-                        options={{
-                          chart: { type: "area", toolbar: { show: false }, animations: { enabled: true, easing: "easeinout", speed: 600 } },
-                          dataLabels: { enabled: false },
-                          stroke: { curve: "smooth", width: 2 },
-                          xaxis: { categories: regularDetallada.tendencia.map(t => t.mes), labels: { style: { fontSize: "10px" } } },
-                          yaxis: [
-                            { labels: { formatter: fmtM, style: { fontSize: "11px" } } },
-                            { opposite: true, labels: { formatter: (v: number) => v.toLocaleString("es-CO"), style: { fontSize: "11px" } } },
-                          ],
-                          colors: ["#0f766e", "#1d4ed8"],
-                          fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.3, opacityTo: 0.03, stops: [0, 100] } },
-                          grid: { borderColor: "#f1f5f9" },
-                          legend: { position: "top" as const, fontSize: "12px" },
-                          tooltip: { y: [{ formatter: (v: number) => fmt(v) }, { formatter: (v: number) => `${v.toLocaleString("es-CO")} estudios` }] },
-                        }} />
-                    ) : <div style={{ textAlign: "center", color: "#94a3b8", padding: 40 }}>Sin datos</div>}
                   </div>
 
                   {/* Análisis de Cartera — cada segmento como categoría X, fondo oscuro */}
@@ -737,22 +745,18 @@ const FacturacionDashboard = () => {
                     ) : <div style={{ textAlign: "center", color: "#475569", padding: 40 }}>Sin datos</div>}
                   </div>
 
-                  {/* Tablas lado a lado: médicos + procedimientos */}
+                  {/* Tablas lado a lado: médicos + procedimientos — oscuro */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-                    {/* Tabla médicos */}
-                    <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 8px rgba(0,0,0,0.07)", overflow: "hidden" }}>
-                      <div style={{ padding: "14px 18px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>Estadísticas por Médico</span>
-                        <input
-                          type="text" value={searchMedico} placeholder="Buscar médico…"
-                          onChange={e => setSearchMedico(e.target.value)}
-                          style={{ fontSize: 12, border: "1px solid #e2e8f0", borderRadius: 6,
-                            padding: "5px 10px", color: "#0f172a", background: "#f8fafc", width: 160, outline: "none" }} />
+                    <div style={{ background: "#141824", borderRadius: 12, boxShadow: "0 2px 10px rgba(0,0,0,0.35)", overflow: "hidden" }}>
+                      <div style={{ padding: "14px 18px", borderBottom: "1px solid #1e2a3a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>Estadísticas por Médico</span>
+                        <input type="text" value={searchMedico} placeholder="Buscar médico…" onChange={e => setSearchMedico(e.target.value)}
+                          style={{ fontSize: 12, border: "1px solid #334155", borderRadius: 6, padding: "5px 10px", color: "#e2e8f0", background: "#1e2a3a", width: 160, outline: "none" }} />
                       </div>
                       <div style={{ maxHeight: 400, overflowY: "auto" }}>
                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                           <thead>
-                            <tr style={{ borderBottom: "2px solid #e2e8f0", position: "sticky" as const, top: 0, background: "#f8fafc", zIndex: 1 }}>
+                            <tr style={{ borderBottom: "2px solid #1e2a3a", position: "sticky" as const, top: 0, background: "#141824", zIndex: 1 }}>
                               {["#", "Médico", "Estudios", "Valor", "% Est."].map(h => (
                                 <th key={h} style={{ padding: "9px 12px", textAlign: h === "Médico" ? "left" : "right",
                                   fontWeight: 700, color: "#475569", fontSize: 10, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>{h}</th>
@@ -766,15 +770,15 @@ const FacturacionDashboard = () => {
                                 const pct = regularDetallada.kpis.total_estudios > 0
                                   ? (m.estudios / regularDetallada.kpis.total_estudios * 100).toFixed(1) : "0.0";
                                 return (
-                                  <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-                                    <td style={{ padding: "8px 12px", color: "#94a3b8", textAlign: "right", fontSize: 11 }}>{i + 1}</td>
-                                    <td style={{ padding: "8px 12px", fontWeight: 600, color: "#0f172a" }}>{m.nombre}</td>
-                                    <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{m.estudios.toLocaleString("es-CO")}</td>
-                                    <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "#1d4ed8", fontVariantNumeric: "tabular-nums" }}>{fmtM(m.valor)}</td>
+                                  <tr key={i} style={{ borderBottom: "1px solid #1e2a3a", background: i % 2 === 0 ? "#141824" : "#0f1520" }}>
+                                    <td style={{ padding: "8px 12px", color: "#475569", textAlign: "right", fontSize: 11 }}>{i + 1}</td>
+                                    <td style={{ padding: "8px 12px", fontWeight: 600, color: "#e2e8f0" }}>{m.nombre}</td>
+                                    <td style={{ padding: "8px 12px", textAlign: "right", color: "#94a3b8", fontVariantNumeric: "tabular-nums" }}>{m.estudios.toLocaleString("es-CO")}</td>
+                                    <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "#00d2ff", fontVariantNumeric: "tabular-nums" }}>{fmtM(m.valor)}</td>
                                     <td style={{ padding: "8px 12px", textAlign: "right" }}>
                                       <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
-                                        <div style={{ width: 40, height: 4, background: "#e2e8f0", borderRadius: 2 }}>
-                                          <div style={{ width: `${Math.min(parseFloat(pct), 100)}%`, height: "100%", background: "#1d4ed8", borderRadius: 2 }} />
+                                        <div style={{ width: 40, height: 4, background: "#1e2a3a", borderRadius: 2 }}>
+                                          <div style={{ width: `${Math.min(parseFloat(pct), 100)}%`, height: "100%", background: "#10b981", borderRadius: 2 }} />
                                         </div>
                                         <span style={{ fontSize: 10, color: "#475569", minWidth: 28 }}>{pct}%</span>
                                       </div>
@@ -787,23 +791,19 @@ const FacturacionDashboard = () => {
                       </div>
                     </div>
 
-                    {/* Tabla procedimientos */}
-                    <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 8px rgba(0,0,0,0.07)", overflow: "hidden" }}>
-                      <div style={{ padding: "14px 18px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>Detalle Procedimientos</span>
-                        <input
-                          type="text" value={searchProc} placeholder="Buscar procedimiento…"
-                          onChange={e => setSearchProc(e.target.value)}
-                          style={{ fontSize: 12, border: "1px solid #e2e8f0", borderRadius: 6,
-                            padding: "5px 10px", color: "#0f172a", background: "#f8fafc", width: 180, outline: "none" }} />
+                    <div style={{ background: "#141824", borderRadius: 12, boxShadow: "0 2px 10px rgba(0,0,0,0.35)", overflow: "hidden" }}>
+                      <div style={{ padding: "14px 18px", borderBottom: "1px solid #1e2a3a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>Detalle Procedimiento / Artículo</span>
+                        <input type="text" value={searchProc} placeholder="Buscar procedimiento…" onChange={e => setSearchProc(e.target.value)}
+                          style={{ fontSize: 12, border: "1px solid #334155", borderRadius: 6, padding: "5px 10px", color: "#e2e8f0", background: "#1e2a3a", width: 180, outline: "none" }} />
                       </div>
                       <div style={{ maxHeight: 400, overflowY: "auto" }}>
                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                           <thead>
-                            <tr style={{ borderBottom: "2px solid #e2e8f0", position: "sticky" as const, top: 0, background: "#f8fafc", zIndex: 1 }}>
-                              {["Contrato", "Procedimiento", "Cant.", "Valor Unit.", "Total"].map(h => (
+                            <tr style={{ borderBottom: "2px solid #1e2a3a", position: "sticky" as const, top: 0, background: "#141824", zIndex: 1 }}>
+                              {["Contrato", "Procedimiento / Artículo", "Cant.", "Valor Unit.", "Total"].map(h => (
                                 <th key={h} style={{ padding: "9px 10px",
-                                  textAlign: ["Contrato","Procedimiento"].includes(h) ? "left" : "right",
+                                  textAlign: ["Contrato","Procedimiento / Artículo"].includes(h) ? "left" : "right",
                                   fontWeight: 700, color: "#475569", fontSize: 10, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>{h}</th>
                               ))}
                             </tr>
@@ -812,15 +812,15 @@ const FacturacionDashboard = () => {
                             {regularDetallada.procedimientos
                               .filter(p => p.nombre.toLowerCase().includes(searchProc.toLowerCase()) || p.contrato.toLowerCase().includes(searchProc.toLowerCase()))
                               .map((p, i) => (
-                                <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-                                  <td style={{ padding: "7px 10px", color: "#475569", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.contrato}</td>
-                                  <td style={{ padding: "7px 10px", color: "#0f172a", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    <span style={{ fontFamily: "monospace", color: "#0f766e", fontWeight: 700, fontSize: 11, marginRight: 4 }}>{p.cups}</span>
+                                <tr key={i} style={{ borderBottom: "1px solid #1e2a3a", background: i % 2 === 0 ? "#141824" : "#0f1520" }}>
+                                  <td style={{ padding: "7px 10px", color: "#64748b", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.contrato}</td>
+                                  <td style={{ padding: "7px 10px", color: "#e2e8f0", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    <span style={{ fontFamily: "monospace", color: "#10b981", fontWeight: 700, fontSize: 11, marginRight: 4 }}>{p.cups}</span>
                                     {p.nombre}
                                   </td>
-                                  <td style={{ padding: "7px 10px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.cantidad.toLocaleString("es-CO")}</td>
-                                  <td style={{ padding: "7px 10px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: "#475569" }}>{fmtM(p.valor_uni)}</td>
-                                  <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#1d4ed8", fontVariantNumeric: "tabular-nums" }}>{fmtM(p.total)}</td>
+                                  <td style={{ padding: "7px 10px", textAlign: "right", color: "#94a3b8", fontVariantNumeric: "tabular-nums" }}>{p.cantidad.toLocaleString("es-CO")}</td>
+                                  <td style={{ padding: "7px 10px", textAlign: "right", color: "#64748b", fontVariantNumeric: "tabular-nums" }}>{fmtM(p.valor_uni)}</td>
+                                  <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#00d2ff", fontVariantNumeric: "tabular-nums" }}>{fmtM(p.total)}</td>
                                 </tr>
                               ))}
                           </tbody>
