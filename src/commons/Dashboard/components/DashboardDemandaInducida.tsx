@@ -243,7 +243,7 @@ const DashboardDemandaInducida: React.FC = () => {
   const autCache = useRef<Record<string, AutorizacionResult | "cargando">>({});
   const [autState, setAutState] = useState<Record<string, AutorizacionResult | "cargando">>({});
   // Cola de validaciones pendientes
-  const colaRef = useRef<{ eps: string; docNum: string; cups: string; fechaOrden: string; clave: string }[]>([]);
+  const colaRef = useRef<{ eps: string; docNum: string; cups: string; fechaOrden: string; clave: string; idZeus: string }[]>([]);
   const procesandoRef = useRef(false);
 
   const actualizarAut = useCallback((clave: string, val: AutorizacionResult | "cargando") => {
@@ -518,7 +518,7 @@ const DashboardDemandaInducida: React.FC = () => {
                     delete autCache.current[clave];
                     colaRef.current.unshift({
                       eps: r.EpsBot, docNum: docLimpio,
-                      cups: cups_, fechaOrden: (r.Fecha || "").split(" ")[0], clave
+                      cups: cups_, fechaOrden: (r.Fecha || "").split(" ")[0], clave, idZeus: r.Id
                     });
                     procesarCola();
                   };
