@@ -263,6 +263,7 @@ const DashboardDemandaInducida: React.FC = () => {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
           body: JSON.stringify({
+            id_zeus: item.idZeus,
             eps: item.eps, doc_tipo: "CC", doc_num: item.docNum,
             cups: item.cups, fecha_orden: item.fechaOrden,
           }),
@@ -290,7 +291,7 @@ const DashboardDemandaInducida: React.FC = () => {
       const clave = `${fila.EpsBot}|${docLimpio}|${cupsLimpio}`;
       if (!vistos.has(clave) && !autCache.current[clave]) {
         vistos.add(clave);
-        nuevas.push({ eps: fila.EpsBot, docNum: docLimpio, cups: cupsLimpio, fechaOrden, clave });
+        nuevas.push({ eps: fila.EpsBot, docNum: docLimpio, cups: cupsLimpio, fechaOrden, clave, idZeus: fila.Id });
       }
     }
     if (nuevas.length > 0) {
