@@ -649,6 +649,7 @@ const FacturacionDashboard = () => {
                         <div onClick={() => setCarteraFilter('')}
                           style={{ background: "#141824", borderLeft: `4px solid ${c}`,
                             borderRadius: 12, padding: "20px 22px", cursor: "pointer", transition: "all 0.15s",
+                            opacity: carteraFilter !== '' ? 0.4 : 1,
                             boxShadow: isAllActive ? `0 0 0 1px ${c}55, 0 4px 20px ${c}22` : "0 2px 10px rgba(0,0,0,0.35)" }}>
                           <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, color: c, marginBottom: 10 }}>Total Ventas</div>
                           <div style={{ fontSize: 28, fontWeight: 800, color: c, fontVariantNumeric: "tabular-nums", lineHeight: 1.1 }}>{fmt(totalValor)}</div>
@@ -663,6 +664,7 @@ const FacturacionDashboard = () => {
                         <div key={seg.segmento} onClick={() => setCarteraFilter(isActive ? '' : seg.segmento)}
                           style={{ background: "#141824", borderLeft: `4px solid ${seg.color}`,
                             borderRadius: 12, padding: "20px 22px", cursor: "pointer", transition: "all 0.15s",
+                            opacity: carteraFilter !== '' && !isActive ? 0.4 : 1,
                             boxShadow: isActive ? `0 0 0 1px ${seg.color}55, 0 4px 20px ${seg.color}22` : "0 2px 10px rgba(0,0,0,0.35)" }}>
                           <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, color: seg.color, marginBottom: 10 }}>{seg.label}</div>
                           <div style={{ fontSize: 28, fontWeight: 800, color: seg.color, fontVariantNumeric: "tabular-nums", lineHeight: 1.1 }}>{fmt(seg.valor)}</div>
