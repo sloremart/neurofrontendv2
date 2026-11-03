@@ -564,7 +564,7 @@ const FacturacionDashboard = () => {
                         <span style={{ fontSize: 11, background: "#1e2a3a", color: "#64748b", padding: "3px 10px", borderRadius: 12, fontWeight: 600 }}>Barras</span>
                       </div>
                       {regularDetallada.top_contratos.length > 0 ? (
-                        <Chart type="bar"
+                        <Chart key={`contratos-${carteraFilter}|${servicioFilter}|${contratoFilter}|${empresaFilter}`} type="bar"
                           height={Math.max(220, regularDetallada.top_contratos.length * 30)}
                           series={[{ name: "Estudios", data: regularDetallada.top_contratos.map(c => c.estudios) }]}
                           options={{
@@ -587,7 +587,7 @@ const FacturacionDashboard = () => {
                         <span style={{ fontSize: 11, background: "#1e2a3a", color: "#64748b", padding: "3px 10px", borderRadius: 12, fontWeight: 600 }}>Donut</span>
                       </div>
                       {regularDetallada.por_servicio.length > 0 ? (
-                        <Chart type="donut" height={280}
+                        <Chart key={`servicio-${carteraFilter}|${servicioFilter}|${contratoFilter}|${empresaFilter}`} type="donut" height={280}
                           series={regularDetallada.por_servicio.map(s => s.estudios)}
                           options={{
                             chart: { type: "donut", background: "#141824" },
@@ -613,7 +613,7 @@ const FacturacionDashboard = () => {
                       <span style={{ fontSize: 11, background: "#1e2a3a", color: "#64748b", padding: "3px 10px", borderRadius: 12, fontWeight: 600 }}>Línea</span>
                     </div>
                     {regularDetallada.tendencia.length > 0 ? (
-                      <Chart type="area" height={220}
+                      <Chart key={`tendencia-${carteraFilter}|${servicioFilter}|${contratoFilter}|${empresaFilter}`} type="area" height={220}
                         series={[
                           { name: "Valor facturado", data: regularDetallada.tendencia.map(t => t.valor) },
                           { name: "Estudios",         data: regularDetallada.tendencia.map(t => t.estudios) },
@@ -680,7 +680,7 @@ const FacturacionDashboard = () => {
                       <span style={{ fontSize: 11, background: "rgba(239,68,68,.15)", color: "#ef4444", padding: "3px 10px", borderRadius: 12, fontWeight: 600 }}>Auditoría</span>
                     </div>
                     {regularDetallada.cartera.some(s => s.valor > 0) ? (
-                      <Chart type="bar" height={300}
+                      <Chart key={`cartera-${carteraFilter}|${servicioFilter}|${contratoFilter}|${empresaFilter}`} type="bar" height={300}
                         series={[
                           {
                             name: "Valor Facturado (COP)",
