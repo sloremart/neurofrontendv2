@@ -13,9 +13,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
     return <Navigate to="/login" />;
   }
 
-  // Sin distinguir mayúsculas ni espacios ("Sistemas", "SISTEMAS", "Sistemas ")
+  // Soporta múltiples cargos separados por coma: "EstudiosSueño,AdministrativoGerencia"
   const normalizar = (r: string) => r.trim().toLowerCase();
-  if (!allowedRoles.some((r) => normalizar(r) === normalizar(userRole))) {
+  const userRoles = userRole.split(",").map(normalizar);
+  if (!allowedRoles.some((r) => userRoles.includes(normalizar(r)))) {
     return <Navigate to="/no-autorizado" />;
   }
 
