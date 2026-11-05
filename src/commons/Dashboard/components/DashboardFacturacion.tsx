@@ -94,6 +94,134 @@ const ESTADO_META: Record<string, { label: string; color: string; bg: string; ic
   sin_parametros: { label: "Sin parámetros",             color: "#6366f1", bg: "#eef2ff", icon: "ℹ️" },
 };
 
+// ── GanttMRC (bullet chart horizontal) ────────────────────────────────────────
+const GanttMRC = ({ grupos }: { grupos: Grupo[] }) => {
+  const withSem = grupos.filter(g => g.min !== null && g.max !== null);
+  const sinSem  = grupos.filter(g => g.min === null || g.max === null);
+
+  const LABEL_W = 230;
+  const ROW_H   = 54;
+  const PAD_Y   = 8;
+  const CHART_W = 620;
+  const SVG_W   = LABEL_W + CHART_W + 20;
+
+  const escalaMax = withSem.length > 0
+    ? Math.max(...withSem.map(g => Math.max(g.cantidad, g.max!))) * 1.15
+    : 1;
+
+  const toX = (v: number) => (v / escalaMax) * CHART_W;
+
+  const colBar = (estado: string) => {
+    if (estado === "bajo" || estado === "sin_inicio") return "#f59e0b";
+    if (estado === "sobre") return "#ef4444";
+    return "#10b981";
+  };
+
+  const ticks = Array.from({ length: 6 }, (_, i) =>
+    Math.round((escalaMax / 5) * i)
+  );
+
+  const svgH = withSem.length * ROW_H + PAD_Y * 2 + 40;
+
+  return (
+    <div style={{ width: "100%", overflowX: "auto" }}>
+      <svg width="100%" viewBox={`0 0 ${SVG_W} ${svgH}`}
+        style={{ fontFamily: "inherit", display: "block", minWidth: 500 }}>
+
+        {ticks.map(t => {
+          const x = LABEL_W + toX(t);
+          return (
+            <g key={t}>
+              <line x1={x} y1={PAD_Y} x2={x} y2={withSem.length * ROW_H + PAD_Y}
+                stroke="#e2e8f0" strokeWidth={1} strokeDasharray="3 3" />
+              <text x={x} y={withSem.length * ROW_H + PAD_Y + 14}
+                textAnchor="middle" fontSize={9} fill="#94a3b8">
+                {t.toLocaleString("es-CO")}
+              </text>
+            </g>
+          );
+        })}
+
+        {withSem.map((g, i) => {
+          const y   = PAD_Y + i * ROW_H;
+          const cy  = y + ROW_H / 2;
+          const col = colBar(g.estado);
+          const xMin  = LABEL_W + toX(g.min!);
+          const xRef  = LABEL_W + toX(g.ref!);
+          const xMax  = LABEL_W + toX(g.max!);
+          const xReal = LABEL_W + Math.min(toX(g.cantidad), CHART_W);
+
+          return (
+            <g key={g.grupo}>
+              <rect x={0} y={y} width={SVG_W} height={ROW_H}
+                fill={i % 2 === 0 ? "#f8fafc" : "#ffffff"} />
+
+              <text x={LABEL_W - 10} y={cy + 4}
+                textAnchor="end" fontSize={11} fontWeight={600} fill="#1e293b">
+                {g.grupo.length > 26 ? g.grupo.slice(0, 24) + "…" : g.grupo}
+              </text>
+
+              {/* track gris */}
+              <rect x={LABEL_W} y={cy - 7} width={CHART_W} height={14} rx={3} fill="#e2e8f0" />
+
+              {/* banda min–max */}
+              <rect x={xMin} y={cy - 9} width={xMax - xMin} height={18} rx={3}
+                fill="#bbf7d0" opacity={0.7} />
+
+              {/* barra real */}
+              <rect x={LABEL_W} y={cy - 5} width={Math.max(xReal - LABEL_W, 2)} height={10} rx={2}
+                fill={col} />
+
+              {/* marcador min */}
+              <line x1={xMin} y1={cy - 12} x2={xMin} y2={cy + 12} stroke="#f59e0b" strokeWidth={2} />
+
+              {/* marcador ref */}
+              <line x1={xRef} y1={cy - 12} x2={xRef} y2={cy + 12}
+                stroke="#6366f1" strokeWidth={2} strokeDasharray="3 2" />
+              <circle cx={xRef} cy={cy} r={3} fill="#6366f1" />
+
+              {/* valor real */}
+              <text x={Math.min(xReal + 5, SVG_W - 10)} y={cy - 11}
+                fontSize={10} fontWeight={700} fill={col}>
+                {g.cantidad.toLocaleString("es-CO")}
+              </text>
+
+              {/* etiquetas mín / ref / máx */}
+              <text x={xMin} y={cy + 23} textAnchor="middle" fontSize={8} fill="#64748b">{g.min!.toLocaleString("es-CO")}</text>
+              <text x={xRef} y={cy + 23} textAnchor="middle" fontSize={8} fill="#6366f1">ref</text>
+              <text x={xMax} y={cy + 23} textAnchor="middle" fontSize={8} fill="#64748b">{g.max!.toLocaleString("es-CO")}</text>
+
+              <line x1={0} y1={y + ROW_H} x2={SVG_W} y2={y + ROW_H} stroke="#e2e8f0" strokeWidth={1} />
+            </g>
+          );
+        })}
+
+        {/* leyenda */}
+        <g transform={`translate(${LABEL_W}, ${withSem.length * ROW_H + PAD_Y + 24})`}>
+          <rect x={0}   y={-5} width={10} height={10} rx={2} fill="#10b981" />
+          <text x={14}  y={4} fontSize={9} fill="#475569">En rango</text>
+          <rect x={72}  y={-5} width={10} height={10} rx={2} fill="#f59e0b" />
+          <text x={86}  y={4} fontSize={9} fill="#475569">Por debajo</text>
+          <rect x={160} y={-5} width={10} height={10} rx={2} fill="#ef4444" />
+          <text x={174} y={4} fontSize={9} fill="#475569">Excede máx</text>
+          <line x1={246} y1={-1} x2={256} y2={-1} stroke="#6366f1" strokeWidth={2} strokeDasharray="3 2" />
+          <circle cx={251} cy={-1} r={2.5} fill="#6366f1" />
+          <text x={262} y={4} fontSize={9} fill="#475569">Referencia</text>
+          <rect x={330} y={-5} width={10} height={10} rx={2} fill="#bbf7d0" opacity={0.9} />
+          <text x={344} y={4} fontSize={9} fill="#475569">Rango mín–máx</text>
+        </g>
+      </svg>
+
+      {sinSem.length > 0 && (
+        <div style={{ marginTop: 10, padding: "8px 14px", background: "#eef2ff",
+          borderRadius: 8, fontSize: 12, color: "#4338ca" }}>
+          <strong>ℹ️ Sin parámetros MRC:</strong> {sinSem.map(g => g.grupo).join(" · ")}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── MrcGrupoCard ──────────────────────────────────────────────────────────────
 const MrcGrupoCard = ({ g }: { g: Grupo }) => {
   const [openCups, setOpenCups] = useState(false);
@@ -249,6 +377,7 @@ const FacturacionDashboard = () => {
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [activeTab,   setActiveTab]   = useState<"regular" | "mrc" | "admisiones">("regular");
+  const [vistaMrc,    setVistaMrc]    = useState<"tarjetas" | "gantt">("tarjetas");
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
   // ── estado: facturación regular detallada ──────────────────────────────────
@@ -835,16 +964,37 @@ const FacturacionDashboard = () => {
                   ) : null;
                 })}
               </div>
-              {/* ordenar: primero los que necesitan atención (sin_inicio, bajo), luego en_rango, sobre, sin_parametros */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(360px,1fr))", gap: 16 }}>
-                {[...data.mrc.grupos]
-                  .sort((a, b) => {
-                    const order: Record<string, number> = { sin_inicio: 0, bajo: 1, en_rango: 2, sobre: 3, sin_parametros: 4 };
-                    return (order[a.estado] ?? 5) - (order[b.estado] ?? 5);
-                  })
-                  .map((g, i) => <MrcGrupoCard key={i} g={g} />)
-                }
+              {/* toggle Tarjetas / Gantt */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+                {(["tarjetas", "gantt"] as const).map(v => (
+                  <button key={v} onClick={() => setVistaMrc(v)} style={{
+                    padding: "5px 16px", borderRadius: 7, border: "1px solid #cbd5e1",
+                    cursor: "pointer", fontWeight: 600, fontSize: 12,
+                    background: vistaMrc === v ? "#1e293b" : "#f1f5f9",
+                    color: vistaMrc === v ? "#fff" : "#475569",
+                  }}>
+                    {v === "tarjetas" ? "🃏 Tarjetas" : "📊 Gantt"}
+                  </button>
+                ))}
               </div>
+
+              {vistaMrc === "tarjetas" ? (
+                /* ordenar: primero los que necesitan atención */
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(360px,1fr))", gap: 16 }}>
+                  {[...data.mrc.grupos]
+                    .sort((a, b) => {
+                      const order: Record<string, number> = { sin_inicio: 0, bajo: 1, en_rango: 2, sobre: 3, sin_parametros: 4 };
+                      return (order[a.estado] ?? 5) - (order[b.estado] ?? 5);
+                    })
+                    .map((g, i) => <MrcGrupoCard key={i} g={g} />)
+                  }
+                </div>
+              ) : (
+                <div style={{ background: "#fff", borderRadius: 12, padding: "20px 16px",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.07)" }}>
+                  <GanttMRC grupos={data.mrc.grupos} />
+                </div>
+              )}
             </div>
           )}
 
