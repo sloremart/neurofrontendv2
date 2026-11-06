@@ -249,8 +249,9 @@ const DashboardDemandaInducida: React.FC = () => {
     // Actualización optimista
     setGestionLocal(prev => ({ ...prev, [ordenId]: valor }));
     try {
-      await fetch(`${API}/gedocumental/demanda-gestion/`, {  // API ya termina sin /, agregar /
+      await fetch(`${API}/gedocumental/demanda-gestion/`, {
         method: "POST",
+        keepalive: true,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
