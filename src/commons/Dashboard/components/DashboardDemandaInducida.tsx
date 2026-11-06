@@ -249,9 +249,12 @@ const DashboardDemandaInducida: React.FC = () => {
     // Actualización optimista
     setGestionLocal(prev => ({ ...prev, [ordenId]: valor }));
     try {
-      await fetch(`${API}demanda-gestion/`, {
+      await fetch(`${API}/demanda-gestion/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+        },
         body: JSON.stringify({ orden_id: ordenId, observacion: valor }),
       });
     } catch {
