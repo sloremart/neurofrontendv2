@@ -21,6 +21,7 @@ import CargaAutorizaciones from '../commons/Autorizaciones/CargaAutorizaciones.t
 import { TablaEstudioSueno } from '../commons/EstudiosSueno/TablaEstudioSueno.tsx';
 import { CajaFacturacion } from '../commons/Gedocumental/Facturacion/components/CajaFacturacion.tsx';
 import { HallazgosIA } from '../commons/Gedocumental/HallazgosIA/HallazgosIA.tsx';
+import { GestionFacturacion } from '../commons/GestionFacturacion/components/GestionFacturacion.tsx';
 
 // Dashboard
 import { DashBoardFacturacion } from '../commons/FacturacionDasboard/components/DashboardFacturacion.tsx';
@@ -118,6 +119,7 @@ export const AppRouter: React.FC = () => {
           <Route path="/dashboard_produccion"  element={<DashboardProduccion />} />
           <Route path="/dashboard_resultados"  element={<DashboardResultados />} />
           <Route path="/informe_fact"          element={<InformeTotalFacturacion />} />
+          <Route path="/gestion_facturacion"   element={<GestionFacturacion />} />
           <Route path="/evaluacion_dashboard/*" element={<EvaluacionDashboard />} />
         </Route>
 

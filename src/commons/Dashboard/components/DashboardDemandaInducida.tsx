@@ -28,6 +28,9 @@ interface Orden {
   // Cita agendada en ZeusSalud (mismos CUPS, fecha >= hoy)
   TieneCita: boolean;
   FechaCita: string;
+  // Gestión de llamada (guardada en neurodx)
+  GestionLlamada: string;
+  NotaGestion: string;
 }
 
 interface AutorizacionResult {
@@ -238,6 +241,23 @@ const DashboardDemandaInducida: React.FC = () => {
   const hace30Str = `${hace30.getFullYear()}-${String(hace30.getMonth() + 1).padStart(2, "0")}-${String(hace30.getDate()).padStart(2, "0")}`;
   const [fechaDesde, setFechaDesde] = useState(hoyStr);
   const [fechaHasta, setFechaHasta] = useState(hoyStr);
+
+  // Estado local de gestión de llamadas (actualización optimista)
+  const [gestionLocal, setGestionLocal] = useState<Record<string, string>>({});
+
+  const guardarGestion = useCallback(async (ordenId: string, valor: string) => {
+    // Actualización optimista
+    setGestionLocal(prev => ({ ...prev, [ordenId]: valor }));
+    try {
+      await fetch(`${API}demanda-gestion/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orden_id: ordenId, observacion: valor }),
+      });
+    } catch {
+      // fallo silencioso — el select ya muestra el valor
+    }
+  }, [API]);
 
   // Caché de autorizaciones: clave = "eps|doc_num|cups"
   const autCache = useRef<Record<string, AutorizacionResult | "cargando">>({});
@@ -646,8 +666,8 @@ const DashboardDemandaInducida: React.FC = () => {
                       </td>
 
                       {/* SEGUIMIENTO CITA */}
-                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center", minWidth: 130 }}>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center", minWidth: 180 }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                           {r.TieneCita ? (
                             <>
                               <span style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 9999, padding: "2px 8px", fontSize: "0.6rem", fontWeight: 700 }}>✓ Cita Agendada</span>
@@ -666,6 +686,51 @@ const DashboardDemandaInducida: React.FC = () => {
                               )}
                             </>
                           )}
+
+                          {/* Gestión de llamada */}
+                          {(() => {
+                            const valorActual = gestionLocal[r.Id] ?? r.GestionLlamada ?? "";
+                            const colorSelect: Record<string, string> = {
+                              AGENDO_CITA:      "#D1FAE5",
+                              CITA_REALIZADA:   "#D1FAE5",
+                              NO_CONTESTO:      "#FEF3C7",
+                              BUZON_VOZ:        "#FEF3C7",
+                              DESPUES:          "#FEF3C7",
+                              NO_QUISO:         "#FEE2E2",
+                              CITA_OTRO_LUGAR:  "#FEE2E2",
+                              NUMERO_INCORRECTO:"#FEE2E2",
+                              NO_LOCALIZABLE:   "#FEE2E2",
+                            };
+                            return (
+                              <select
+                                value={valorActual}
+                                onChange={e => guardarGestion(r.Id, e.target.value)}
+                                style={{
+                                  width: "100%",
+                                  fontSize: "0.6rem",
+                                  padding: "3px 5px",
+                                  borderRadius: 6,
+                                  border: "1px solid #D1D5DB",
+                                  background: colorSelect[valorActual] || "#F9FAFB",
+                                  color: "#1F2937",
+                                  cursor: "pointer",
+                                  fontWeight: valorActual ? 600 : 400,
+                                }}
+                              >
+                                <option value="">— Sin gestión —</option>
+                                <option value="NO_CONTESTO">Llamó — No contestó</option>
+                                <option value="BUZON_VOZ">Llamó — Buzón de voz</option>
+                                <option value="AGENDO_CITA">Llamó — Agendó cita ✓</option>
+                                <option value="CITA_OTRO_LUGAR">Llamó — Tiene cita en otro lugar</option>
+                                <option value="NO_QUISO">Llamó — No quiso aceptar</option>
+                                <option value="DESPUES">Llamó — Dijo que llamará después</option>
+                                <option value="NUMERO_INCORRECTO">Número incorrecto / No existe</option>
+                                <option value="NO_LOCALIZABLE">Paciente no localizable</option>
+                                <option value="CITA_REALIZADA">Cita ya realizada</option>
+                              </select>
+                            );
+                          })()}
+
                           <button style={{ background: "#0D9488", color: "#fff", border: "none", borderRadius: 6, padding: "3px 10px", fontSize: "0.6rem", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
                             Agendar Cita
                           </button>
