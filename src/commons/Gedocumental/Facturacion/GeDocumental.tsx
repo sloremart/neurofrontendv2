@@ -673,7 +673,9 @@ export const GeDocumental = () => {
                       {admisionData.ValidacionPaciente.faltantes.map((f) => (
                         <Tooltip key={f.campo} title={f.motivo} arrow>
                           <Chip
-                            label={f.obligatorio ? f.campo : `${f.campo} (recomendado)`}
+                            label={(f.motivo && !f.motivo.startsWith("Sin diligenciar") && f.campo !== f.motivo
+                                      ? `${f.campo}: ${f.motivo}` : f.campo)
+                                   + (f.obligatorio ? "" : " (recomendado)")}
                             size="small"
                             color={f.obligatorio ? "error" : "warning"}
                             variant={f.obligatorio ? "filled" : "outlined"}
