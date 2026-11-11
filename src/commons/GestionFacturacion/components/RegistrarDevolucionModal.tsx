@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { getToken } from "../../../config/token.jsx";
+import CONFIG from '../../../config/api';
 
-const API = "/api/v2/gestion-facturacion";
+const API = `${CONFIG.API_ENDPOINT}/gestion-facturacion`;
 
 interface Props {
   onClose: () => void;

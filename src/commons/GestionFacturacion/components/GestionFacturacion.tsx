@@ -4,7 +4,8 @@ import { getToken } from "../../../config/token.jsx";
 import DetalleCasoDrawer from "./DetalleCasoDrawer.tsx";
 import RegistrarDevolucionModal from "./RegistrarDevolucionModal.tsx";
 
-const API = "/api/v2/gestion-facturacion";
+import CONFIG from '../../../config/api';
+const API = `${CONFIG.API_ENDPOINT}/gestion-facturacion`;
 
 type Bandeja = "realizados" | "radicados" | "devoluciones" | "represamiento_admisiones" | "represamiento_cuentas";
 
