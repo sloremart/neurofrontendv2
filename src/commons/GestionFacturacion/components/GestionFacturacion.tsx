@@ -207,31 +207,37 @@ export function GestionFacturacion() {
   const tabActual = TABS.find(t => t.key === tab)!;
 
   return (
-    <div style={{ padding: "20px 24px", fontFamily: "inherit", maxWidth: 1400, margin: "0 auto" }}>
+    <div style={{ fontFamily: "inherit", maxWidth: 1400, margin: "0 auto" }}>
 
-      {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: "#0f172a", margin: 0 }}>
-          Gestión de Facturación
+      {/* Header dark navy */}
+      <div style={{
+        background: "linear-gradient(135deg, #1e2d5a 0%, #2d1b69 100%)",
+        padding: "18px 24px",
+        marginBottom: 0,
+      }}>
+        <h1 style={{ fontSize: 18, fontWeight: 700, color: "#fff", margin: 0, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+          Módulo de Gestión de Facturación
         </h1>
-        <p style={{ color: "#64748b", margin: "4px 0 0", fontSize: 14 }}>
+        <p style={{ color: "rgba(255,255,255,0.6)", margin: "4px 0 0", fontSize: 13 }}>
           Seguimiento operativo caso a caso — bandejas de trabajo
         </p>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, borderBottom: "2px solid #e2e8f0", paddingBottom: 0 }}>
+      <div style={{
+        display: "flex", gap: 0, background: "#fff",
+        borderBottom: "1px solid #e2e8f0", paddingLeft: 16,
+      }}>
         {TABS.map(t => (
           <button
             key={t.key}
             onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); }}
             style={{
-              padding: "10px 20px", border: "none", cursor: "pointer",
-              borderRadius: "8px 8px 0 0", fontWeight: 600, fontSize: 14,
-              background: tab === t.key ? t.color : "#f1f5f9",
-              color: tab === t.key ? "#fff" : "#475569",
-              borderBottom: tab === t.key ? `2px solid ${t.color}` : "2px solid transparent",
-              marginBottom: -2,
+              padding: "12px 20px", border: "none", cursor: "pointer",
+              background: "transparent", fontWeight: 600, fontSize: 14,
+              color: tab === t.key ? "#6d28d9" : "#64748b",
+              borderBottom: tab === t.key ? "3px solid #6d28d9" : "3px solid transparent",
+              marginBottom: -1,
               transition: "all 0.15s",
             }}
           >
@@ -239,6 +245,8 @@ export function GestionFacturacion() {
           </button>
         ))}
       </div>
+
+      <div style={{ padding: "20px 24px" }}>
 
       {/* KPIs */}
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
@@ -391,10 +399,10 @@ export function GestionFacturacion() {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+              <tr style={{ background: "#1e2d5a" }}>
                 {["No. Estudio", "Paciente", "EPS / Servicio", "Valor", "Días", "Docs", "Estado", "Acciones"]
                   .map(h => (
-                    <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#475569", whiteSpace: "nowrap" }}>
+                    <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#fff", whiteSpace: "nowrap", fontSize: 12 }}>
                       {h}
                     </th>
                   ))}
@@ -506,9 +514,9 @@ export function GestionFacturacion() {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
-                <tr style={{ background: "#f3e8ff", borderBottom: "2px solid #d8b4fe" }}>
+                <tr style={{ background: "#1e2d5a" }}>
                   {["Admisionista", "Admisiones pend.", "Estado docs", "Hallazgos IA pend.", "Valor retenido", ""].map(h => (
-                    <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#6b21a8", whiteSpace: "nowrap" }}>{h}</th>
+                    <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#fff", whiteSpace: "nowrap", fontSize: 12 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -632,9 +640,9 @@ export function GestionFacturacion() {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
-                <tr style={{ background: "#e0f2fe", borderBottom: "2px solid #7dd3fc" }}>
+                <tr style={{ background: "#1e2d5a" }}>
                   {["Responsable", "Total admisiones", "Con fecha rad.", "Sin fecha rad.", "Días prom.", "Valor retenido", ""].map(h => (
-                    <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#075985", whiteSpace: "nowrap" }}>{h}</th>
+                    <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#fff", whiteSpace: "nowrap", fontSize: 12 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -753,6 +761,7 @@ export function GestionFacturacion() {
           onGuardado={() => { setShowDevModal(false); cargar("devoluciones"); }}
         />
       )}
+      </div>{/* /padding wrapper */}
     </div>
   );
 }
@@ -760,7 +769,7 @@ export function GestionFacturacion() {
 // ── estilos inline ─────────────────────────────────────────────────────────
 const td: React.CSSProperties = { padding: "10px 12px", verticalAlign: "top" };
 const inputStyle: React.CSSProperties = {
-  padding: "7px 10px", border: "1px solid #e2e8f0", borderRadius: 7,
+  padding: "7px 10px", border: "1px solid #c4b5fd", borderRadius: 7,
   fontSize: 13, outline: "none", background: "#fff",
 };
 const btnStyle = (color: string): React.CSSProperties => ({
