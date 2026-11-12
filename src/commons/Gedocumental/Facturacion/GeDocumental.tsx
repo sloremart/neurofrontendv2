@@ -32,6 +32,7 @@ import SyncIcon from "@mui/icons-material/Sync";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
+import RuleFolderIcon from "@mui/icons-material/RuleFolder";
 import { getToken } from "../../../config/token.jsx";
 import { TiempoAbierto } from "../HallazgosIA/HallazgosIA.tsx";
 
@@ -42,6 +43,16 @@ interface Observacion {
   FechaObservacion: string;
   id: number;
   Revisada: boolean;
+}
+
+interface DocumentoFaltante {
+  Admision: number;
+  Paciente: string;
+  Identificacion: string;
+  Entidad: string;
+  DocumentosFaltantes: string[];
+  UltimoCargue: string | null;
+  DiasDesdeIngreso: number | null;
 }
 
 interface HallazgoIA {
@@ -212,6 +223,9 @@ export const GeDocumental = () => {
   const [buscarAlCambiar, setBuscarAlCambiar] = useState(false);
   const [pendientesIA, setPendientesIA] = useState(0);
   const [filtroIA, setFiltroIA] = useState({ desde: "", hasta: "", estado: "pendiente" });
+  // Admisiones del usuario a las que les falta ORDEN, AUTORIZACION o COMPROBANTE
+  const [faltantes, setFaltantes] = useState<DocumentoFaltante[]>([]);
+  const [faltantesLoading, setFaltantesLoading] = useState(false);
 
   useEffect(() => {
     if (enviarArchivos) {
@@ -411,9 +425,25 @@ export const GeDocumental = () => {
   }, [admisionData?.Consecutivo]);
 
   // Hallazgos de la IA sobre los archivos que subió el usuario (o el elegido por el líder)
+  const cargarFaltantes = async () => {
+    const targetId = selectedUserId || userId;
+    if (!targetId) return;
+    setFaltantesLoading(true);
+    try {
+      const res = await fetch(`${API_ENDPOINT}/gedocumental/documentos-faltantes/?usuario_id=${targetId}`);
+      const json = await res.json();
+      setFaltantes(json.success ? json.data : []);
+    } catch {
+      setFaltantes([]);
+    } finally {
+      setFaltantesLoading(false);
+    }
+  };
+
   const cargarHallazgosIA = async () => {
     const targetId = selectedUserId || userId;
     if (!targetId) return;
+    cargarFaltantes();
     setHallazgosIALoading(true);
     try {
       const params = new URLSearchParams({ usuario_id: String(targetId), estado: filtroIA.estado });
@@ -474,6 +504,41 @@ export const GeDocumental = () => {
     setBuscarAlCambiar(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const columnsFaltantes = [
+    {
+      field: "Admision", headerName: "Admisión", width: 110,
+      renderCell: (p: GridRenderCellParams<DocumentoFaltante>) => (
+        <Tooltip title="Abrir admisión para subir el documento" arrow>
+          <Button size="small" onClick={() => abrirAdmision(p.row.Admision)} sx={{ fontWeight: 700, minWidth: 0 }}>
+            {p.row.Admision}
+          </Button>
+        </Tooltip>
+      ),
+    },
+    {
+      field: "DocumentosFaltantes", headerName: "Falta", width: 300,
+      valueGetter: (p: { row: DocumentoFaltante }) => p.row.DocumentosFaltantes.join(", "),
+      renderCell: (p: GridRenderCellParams<DocumentoFaltante>) => (
+        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+          {p.row.DocumentosFaltantes.map((t) => (
+            <Chip key={t} label={t} size="small" color="warning" variant="outlined" sx={{ fontWeight: 700 }} />
+          ))}
+        </Box>
+      ),
+    },
+    { field: "Paciente", headerName: "Paciente", flex: 1, minWidth: 200 },
+    { field: "Identificacion", headerName: "Identificación", width: 120 },
+    { field: "Entidad", headerName: "EPS", width: 90 },
+    {
+      field: "UltimoCargue", headerName: "Último cargue", width: 130,
+      valueFormatter: ({ value }: { value: string | null }) => formatoFechaIA(value),
+    },
+    {
+      field: "DiasDesdeIngreso", headerName: "Días desde ingreso", width: 140, type: "number",
+      headerAlign: "left" as const, align: "left" as const,
+    },
+  ];
 
   const columnsHallazgosIA = [
     {
@@ -863,6 +928,8 @@ export const GeDocumental = () => {
               label={<EtiquetaBandeja texto="Admisiones pendientes" cantidad={admision_pendientes_facturacion?.length ?? 0} color="primary" />} />
             <Tab icon={<SmartToyIcon fontSize="small" />} iconPosition="start"
               label={<EtiquetaBandeja texto="Hallazgos IA por corregir" cantidad={pendientesIA} color="error" />} />
+            <Tab icon={<RuleFolderIcon fontSize="small" />} iconPosition="start"
+              label={<EtiquetaBandeja texto="Documentos faltantes" cantidad={faltantes.length} color="warning" />} />
             <Tab icon={<CommentIcon fontSize="small" />} iconPosition="start"
               label={<EtiquetaBandeja texto="Observaciones sin archivos" cantidad={observaciones.length} color="warning" />} />
             <Tab icon={<BadgeIcon fontSize="small" />} iconPosition="start" label="Consultar archivos guardados" />
@@ -915,6 +982,30 @@ export const GeDocumental = () => {
             />
         </Box>
         <Box sx={{ display: bandeja === 2 ? "block" : "none", p: 2 }}>
+            <Typography sx={{ fontSize: 12, color: "#6B7280", mb: 1.5 }}>
+              Admisiones de los últimos 60 días a las que les subió documentos y les falta ORDEN, AUTORIZACIÓN o COMPROBANTE: no pueden pasar a Cuentas Médicas hasta completarlos. Haga clic en el número de admisión para abrirla y subir el documento. (El RESULTADO lo carga la coordinación médica; los particulares no se validan y MRC no exige autorización.)
+            </Typography>
+            <Box sx={{ mb: 2 }}>
+              <Button variant="contained" onClick={cargarFaltantes} startIcon={<SearchIcon />}
+                sx={{ background: "linear-gradient(90deg, #381A73, #1E2E71)" }}>
+                Actualizar
+              </Button>
+            </Box>
+            <DataGrid
+              sx={HEADER_SX}
+              rows={faltantes}
+              columns={columnsFaltantes}
+              getRowId={(row) => row.Admision}
+              loading={faltantesLoading}
+              autoHeight
+              pageSizeOptions={[10, 25, 50]}
+              initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+              localeText={{ noRowsLabel: "No hay admisiones con documentos faltantes" }}
+              slots={{ toolbar: GridToolbarExport }}
+              disableRowSelectionOnClick
+            />
+        </Box>
+        <Box sx={{ display: bandeja === 3 ? "block" : "none", p: 2 }}>
             <Box sx={{ mb: 2 }}>
               <Button
                 variant="contained"
@@ -938,7 +1029,7 @@ export const GeDocumental = () => {
               slots={{ toolbar: GridToolbarExport }}
             />
         </Box>
-        <Box sx={{ display: bandeja === 3 ? "block" : "none", p: 2 }}>
+        <Box sx={{ display: bandeja === 4 ? "block" : "none", p: 2 }}>
           <PrimeReactProvider>
             <AdmsionFacturacion />
           </PrimeReactProvider>
