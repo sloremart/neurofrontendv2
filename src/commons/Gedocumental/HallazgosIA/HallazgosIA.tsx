@@ -157,7 +157,7 @@ export const HallazgosIA: React.FC = () => {
       ),
     },
     { field: "Identificacion", headerName: "Identificación", width: 120 },
-    { field: "Entidad", headerName: "EPS", width: 90 },
+    { field: "Entidad", headerName: "EPS / Contrato", width: 200 },
     { field: "TipoDocumento", headerName: "Documento", width: 130 },
     {
       field: "TipoHallazgo", headerName: "Hallazgo", width: 155,

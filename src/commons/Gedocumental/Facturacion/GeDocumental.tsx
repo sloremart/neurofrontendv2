@@ -529,7 +529,7 @@ export const GeDocumental = () => {
     },
     { field: "Paciente", headerName: "Paciente", flex: 1, minWidth: 200 },
     { field: "Identificacion", headerName: "Identificación", width: 120 },
-    { field: "Entidad", headerName: "EPS", width: 90 },
+    { field: "Entidad", headerName: "EPS / Contrato", width: 210 },
     {
       field: "UltimoCargue", headerName: "Último cargue", width: 130,
       valueFormatter: ({ value }: { value: string | null }) => formatoFechaIA(value),
@@ -567,7 +567,7 @@ export const GeDocumental = () => {
       ),
     },
     { field: "Identificacion", headerName: "Identificación", width: 110 },
-    { field: "Entidad", headerName: "EPS", width: 80 },
+    { field: "Entidad", headerName: "EPS / Contrato", width: 190 },
     { field: "TipoDocumento", headerName: "Documento", width: 135 },
     {
       field: "TipoHallazgo", headerName: "Hallazgo", width: 155,
