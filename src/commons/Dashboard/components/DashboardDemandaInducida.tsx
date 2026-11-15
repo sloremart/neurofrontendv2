@@ -261,7 +261,7 @@ const DashboardDemandaInducida: React.FC = () => {
       fecha_orden: (r.Fecha || "").split(" ")[0],
       medico_documento: "",
       medico_registro: "",
-      especialidad: "Fisiatria",
+      especialidad: "",
       diagnosticos: "",
       cantidad: "1",
       observaciones: "Mejor oportunidad",
@@ -280,6 +280,7 @@ const DashboardDemandaInducida: React.FC = () => {
           fecha_orden:      d.fecha_orden      || m.datos.fecha_orden,
           medico_documento: d.medico_documento || m.datos.medico_documento,
           medico_registro:  d.medico_registro  || m.datos.medico_registro,
+          especialidad:     d.especialidad     || m.datos.especialidad,
           diagnosticos:     (d.diagnosticos || []).join(", ") || m.datos.diagnosticos,
           cantidad:         String(d.cantidad  || m.datos.cantidad),
         }} : null);
