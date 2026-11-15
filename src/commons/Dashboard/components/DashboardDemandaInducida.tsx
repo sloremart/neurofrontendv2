@@ -255,9 +255,6 @@ const DashboardDemandaInducida: React.FC = () => {
   } | null>(null);
 
   const abrirFomagModal = async (r: Orden) => {
-    const url = r.NroAdmision && r.NroOrden
-      ? `${API}/gedocumental/ver-pdf-orden/?estudio=${r.NroAdmision}&numero=${r.NroOrden}`
-      : "";
     const datosBase = {
       documento: r.Documento || "",
       cups: (r.Cups || "").split("-")[0],
@@ -269,13 +266,12 @@ const DashboardDemandaInducida: React.FC = () => {
       cantidad: "1",
       observaciones: "Mejor oportunidad",
     };
-    setFomagModal({ orden: r, extrayendo: !!url, radicando: false, datos: datosBase, resultado: null });
-    if (!url) return;
+    setFomagModal({ orden: r, extrayendo: true, radicando: false, datos: datosBase, resultado: null });
     try {
-      const res = await fetch(`${API}/gedocumental/fomag-autogestion-extraer/`, {
+      const res = await fetch(`${API}/gedocumental/fomag-datos-admision/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
-        body: JSON.stringify({ url_pdf: url, pdf_nombre: `orden_${r.NroOrden}.pdf`, cups: datosBase.cups }),
+        body: JSON.stringify({ nro_orden: r.NroOrden, cups: datosBase.cups }),
       });
       const json = await res.json();
       if (json.ok && json.datos) {
@@ -284,7 +280,6 @@ const DashboardDemandaInducida: React.FC = () => {
           fecha_orden:      d.fecha_orden      || m.datos.fecha_orden,
           medico_documento: d.medico_documento || m.datos.medico_documento,
           medico_registro:  d.medico_registro  || m.datos.medico_registro,
-          especialidad:     d.especialidad     || m.datos.especialidad,
           diagnosticos:     (d.diagnosticos || []).join(", ") || m.datos.diagnosticos,
           cantidad:         String(d.cantidad  || m.datos.cantidad),
         }} : null);
