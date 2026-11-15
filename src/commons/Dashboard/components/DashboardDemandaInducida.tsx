@@ -245,6 +245,109 @@ const DashboardDemandaInducida: React.FC = () => {
   // Estado local de gestión de llamadas (actualización optimista)
   const [gestionLocal, setGestionLocal] = useState<Record<string, string>>({});
 
+  // ── Modal FOMAG Autogestión ───────────────────────────────────────────────
+  const [fomagModal, setFomagModal] = useState<{
+    orden: Orden;
+    extrayendo: boolean;
+    radicando: boolean;
+    datos: Record<string, string>;
+    resultado: { ok: boolean; mensaje: string; volante_url?: string } | null;
+  } | null>(null);
+
+  const abrirFomagModal = (r: Orden) => {
+    setFomagModal({
+      orden: r,
+      extrayendo: false,
+      radicando: false,
+      datos: {
+        documento: r.Documento || "",
+        cups: (r.Cups || "").split("-")[0],
+        fecha_orden: (r.Fecha || "").split(" ")[0],
+        medico_documento: "",
+        medico_registro: "",
+        especialidad: "Fisiatria",
+        diagnosticos: "",
+        cantidad: "1",
+        observaciones: "Mejor oportunidad",
+      },
+      resultado: null,
+    });
+  };
+
+  const pdfUrlFomag = (r: Orden) =>
+    r.NroAdmision && r.NroOrden
+      ? `${API}/gedocumental/ver-pdf-orden/?estudio=${r.NroAdmision}&numero=${r.NroOrden}`
+      : "";
+
+  const extraerDatosFomag = async () => {
+    if (!fomagModal) return;
+    const url = pdfUrlFomag(fomagModal.orden);
+    if (!url) { alert("Esta orden no tiene PDF disponible en SIESA."); return; }
+    setFomagModal(m => m ? { ...m, extrayendo: true } : null);
+    try {
+      const res = await fetch(`${API}/gedocumental/fomag-autogestion-extraer/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+        body: JSON.stringify({ url_pdf: url, pdf_nombre: `orden_${fomagModal.orden.NroOrden}.pdf`, cups: fomagModal.datos.cups }),
+      });
+      const json = await res.json();
+      if (json.ok && json.datos) {
+        const d = json.datos;
+        setFomagModal(m => m ? { ...m, extrayendo: false, datos: { ...m.datos,
+          fecha_orden:      d.fecha_orden      || m.datos.fecha_orden,
+          medico_documento: d.medico_documento || m.datos.medico_documento,
+          medico_registro:  d.medico_registro  || m.datos.medico_registro,
+          especialidad:     d.especialidad     || m.datos.especialidad,
+          diagnosticos:     (d.diagnosticos || []).join(", ") || m.datos.diagnosticos,
+          cantidad:         String(d.cantidad  || m.datos.cantidad),
+        }} : null);
+      } else {
+        setFomagModal(m => m ? { ...m, extrayendo: false } : null);
+        alert(json.error || "No se pudo extraer información del PDF.");
+      }
+    } catch (e) {
+      setFomagModal(m => m ? { ...m, extrayendo: false } : null);
+      alert("Error de conexión con el servicio.");
+    }
+  };
+
+  const radicarFomag = async () => {
+    if (!fomagModal) return;
+    setFomagModal(m => m ? { ...m, radicando: true, resultado: null } : null);
+    const url = pdfUrlFomag(fomagModal.orden);
+    const d = fomagModal.datos;
+    try {
+      const res = await fetch(`${API}/gedocumental/fomag-autogestion-radicar/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+        body: JSON.stringify({
+          url_pdf:          url || undefined,
+          pdf_nombre:       `orden_${fomagModal.orden.NroOrden || d.documento}.pdf`,
+          documento:        d.documento,
+          cups:             d.cups,
+          fecha_orden:      d.fecha_orden,
+          medico_documento: d.medico_documento,
+          medico_registro:  d.medico_registro,
+          especialidad:     d.especialidad,
+          diagnosticos:     d.diagnosticos.split(/[,;]+/).map(s => s.trim()).filter(Boolean),
+          cantidad:         Number(d.cantidad) || 1,
+          observaciones:    d.observaciones,
+          simular:          false,
+        }),
+      });
+      const json = await res.json();
+      setFomagModal(m => m ? { ...m, radicando: false, resultado: {
+        ok: !!json.ok,
+        mensaje: json.ok
+          ? (json.num_autorizacion ? `Autorizado: #${json.num_autorizacion}` : "Radicado correctamente")
+          : (json.error || "Error en la radicación"),
+        volante_url: json.volante_pdf_url ? `http://192.168.1.211:5070${json.volante_pdf_url}` : undefined,
+      }} : null);
+    } catch (e) {
+      setFomagModal(m => m ? { ...m, radicando: false, resultado: { ok: false, mensaje: "Error de conexión con el servicio." } } : null);
+    }
+  };
+
   const guardarGestion = useCallback(async (ordenId: string, valor: string) => {
     // Actualización optimista
     setGestionLocal(prev => ({ ...prev, [ordenId]: valor }));
@@ -633,6 +736,11 @@ const DashboardDemandaInducida: React.FC = () => {
                         ) : valEstado === "SIN_VOLANTE" || valEstado === "SIN_ORDENES" ? (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                             <span style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #F59E0B", borderRadius: 9999, padding: "2px 7px", fontSize: "0.63rem", fontWeight: 500 }}>Sin Volante</span>
+                            {r.EpsBot === "fomag" && (
+                              <button onClick={() => abrirFomagModal(r)} style={{ background: "#1D4ED8", color: "#fff", border: "none", borderRadius: 9999, padding: "2px 8px", fontSize: "0.6rem", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                                ✦ Transcripción FOMAG
+                              </button>
+                            )}
                             <button onClick={revalidar} style={{ background: "#F9FAFB", color: "#6B7280", border: "1px solid #E5E7EB", borderRadius: 9999, padding: "2px 7px", fontSize: "0.6rem", cursor: "pointer" }}>↺ Revalidar</button>
                           </div>
                         ) : valEstado === "SIN_CONTRATO" ? (
@@ -778,6 +886,88 @@ const DashboardDemandaInducida: React.FC = () => {
       <div style={{ textAlign: "center", marginTop: 16, color: "#9CA3AF", fontSize: "0.85rem" }}>
         Desarrollado por tecnología <strong>NeurDx</strong>
       </div>
+
+      {/* ── Modal FOMAG Autogestión ─────────────────────────────────────────── */}
+      {fomagModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={e => { if (e.target === e.currentTarget) setFomagModal(null); }}>
+          <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 540, boxShadow: "0 25px 50px rgba(0,0,0,0.25)", maxHeight: "90vh", overflowY: "auto" }}>
+            {/* Header */}
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#1D4ED8", borderRadius: "14px 14px 0 0" }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "1rem", color: "#fff" }}>✦ Transcripción Externa — FOMAG</div>
+                <div style={{ fontSize: "0.72rem", color: "#BFDBFE", marginTop: 2 }}>{fomagModal.orden.Paciente} · CC {fomagModal.orden.Documento}</div>
+              </div>
+              <button onClick={() => setFomagModal(null)} style={{ background: "none", border: "none", color: "#fff", fontSize: "1.4rem", cursor: "pointer", lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ padding: "18px 20px" }}>
+              {/* Info orden */}
+              <div style={{ background: "#F8FAFC", borderRadius: 8, padding: "8px 12px", marginBottom: 14, fontSize: "0.72rem", color: "#374151", display: "flex", gap: 16, flexWrap: "wrap" }}>
+                <span><strong>CUPS:</strong> {fomagModal.orden.Cups}</span>
+                <span><strong>Orden:</strong> {fomagModal.orden.NroOrden || "—"}</span>
+                <span><strong>Entidad:</strong> FOMAG</span>
+                {pdfUrlFomag(fomagModal.orden) && (
+                  <a href={pdfUrlFomag(fomagModal.orden)} target="_blank" rel="noreferrer" style={{ color: "#1D4ED8", textDecoration: "none", fontWeight: 600 }}>□ Ver PDF orden</a>
+                )}
+              </div>
+
+              {/* Botón extraer */}
+              <button onClick={extraerDatosFomag} disabled={fomagModal.extrayendo || !pdfUrlFomag(fomagModal.orden)}
+                style={{ width: "100%", background: fomagModal.extrayendo ? "#93C5FD" : "#DBEAFE", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 8, padding: "7px 0", fontSize: "0.78rem", cursor: fomagModal.extrayendo ? "default" : "pointer", fontWeight: 600, marginBottom: 14 }}>
+                {fomagModal.extrayendo ? "⏳ Extrayendo datos del PDF..." : "🔍 Extraer datos automáticamente del PDF"}
+              </button>
+
+              {/* Campos del formulario */}
+              {(["fecha_orden","medico_documento","medico_registro","especialidad","diagnosticos","cantidad","observaciones"] as const).map(campo => {
+                const labels: Record<string, string> = {
+                  fecha_orden: "Fecha de la orden", medico_documento: "Documento del médico",
+                  medico_registro: "Registro médico", especialidad: "Especialidad",
+                  diagnosticos: "Diagnósticos (CIE-10, separados por coma)", cantidad: "Cantidad",
+                  observaciones: "Observaciones",
+                };
+                return (
+                  <div key={campo} style={{ marginBottom: 10 }}>
+                    <label style={{ display: "block", fontSize: "0.68rem", fontWeight: 600, color: "#6B7280", marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.04em" }}>{labels[campo]}</label>
+                    <input
+                      value={fomagModal.datos[campo] || ""}
+                      onChange={e => setFomagModal(m => m ? { ...m, datos: { ...m.datos, [campo]: e.target.value } } : null)}
+                      style={{ width: "100%", border: "1px solid #D1D5DB", borderRadius: 7, padding: "6px 10px", fontSize: "0.78rem", boxSizing: "border-box" }}
+                      placeholder={campo === "especialidad" ? "Fisiatria" : campo === "observaciones" ? "Mejor oportunidad" : ""}
+                      type={campo === "fecha_orden" ? "date" : "text"}
+                    />
+                  </div>
+                );
+              })}
+
+              {/* Resultado */}
+              {fomagModal.resultado && (
+                <div style={{ borderRadius: 8, padding: "10px 14px", marginBottom: 14, background: fomagModal.resultado.ok ? "#D1FAE5" : "#FEE2E2", color: fomagModal.resultado.ok ? "#065F46" : "#991B1B", fontSize: "0.78rem", fontWeight: 600 }}>
+                  {fomagModal.resultado.ok ? "✓ " : "✗ "}{fomagModal.resultado.mensaje}
+                  {fomagModal.resultado.volante_url && (
+                    <div style={{ marginTop: 6 }}>
+                      <a href={fomagModal.resultado.volante_url} target="_blank" rel="noreferrer"
+                        style={{ background: "#065F46", color: "#fff", borderRadius: 6, padding: "4px 10px", fontSize: "0.72rem", textDecoration: "none", fontWeight: 600 }}>
+                        ⬇ Descargar volante autorización
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Botones acción */}
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                <button onClick={() => setFomagModal(null)} style={{ flex: 1, background: "#F3F4F6", color: "#374151", border: "1px solid #D1D5DB", borderRadius: 8, padding: "8px 0", fontSize: "0.78rem", cursor: "pointer" }}>
+                  Cancelar
+                </button>
+                <button onClick={radicarFomag} disabled={fomagModal.radicando}
+                  style={{ flex: 2, background: fomagModal.radicando ? "#93C5FD" : "#1D4ED8", color: "#fff", border: "none", borderRadius: 8, padding: "8px 0", fontSize: "0.78rem", cursor: fomagModal.radicando ? "default" : "pointer", fontWeight: 700 }}>
+                  {fomagModal.radicando ? "⏳ Radicando en FOMAG Horus2..." : "✦ Radicar Transcripción"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
