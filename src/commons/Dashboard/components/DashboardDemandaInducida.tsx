@@ -254,24 +254,46 @@ const DashboardDemandaInducida: React.FC = () => {
     resultado: { ok: boolean; mensaje: string; volante_url?: string } | null;
   } | null>(null);
 
-  const abrirFomagModal = (r: Orden) => {
-    setFomagModal({
-      orden: r,
-      extrayendo: false,
-      radicando: false,
-      datos: {
-        documento: r.Documento || "",
-        cups: (r.Cups || "").split("-")[0],
-        fecha_orden: (r.Fecha || "").split(" ")[0],
-        medico_documento: "",
-        medico_registro: "",
-        especialidad: "Fisiatria",
-        diagnosticos: "",
-        cantidad: "1",
-        observaciones: "Mejor oportunidad",
-      },
-      resultado: null,
-    });
+  const abrirFomagModal = async (r: Orden) => {
+    const url = r.NroAdmision && r.NroOrden
+      ? `${API}/gedocumental/ver-pdf-orden/?estudio=${r.NroAdmision}&numero=${r.NroOrden}`
+      : "";
+    const datosBase = {
+      documento: r.Documento || "",
+      cups: (r.Cups || "").split("-")[0],
+      fecha_orden: (r.Fecha || "").split(" ")[0],
+      medico_documento: "",
+      medico_registro: "",
+      especialidad: "Fisiatria",
+      diagnosticos: "",
+      cantidad: "1",
+      observaciones: "Mejor oportunidad",
+    };
+    setFomagModal({ orden: r, extrayendo: !!url, radicando: false, datos: datosBase, resultado: null });
+    if (!url) return;
+    try {
+      const res = await fetch(`${API}/gedocumental/fomag-autogestion-extraer/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+        body: JSON.stringify({ url_pdf: url, pdf_nombre: `orden_${r.NroOrden}.pdf`, cups: datosBase.cups }),
+      });
+      const json = await res.json();
+      if (json.ok && json.datos) {
+        const d = json.datos;
+        setFomagModal(m => m ? { ...m, extrayendo: false, datos: { ...m.datos,
+          fecha_orden:      d.fecha_orden      || m.datos.fecha_orden,
+          medico_documento: d.medico_documento || m.datos.medico_documento,
+          medico_registro:  d.medico_registro  || m.datos.medico_registro,
+          especialidad:     d.especialidad     || m.datos.especialidad,
+          diagnosticos:     (d.diagnosticos || []).join(", ") || m.datos.diagnosticos,
+          cantidad:         String(d.cantidad  || m.datos.cantidad),
+        }} : null);
+      } else {
+        setFomagModal(m => m ? { ...m, extrayendo: false } : null);
+      }
+    } catch {
+      setFomagModal(m => m ? { ...m, extrayendo: false } : null);
+    }
   };
 
   const pdfUrlFomag = (r: Orden) =>
