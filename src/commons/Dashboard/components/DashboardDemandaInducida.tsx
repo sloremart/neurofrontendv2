@@ -722,13 +722,6 @@ const DashboardDemandaInducida: React.FC = () => {
                           {r.Orden || `PROCEDIMIENTO (${r.Cups})`}
                         </div>
                         <div style={{ color: "#9CA3AF", fontSize: "0.58rem", marginTop: 2 }}>CUPS: {r.Cups}</div>
-                        {r.NroOrden && r.NroAdmision && (
-                          <a href={`${API}/gedocumental/ver-pdf-orden/?estudio=${r.NroAdmision}&numero=${r.NroOrden}`}
-                            target="_blank" rel="noreferrer"
-                            style={{ display: "inline-flex", alignItems: "center", gap: 3, marginTop: 4, background: "#F1F5F9", color: "#334155", border: "1px solid #CBD5E1", borderRadius: 6, padding: "2px 7px", fontSize: "0.58rem", textDecoration: "none", whiteSpace: "nowrap" }}>
-                            □ Orden Neuro
-                          </a>
-                        )}
                       </td>
 
                       {/* OBS. MÉDICA */}
