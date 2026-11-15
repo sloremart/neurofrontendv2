@@ -276,14 +276,23 @@ const DashboardDemandaInducida: React.FC = () => {
       const json = await res.json();
       if (json.ok && json.datos) {
         const d = json.datos;
-        setFomagModal(m => m ? { ...m, extrayendo: false, datos: { ...m.datos,
-          fecha_orden:      d.fecha_orden      || m.datos.fecha_orden,
-          medico_documento: d.medico_documento || m.datos.medico_documento,
-          medico_registro:  d.medico_registro  || m.datos.medico_registro,
-          especialidad:     d.especialidad     || m.datos.especialidad,
-          diagnosticos:     (d.diagnosticos || []).join(", ") || m.datos.diagnosticos,
-          cantidad:         String(d.cantidad  || m.datos.cantidad),
-        }} : null);
+        setFomagModal(m => m ? {
+          ...m,
+          extrayendo: false,
+          orden: {
+            ...m.orden,
+            NroAdmision: json.nro_admision || m.orden.NroAdmision,
+            NroOrden:    json.nro_orden    || m.orden.NroOrden,
+          },
+          datos: { ...m.datos,
+            fecha_orden:      d.fecha_orden      || m.datos.fecha_orden,
+            medico_documento: d.medico_documento || m.datos.medico_documento,
+            medico_registro:  d.medico_registro  || m.datos.medico_registro,
+            especialidad:     d.especialidad     || m.datos.especialidad,
+            diagnosticos:     (d.diagnosticos || []).join(", ") || m.datos.diagnosticos,
+            cantidad:         String(d.cantidad  || m.datos.cantidad),
+          },
+        } : null);
       } else {
         setFomagModal(m => m ? { ...m, extrayendo: false } : null);
       }
