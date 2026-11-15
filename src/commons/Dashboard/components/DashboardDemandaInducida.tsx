@@ -758,6 +758,13 @@ const DashboardDemandaInducida: React.FC = () => {
                       {/* ORDEN ADJUNTA */}
                       <td style={{ padding: "7px 12px", borderBottom: "1px solid #F3F4F6", fontSize: "0.75rem", verticalAlign: "middle", textAlign: "center" }}>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                          {r.NroOrden && r.NroAdmision && (
+                            <a href={`${API}/gedocumental/ver-pdf-orden/?estudio=${r.NroAdmision}&numero=${r.NroOrden}`}
+                              target="_blank" rel="noreferrer"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#1D4ED8", color: "#fff", borderRadius: 6, padding: "3px 8px", fontSize: "0.6rem", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}>
+                              □ Orden SIESA
+                            </a>
+                          )}
                           {archivos.filter(a => a.tipo === "ORDEN_PDF").map((a, ai) => (
                             <a key={ai} href={a.url_descarga} target="_blank" rel="noreferrer"
                               style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#16a34a", color: "#fff", borderRadius: 6, padding: "3px 8px", fontSize: "0.6rem", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}>
