@@ -60,7 +60,7 @@ export default function DetalleCasoDrawer({ admisionId, bandeja, onClose }: Prop
   }, [admisionId]);
 
   const descargar = (id: number) => {
-    window.open(`/api/v2/descargar/${id}/`, "_blank");
+    window.open(`${CONFIG.API_ENDPOINT}/gedocumental/descargar/${id}/`, "_blank");
   };
 
   return (
