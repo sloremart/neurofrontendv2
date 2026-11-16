@@ -14,6 +14,8 @@ interface RepCaso {
   con_estudio: number;
   paciente: string;
   eps: string;
+  contrato?: string;
+  procedimientos?: string;
   servicio: string;
   valor_total: number;
   fecha_ing: string | null;
@@ -61,6 +63,8 @@ interface Caso {
   paciente: string;
   documento: string;
   eps: string;
+  contrato: string;
+  procedimientos: string;
   fecha_ingreso: string | null;
   valor_total: number;
   dias_pendiente: number | null;
@@ -134,6 +138,7 @@ export function GestionFacturacion() {
   const [showDevModal, setShowDevModal] = useState(false);
   const [busqueda, setBusqueda]    = useState("");
   const [servicioFiltro, setServicioFiltro] = useState<string>("Todos");
+  const [epsFiltro, setEpsFiltro]           = useState<string>("Todas");
   const [represData, setRepresData]         = useState<RepresData | null>(null);
   const [expanded, setExpanded]             = useState<Set<number | string>>(new Set());
 
@@ -182,9 +187,11 @@ export function GestionFacturacion() {
     cargar(tab);
   };
 
-  const serviciosDisponibles = ["Todos", ...Array.from(new Set(casos.map(c => c.servicio))).sort()];
+  const epsDisponibles = ["Todas", ...Array.from(new Set(casos.map(c => c.eps || "Sin EPS"))).sort()];
+  const casosEps = epsFiltro === "Todas" ? casos : casos.filter(c => (c.eps || "Sin EPS") === epsFiltro);
+  const serviciosDisponibles = ["Todos", ...Array.from(new Set(casosEps.map(c => c.servicio))).sort()];
 
-  const casosFiltered = casos.filter(c => {
+  const casosFiltered = casosEps.filter(c => {
     if (servicioFiltro !== "Todos" && c.servicio !== servicioFiltro) return false;
     if (!busqueda) return true;
     const q = busqueda.toLowerCase();
@@ -193,6 +200,8 @@ export function GestionFacturacion() {
       String(c.admision_id).includes(q) ||
       c.paciente.toLowerCase().includes(q) ||
       c.eps.toLowerCase().includes(q) ||
+      (c.contrato || "").toLowerCase().includes(q) ||
+      (c.procedimientos || "").toLowerCase().includes(q) ||
       c.documento.includes(q)
     );
   });
@@ -231,7 +240,7 @@ export function GestionFacturacion() {
         {TABS.map(t => (
           <button
             key={t.key}
-            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); }}
+            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); setEpsFiltro("Todas"); }}
             style={{
               padding: "12px 20px", border: "none", cursor: "pointer",
               background: "transparent", fontWeight: 600, fontSize: 14,
@@ -327,12 +336,24 @@ export function GestionFacturacion() {
 
       {/* Buscador + chips de servicio — solo en bandejas simples */}
       {BANDEJAS_SIMPLES.includes(tab as any) && <>
-      <input
-        placeholder="Filtrar por No. estudio, paciente, documento o EPS..."
-        value={busqueda}
-        onChange={e => setBusqueda(e.target.value)}
-        style={{ ...inputStyle, width: "100%", marginBottom: 10, fontSize: 14 }}
-      />
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <input
+          placeholder="Filtrar por No. estudio, paciente, documento, EPS, contrato o CUPS..."
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+          style={{ ...inputStyle, flex: "1 1 320px", fontSize: 14 }}
+        />
+        <select
+          value={epsFiltro}
+          onChange={e => { setEpsFiltro(e.target.value); setServicioFiltro("Todos"); }}
+          style={{ ...inputStyle, flex: "0 1 360px", fontSize: 14 }}
+        >
+          {epsDisponibles.map(e => {
+            const n = e === "Todas" ? casos.length : casos.filter(c => (c.eps || "Sin EPS") === e).length;
+            return <option key={e} value={e}>{e === "Todas" ? "Todas las EPS" : e} ({n})</option>;
+          })}
+        </select>
+      </div>
 
       {/* Filtro por servicio */}
       <div style={{
@@ -342,7 +363,7 @@ export function GestionFacturacion() {
         marginBottom: 16,
       }}>
         {serviciosDisponibles.map(s => {
-          const grupo = s === "Todos" ? casos : casos.filter(c => c.servicio === s);
+          const grupo = s === "Todos" ? casosEps : casosEps.filter(c => c.servicio === s);
           const totalValor = grupo.reduce((acc, c) => acc + c.valor_total, 0);
           const activo = servicioFiltro === s;
           return (
@@ -434,11 +455,15 @@ export function GestionFacturacion() {
                     <div style={{ fontWeight: 500 }}>{c.paciente || "—"}</div>
                     <div style={{ fontSize: 11, color: "#94a3b8" }}>{c.documento}</div>
                   </td>
-                  <td style={{ ...td, maxWidth: 180 }}>
-                    <span title={c.eps} style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {c.eps || "—"}
-                    </span>
-                    <div style={{ fontSize: 11, color: "#6366f1", marginTop: 2 }}>{c.servicio}</div>
+                  <td style={{ ...td, maxWidth: 300 }}>
+                    <div style={{ fontWeight: 600 }}>{c.eps || "—"}</div>
+                    {c.contrato && <div style={{ fontSize: 11, color: "#64748b" }}>{c.contrato}</div>}
+                    <div style={{ fontSize: 11, color: "#6366f1", marginTop: 2, fontWeight: 600 }}>{c.servicio}</div>
+                    {c.procedimientos && (
+                      <div title={c.procedimientos} style={{ fontSize: 10, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {c.procedimientos}
+                      </div>
+                    )}
                   </td>
                   <td style={{ ...td, fontVariantNumeric: "tabular-nums" }}>{fmt(c.valor_total)}</td>
                   <td style={td}>
@@ -595,7 +620,8 @@ export function GestionFacturacion() {
                             )}
                           </td>
                           <td style={td}>
-                            <div style={{ fontSize: 11, color: "#64748b" }}>{c.eps}</div>
+                            <div style={{ fontSize: 11, color: "#334155", fontWeight: 600 }}>{c.eps}</div>
+                            {c.contrato && <div style={{ fontSize: 10, color: "#64748b" }}>{c.contrato}</div>}
                             <div style={{ fontSize: 11, color: "#6366f1" }}>{c.servicio}</div>
                           </td>
                           <td style={td}>
@@ -711,7 +737,8 @@ export function GestionFacturacion() {
                             <div style={{ fontSize: 11, color: "#94a3b8" }}>{c.paciente}</div>
                           </td>
                           <td colSpan={2} style={td}>
-                            <div style={{ fontSize: 11, color: "#64748b" }}>{c.eps}</div>
+                            <div style={{ fontSize: 11, color: "#334155", fontWeight: 600 }}>{c.eps}</div>
+                            {c.contrato && <div style={{ fontSize: 10, color: "#64748b" }}>{c.contrato}</div>}
                             <div style={{ fontSize: 11, color: "#6366f1" }}>{c.servicio}</div>
                           </td>
                           <td style={td}>
