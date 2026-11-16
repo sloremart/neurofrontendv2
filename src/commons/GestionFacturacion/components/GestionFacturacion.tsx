@@ -83,7 +83,22 @@ interface Caso {
   numero_radicado: string;
   motivo_devolucion: string;
   observacion: string;
+  causa?: string;
+  causa_texto?: string;
+  detalle?: string[];
 }
+
+interface CausaResumen { causa: string; texto: string; total: number; }
+
+const CAUSA_COLOR: Record<string, [string, string]> = {
+  devuelta_cm:         ["#fee2e2", "#991b1b"],
+  hallazgo_admisiones: ["#fef3c7", "#92400e"],
+  hallazgo_resultado:  ["#ffedd5", "#9a3412"],
+  faltan_documentos:   ["#fce7f3", "#9d174d"],
+  sin_revision_ia:     ["#e0e7ff", "#3730a3"],
+  pendiente_cm:        ["#e0f2fe", "#075985"],
+  aprobada_cm:         ["#dcfce7", "#166534"],
+};
 
 const TABS: { key: Bandeja; label: string; color: string }[] = [
   { key: "realizados",               label: "Realizados sin factura",      color: "#f59e0b" },
@@ -139,6 +154,8 @@ export function GestionFacturacion() {
   const [busqueda, setBusqueda]    = useState("");
   const [servicioFiltro, setServicioFiltro] = useState<string>("Todos");
   const [epsFiltro, setEpsFiltro]           = useState<string>("Todas");
+  const [causaFiltro, setCausaFiltro]       = useState<string>("Todas");
+  const [causas, setCausas]                 = useState<CausaResumen[]>([]);
   const [represData, setRepresData]         = useState<RepresData | null>(null);
   const [expanded, setExpanded]             = useState<Set<number | string>>(new Set());
 
@@ -166,6 +183,7 @@ export function GestionFacturacion() {
           headers: { Authorization: `Token ${getToken()}` }, params,
         });
         setCasos(data.data || []);
+        setCausas(data.causas || []);
         setRepresData(null);
       }
     } catch {
@@ -188,7 +206,10 @@ export function GestionFacturacion() {
   };
 
   const epsDisponibles = ["Todas", ...Array.from(new Set(casos.map(c => c.eps || "Sin EPS"))).sort()];
-  const casosEps = epsFiltro === "Todas" ? casos : casos.filter(c => (c.eps || "Sin EPS") === epsFiltro);
+  const casosEps = casos.filter(c =>
+    (epsFiltro === "Todas" || (c.eps || "Sin EPS") === epsFiltro) &&
+    (causaFiltro === "Todas" || c.causa === causaFiltro)
+  );
   const serviciosDisponibles = ["Todos", ...Array.from(new Set(casosEps.map(c => c.servicio))).sort()];
 
   const casosFiltered = casosEps.filter(c => {
@@ -240,7 +261,7 @@ export function GestionFacturacion() {
         {TABS.map(t => (
           <button
             key={t.key}
-            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); setEpsFiltro("Todas"); }}
+            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); setEpsFiltro("Todas"); setCausaFiltro("Todas"); setCausas([]); }}
             style={{
               padding: "12px 20px", border: "none", cursor: "pointer",
               background: "transparent", fontWeight: 600, fontSize: 14,
@@ -259,13 +280,16 @@ export function GestionFacturacion() {
 
       {/* KPIs */}
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-        {BANDEJAS_SIMPLES.includes(tab as any) ? [
+        {BANDEJAS_SIMPLES.includes(tab as any) ? (tab === "realizados" ? [
+          { label: "Total casos",    val: casos.length,          bg: "#f8fafc", text: "#1e293b" },
+          { label: "Valor sin facturar", val: fmt(casos.reduce((s, c) => s + c.valor_total, 0)), bg: "#fef2f2", text: "#991b1b" },
+        ] : [
           { label: "Total casos",    val: casos.length,          bg: "#f8fafc", text: "#1e293b" },
           { label: "Pendientes",     val: totales.pendiente,     bg: "#fef3c7", text: "#92400e" },
           { label: "En gestión",     val: totales.en_gestion,    bg: "#dbeafe", text: "#1e40af" },
           { label: "Resueltos",      val: totales.resuelto,      bg: "#dcfce7", text: "#166534" },
           { label: "Valor en riesgo",val: fmt(totales.valor),    bg: "#fef2f2", text: "#991b1b" },
-        ].map(k => (
+        ]).map(k => (
           <div key={k.label} style={{
             background: k.bg, borderRadius: 10, padding: "10px 18px",
             minWidth: 120, textAlign: "center",
@@ -355,6 +379,29 @@ export function GestionFacturacion() {
         </select>
       </div>
 
+      {/* Causa por la que sigue sin factura (solo realizados) */}
+      {tab === "realizados" && causas.length > 0 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          {[{ causa: "Todas", texto: "Todas las causas", total: casos.length }, ...causas].map(c => {
+            const [bg, fg] = CAUSA_COLOR[c.causa] || ["#f1f5f9", "#334155"];
+            const activo = causaFiltro === c.causa;
+            return (
+              <button
+                key={c.causa}
+                onClick={() => { setCausaFiltro(c.causa); setServicioFiltro("Todos"); }}
+                style={{
+                  padding: "6px 12px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 700,
+                  background: activo ? fg : bg, color: activo ? "#fff" : fg,
+                  border: `2px solid ${fg}`,
+                }}
+              >
+                {c.texto}: {c.total}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Filtro por servicio */}
       <div style={{
         display: "grid",
@@ -422,7 +469,8 @@ export function GestionFacturacion() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "#1e2d5a" }}>
-                {["No. Estudio", "Paciente", "EPS / Servicio", "Valor", "Días", "Docs", "Estado", "Acciones"]
+                {["No. Estudio", "Paciente", "EPS / Servicio", "Valor", "Días", "Docs",
+                  tab === "realizados" ? "Por qué sigue sin factura" : "Estado", "Acciones"]
                   .map(h => (
                     <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#fff", whiteSpace: "nowrap", fontSize: 12 }}>
                       {h}
@@ -437,7 +485,7 @@ export function GestionFacturacion() {
                   style={{
                     background: i % 2 === 0 ? "#fff" : "#f8fafc",
                     borderBottom: "1px solid #f1f5f9",
-                    opacity: c.estado === "resuelto" ? 0.6 : 1,
+                    opacity: tab !== "realizados" && c.estado === "resuelto" ? 0.6 : 1,
                   }}
                 >
                   <td style={td}>
@@ -483,6 +531,22 @@ export function GestionFacturacion() {
                       <DocBadge ok={c.tiene_factura} label="FAC" />
                     )}
                   </td>
+                  {tab === "realizados" ? (
+                  <td style={{ ...td, maxWidth: 280 }}>
+                    <span style={{
+                      display: "inline-block", padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 700,
+                      background: (CAUSA_COLOR[c.causa || ""] || ["#f1f5f9"])[0],
+                      color: (CAUSA_COLOR[c.causa || ""] || ["", "#334155"])[1],
+                    }}>
+                      {c.causa_texto || "—"}
+                    </span>
+                    {(c.detalle || []).map((d, di) => (
+                      <div key={di} title={d} style={{ fontSize: 11, color: "#64748b", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        • {d}
+                      </div>
+                    ))}
+                  </td>
+                  ) : (
                   <td style={td}>
                     <span style={{
                       padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
@@ -500,7 +564,9 @@ export function GestionFacturacion() {
                       </div>
                     )}
                   </td>
+                  )}
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    {tab !== "realizados" && <>
                     {c.estado !== "en_gestion" && c.estado !== "resuelto" && (
                       <button onClick={() => cambiarEstado(c, "en_gestion")} style={btnSmall("#3b82f6")}>
                         En gestión
@@ -516,6 +582,7 @@ export function GestionFacturacion() {
                         Reabrir
                       </button>
                     )}
+                    </>}
                     <button onClick={() => setDetalleId(c.admision_id)} style={btnSmall("#6366f1")}>
                       Ver
                     </button>
