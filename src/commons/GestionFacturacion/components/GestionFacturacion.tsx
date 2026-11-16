@@ -382,7 +382,9 @@ export function GestionFacturacion() {
             </div>
             <span style={{ fontSize: 10, color: "#94a3b8", marginLeft: 2 }}>
               {tab === "represamiento_admisiones" ? "Filtra por fecha del hallazgo" : "Filtra por fecha de ingreso"}
-              {" · sin rango: desde el inicio de la IA (20/10/2026)"}
+              {tab === "radicados" || tab === "represamiento_cuentas"
+                ? " · sin rango: todo el histórico"
+                : " · sin rango: desde el inicio de la IA (20/10/2026)"}
             </span>
           </div>
           <button onClick={() => cargar(tab)} style={btnStyle(tabActual.color)}>
