@@ -617,11 +617,6 @@ export function GestionFacturacion() {
                     }}>
                       {c.causa_texto || "—"}
                     </span>
-                    {tab === "radicados" && !c.radicado_zeus && (
-                      <div style={{ fontSize: 11, marginTop: 4, fontWeight: 600, color: "#991b1b" }}>
-                        Sin radicar en Zeus
-                      </div>
-                    )}
                     {(c.detalle || []).map((d, di) => (
                       <div key={di} title={d} style={{ fontSize: 11, color: "#64748b", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         • {d}
