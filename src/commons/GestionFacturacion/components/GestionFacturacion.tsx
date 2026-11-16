@@ -86,9 +86,11 @@ interface Caso {
   causa?: string;
   causa_texto?: string;
   detalle?: string[];
+  responsable_causa?: string;
 }
 
 interface CausaResumen { causa: string; texto: string; total: number; }
+interface ResponsableResumen { responsable: string; total: number; valor: number; causas: CausaResumen[]; }
 
 const CAUSA_COLOR: Record<string, [string, string]> = {
   devuelta_cm:         ["#fee2e2", "#991b1b"],
@@ -96,6 +98,7 @@ const CAUSA_COLOR: Record<string, [string, string]> = {
   hallazgo_resultado:  ["#ffedd5", "#9a3412"],
   faltan_documentos:   ["#fce7f3", "#9d174d"],
   sin_revision_ia:     ["#e0e7ff", "#3730a3"],
+  antes_ia:            ["#f1f5f9", "#475569"],
   pendiente_cm:        ["#e0f2fe", "#075985"],
   aprobada_cm:         ["#dcfce7", "#166534"],
 };
@@ -156,6 +159,8 @@ export function GestionFacturacion() {
   const [epsFiltro, setEpsFiltro]           = useState<string>("Todas");
   const [causaFiltro, setCausaFiltro]       = useState<string>("Todas");
   const [causas, setCausas]                 = useState<CausaResumen[]>([]);
+  const [responsables, setResponsables]     = useState<ResponsableResumen[]>([]);
+  const [responsableFiltro, setResponsableFiltro] = useState<string>("Todos");
   const [represData, setRepresData]         = useState<RepresData | null>(null);
   const [expanded, setExpanded]             = useState<Set<number | string>>(new Set());
 
@@ -184,6 +189,7 @@ export function GestionFacturacion() {
         });
         setCasos(data.data || []);
         setCausas(data.causas || []);
+        setResponsables(data.responsables || []);
         setRepresData(null);
       }
     } catch {
@@ -208,7 +214,8 @@ export function GestionFacturacion() {
   const epsDisponibles = ["Todas", ...Array.from(new Set(casos.map(c => c.eps || "Sin EPS"))).sort()];
   const casosEps = casos.filter(c =>
     (epsFiltro === "Todas" || (c.eps || "Sin EPS") === epsFiltro) &&
-    (causaFiltro === "Todas" || c.causa === causaFiltro)
+    (causaFiltro === "Todas" || c.causa === causaFiltro) &&
+    (responsableFiltro === "Todos" || (c.responsable_causa || "Sin responsable") === responsableFiltro)
   );
   const serviciosDisponibles = ["Todos", ...Array.from(new Set(casosEps.map(c => c.servicio))).sort()];
 
@@ -261,7 +268,7 @@ export function GestionFacturacion() {
         {TABS.map(t => (
           <button
             key={t.key}
-            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); setEpsFiltro("Todas"); setCausaFiltro("Todas"); setCausas([]); }}
+            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); setEpsFiltro("Todas"); setCausaFiltro("Todas"); setCausas([]); setResponsableFiltro("Todos"); setResponsables([]); }}
             style={{
               padding: "12px 20px", border: "none", cursor: "pointer",
               background: "transparent", fontWeight: 600, fontSize: 14,
@@ -399,6 +406,50 @@ export function GestionFacturacion() {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Quién debe resolver y cuánto dinero tiene detenido (solo realizados) */}
+      {tab === "realizados" && responsables.length > 0 && (
+        <div style={{ marginBottom: 14, border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f1f5f9" }}>
+                {["Responsable de resolver", "Estudios", "Valor pendiente", "Causas"].map(h => (
+                  <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 12, color: "#334155" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {responsables.map(r => {
+                const activo = responsableFiltro === r.responsable;
+                return (
+                  <tr
+                    key={r.responsable}
+                    onClick={() => { setResponsableFiltro(activo ? "Todos" : r.responsable); setServicioFiltro("Todos"); }}
+                    style={{ cursor: "pointer", background: activo ? "#ede9fe" : "#fff", borderTop: "1px solid #f1f5f9" }}
+                    title="Clic para ver solo sus estudios"
+                  >
+                    <td style={{ padding: "8px 12px", fontWeight: 700, color: "#4c1d95" }}>{r.responsable}</td>
+                    <td style={{ padding: "8px 12px", fontWeight: 700 }}>{r.total}</td>
+                    <td style={{ padding: "8px 12px", fontWeight: 700, color: "#991b1b" }}>{fmt(r.valor)}</td>
+                    <td style={{ padding: "8px 12px" }}>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {r.causas.map(c => {
+                          const [bg, fg] = CAUSA_COLOR[c.causa] || ["#f1f5f9", "#334155"];
+                          return (
+                            <span key={c.causa} style={{ background: bg, color: fg, padding: "1px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600 }}>
+                              {c.texto}: {c.total}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -540,6 +591,11 @@ export function GestionFacturacion() {
                     }}>
                       {c.causa_texto || "—"}
                     </span>
+                    {c.responsable_causa && (
+                      <div style={{ fontSize: 11, color: "#4c1d95", fontWeight: 700, marginTop: 3 }}>
+                        Responsable: {c.responsable_causa}
+                      </div>
+                    )}
                     {(c.detalle || []).map((d, di) => (
                       <div key={di} title={d} style={{ fontSize: 11, color: "#64748b", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         • {d}
