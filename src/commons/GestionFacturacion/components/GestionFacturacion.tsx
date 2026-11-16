@@ -165,7 +165,8 @@ export function GestionFacturacion() {
   const [detalleId, setDetalleId]  = useState<number | null>(null);
   const [showDevModal, setShowDevModal] = useState(false);
   const [busqueda, setBusqueda]    = useState("");
-  const [servicioFiltro, setServicioFiltro] = useState<string>("Todos");
+  const [servicioFiltro, setServicioFiltro] = useState<string>("Todos");   // recuadro elegido (servicio o contrato)
+  const [agrupar, setAgrupar]               = useState<"servicio" | "contrato">("servicio");
   const [epsFiltro, setEpsFiltro]           = useState<string>("Todas");
   const [causaFiltro, setCausaFiltro]       = useState<string>("Todas");
   const [causas, setCausas]                 = useState<CausaResumen[]>([]);
@@ -247,10 +248,11 @@ export function GestionFacturacion() {
     setEpsFiltro("Todas"); setContratoFiltro("Todos"); setCausaFiltro("Todas");
     setUsuarioFiltro("Todos"); setServicioFiltro("Todos"); setZeusFiltro("Todos"); setBusqueda("");
   };
-  const serviciosDisponibles = ["Todos", ...Array.from(new Set(casosEps.map(c => c.servicio))).sort()];
+  const grupoDe = (c: Caso) => agrupar === "servicio" ? (c.servicio || "Sin servicio") : (c.contrato || "Sin contrato");
+  const serviciosDisponibles = ["Todos", ...Array.from(new Set(casosEps.map(grupoDe))).sort()];
 
   const casosFiltered = casosEps.filter(c => {
-    if (servicioFiltro !== "Todos" && c.servicio !== servicioFiltro) return false;
+    if (servicioFiltro !== "Todos" && grupoDe(c) !== servicioFiltro) return false;
     if (!busqueda) return true;
     const q = busqueda.toLowerCase();
     return (
@@ -452,7 +454,28 @@ export function GestionFacturacion() {
         )}
       </div>
 
-      {/* Filtro por servicio */}
+      {/* Agrupar los recuadros por servicio o por contrato */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+          Agrupar por
+        </span>
+        {(["servicio", "contrato"] as const).map(a => (
+          <button
+            key={a}
+            onClick={() => { setAgrupar(a); setServicioFiltro("Todos"); }}
+            style={{
+              padding: "5px 14px", borderRadius: 16, fontSize: 12, fontWeight: 700, cursor: "pointer",
+              border: `2px solid ${tabActual.color}`,
+              background: agrupar === a ? tabActual.color : "#fff",
+              color: agrupar === a ? "#fff" : tabActual.color,
+            }}
+          >
+            {a === "servicio" ? "Servicio" : "Contrato"}
+          </button>
+        ))}
+      </div>
+
+      {/* Recuadros por servicio o contrato (cantidad y valor) */}
       <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
@@ -460,7 +483,7 @@ export function GestionFacturacion() {
         marginBottom: 16,
       }}>
         {serviciosDisponibles.map(s => {
-          const grupo = s === "Todos" ? casosEps : casosEps.filter(c => c.servicio === s);
+          const grupo = s === "Todos" ? casosEps : casosEps.filter(c => grupoDe(c) === s);
           const totalValor = grupo.reduce((acc, c) => acc + c.valor_total, 0);
           const activo = servicioFiltro === s;
           return (
