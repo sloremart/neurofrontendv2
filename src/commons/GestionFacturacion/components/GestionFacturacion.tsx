@@ -20,7 +20,7 @@ interface RepCaso {
   hallazgos?: string[];
   tiene_resultado?: boolean;
   tiene_factura?: boolean;
-  fecha_radicado?: string | null;
+  fecha_factura?: string | null;
   numero_radicado?: string;
   estado?: string;
   dias?: number | null;
@@ -44,8 +44,8 @@ interface GrupoCuentas {
   responsable_nombre: string;
   admisiones: number;
   valor_total: number;
-  con_fecha_radicado: number;
-  sin_fecha_radicado: number;
+  al_dia: number;
+  vencidos: number;
   dias_promedio: number;
   casos: RepCaso[];
 }
@@ -86,7 +86,7 @@ const TABS: { key: Bandeja; label: string; color: string }[] = [
   { key: "radicados",                label: "Facturados sin radicar",      color: "#3b82f6" },
   { key: "devoluciones",             label: "Devoluciones EPS",            color: "#ef4444" },
   { key: "represamiento_admisiones", label: "Represamiento Admisiones",    color: "#8b5cf6" },
-  { key: "represamiento_cuentas",    label: "Represamiento Ctas. Médicas", color: "#0ea5e9" },
+  { key: "represamiento_cuentas",    label: "Represamiento Radicación",    color: "#0ea5e9" },
 ];
 
 const BANDEJAS_SIMPLES: Bandeja[] = ["realizados", "radicados", "devoluciones"];
@@ -273,10 +273,12 @@ export function GestionFacturacion() {
                 { label: "Admisiones",     val: t.admisiones ?? 0,     bg: "#f8fafc", text: "#1e293b" },
                 { label: "Hallazgos IA",   val: t.hallazgos  ?? 0,     bg: "#fef3c7", text: "#92400e" },
                 { label: "Valor retenido", val: fmt(t.valor  ?? 0),    bg: "#fef2f2", text: "#991b1b" },
+                { label: "Coord. médica (resultado)", val: t.coordinacion_medica ?? 0, bg: "#ecfeff", text: "#155e75" },
               ]
             : [
                 { label: "Responsables",   val: t.responsables ?? 0,   bg: "#e0f2fe", text: "#075985" },
                 { label: "Admisiones",     val: t.admisiones   ?? 0,   bg: "#f8fafc", text: "#1e293b" },
+                { label: "Vencidos (>30 días)", val: t.vencidos ?? 0,  bg: "#fee2e2", text: "#991b1b" },
                 { label: "Valor retenido", val: fmt(t.valor    ?? 0),  bg: "#fef2f2", text: "#991b1b" },
               ];
           return kpis.map(k => (
@@ -307,11 +309,10 @@ export function GestionFacturacion() {
                 style={inputStyle}
               />
             </div>
-            {tab === "represamiento_admisiones" && (
-              <span style={{ fontSize: 10, color: "#94a3b8", marginLeft: 2 }}>
-                Filtra por fecha del hallazgo IA · sin rango muestra todo
-              </span>
-            )}
+            <span style={{ fontSize: 10, color: "#94a3b8", marginLeft: 2 }}>
+              {tab === "represamiento_admisiones" ? "Filtra por fecha del hallazgo" : "Filtra por fecha de ingreso"}
+              {" · sin rango: desde el inicio de la IA (20/10/2026)"}
+            </span>
           </div>
           <button onClick={() => cargar(tab)} style={btnStyle(tabActual.color)}>
             Buscar
@@ -587,6 +588,11 @@ export function GestionFacturacion() {
                               {c.con_estudio || c.admision_id}
                             </span>
                             <div style={{ fontSize: 11, color: "#94a3b8" }}>{c.paciente}</div>
+                            {c.dias != null && (
+                              <div style={{ fontSize: 11, fontWeight: 700, color: c.dias > 30 ? "#ef4444" : c.dias > 15 ? "#f59e0b" : "#16a34a" }}>
+                                {c.dias}d con hallazgo
+                              </div>
+                            )}
                           </td>
                           <td style={td}>
                             <div style={{ fontSize: 11, color: "#64748b" }}>{c.eps}</div>
@@ -634,14 +640,14 @@ export function GestionFacturacion() {
           <div style={{ textAlign: "center", padding: 40, color: "#64748b" }}>Cargando...</div>
         ) : !represData || represData.data.length === 0 ? (
           <div style={{ textAlign: "center", padding: 40, color: "#94a3b8", fontSize: 14 }}>
-            No hay represamiento en cuentas médicas.
+            No hay facturas pendientes de radicar.
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: "#1e2d5a" }}>
-                  {["Responsable", "Total admisiones", "Con fecha rad.", "Sin fecha rad.", "Días prom.", "Valor retenido", ""].map(h => (
+                  {["Responsable", "Total admisiones", "Hasta 30 días", "Más de 30 días", "Días prom.", "Valor retenido", ""].map(h => (
                     <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#fff", whiteSpace: "nowrap", fontSize: 12 }}>{h}</th>
                   ))}
                 </tr>
@@ -661,12 +667,12 @@ export function GestionFacturacion() {
                         </td>
                         <td style={td}>
                           <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 10px", borderRadius: 20, fontWeight: 600, fontSize: 12 }}>
-                            {g.con_fecha_radicado}
+                            {g.al_dia}
                           </span>
                         </td>
                         <td style={td}>
                           <span style={{ background: "#fef2f2", color: "#991b1b", padding: "2px 10px", borderRadius: 20, fontWeight: 600, fontSize: 12 }}>
-                            {g.sin_fecha_radicado}
+                            {g.vencidos}
                           </span>
                         </td>
                         <td style={td}>
@@ -709,15 +715,9 @@ export function GestionFacturacion() {
                             <div style={{ fontSize: 11, color: "#6366f1" }}>{c.servicio}</div>
                           </td>
                           <td style={td}>
-                            {c.fecha_radicado ? (
-                              <span style={{ background: "#dcfce7", color: "#166534", padding: "1px 7px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
-                                {c.fecha_radicado}
-                              </span>
-                            ) : (
-                              <span style={{ background: "#fef2f2", color: "#991b1b", padding: "1px 7px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
-                                Sin fecha
-                              </span>
-                            )}
+                            <span style={{ background: "#f1f5f9", color: "#334155", padding: "1px 7px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                              Factura: {c.fecha_factura || "—"}
+                            </span>
                             {c.numero_radicado && (
                               <div style={{ fontSize: 10, color: "#64748b" }}>Rad: {c.numero_radicado}</div>
                             )}
