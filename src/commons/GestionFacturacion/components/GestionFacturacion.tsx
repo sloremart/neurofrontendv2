@@ -87,10 +87,10 @@ interface Caso {
   causa_texto?: string;
   detalle?: string[];
   responsable_causa?: string;
+  usuario_cargue?: string;
 }
 
 interface CausaResumen { causa: string; texto: string; total: number; }
-interface ResponsableResumen { responsable: string; total: number; valor: number; causas: CausaResumen[]; }
 
 const CAUSA_COLOR: Record<string, [string, string]> = {
   devuelta_cm:         ["#fee2e2", "#991b1b"],
@@ -159,8 +159,8 @@ export function GestionFacturacion() {
   const [epsFiltro, setEpsFiltro]           = useState<string>("Todas");
   const [causaFiltro, setCausaFiltro]       = useState<string>("Todas");
   const [causas, setCausas]                 = useState<CausaResumen[]>([]);
-  const [responsables, setResponsables]     = useState<ResponsableResumen[]>([]);
-  const [responsableFiltro, setResponsableFiltro] = useState<string>("Todos");
+  const [usuarioFiltro, setUsuarioFiltro]   = useState<string>("Todos");
+  const [contratoFiltro, setContratoFiltro] = useState<string>("Todos");
   const [represData, setRepresData]         = useState<RepresData | null>(null);
   const [expanded, setExpanded]             = useState<Set<number | string>>(new Set());
 
@@ -189,7 +189,6 @@ export function GestionFacturacion() {
         });
         setCasos(data.data || []);
         setCausas(data.causas || []);
-        setResponsables(data.responsables || []);
         setRepresData(null);
       }
     } catch {
@@ -211,12 +210,28 @@ export function GestionFacturacion() {
     cargar(tab);
   };
 
-  const epsDisponibles = ["Todas", ...Array.from(new Set(casos.map(c => c.eps || "Sin EPS"))).sort()];
+  const usuarioDe = (c: Caso) => c.usuario_cargue || "Sin usuario";
+  // Opciones de cada filtro con su cantidad de estudios (sobre todos los casos de la bandeja)
+  const opciones = (valores: string[]) => {
+    const cuenta: Record<string, number> = {};
+    valores.forEach(v => { cuenta[v] = (cuenta[v] || 0) + 1; });
+    return Object.keys(cuenta).sort().map(v => ({ valor: v, total: cuenta[v] }));
+  };
+  const opcionesEps      = opciones(casos.map(c => c.eps || "Sin EPS"));
+  const opcionesContrato = opciones(casos.map(c => c.contrato || "Sin contrato"));
+  const opcionesUsuario  = opciones(casos.map(usuarioDe));
   const casosEps = casos.filter(c =>
     (epsFiltro === "Todas" || (c.eps || "Sin EPS") === epsFiltro) &&
+    (contratoFiltro === "Todos" || (c.contrato || "Sin contrato") === contratoFiltro) &&
     (causaFiltro === "Todas" || c.causa === causaFiltro) &&
-    (responsableFiltro === "Todos" || (c.responsable_causa || "Sin responsable") === responsableFiltro)
+    (usuarioFiltro === "Todos" || usuarioDe(c) === usuarioFiltro)
   );
+  const hayFiltros = epsFiltro !== "Todas" || contratoFiltro !== "Todos" || causaFiltro !== "Todas"
+    || usuarioFiltro !== "Todos" || servicioFiltro !== "Todos" || !!busqueda;
+  const limpiarFiltros = () => {
+    setEpsFiltro("Todas"); setContratoFiltro("Todos"); setCausaFiltro("Todas");
+    setUsuarioFiltro("Todos"); setServicioFiltro("Todos"); setBusqueda("");
+  };
   const serviciosDisponibles = ["Todos", ...Array.from(new Set(casosEps.map(c => c.servicio))).sort()];
 
   const casosFiltered = casosEps.filter(c => {
@@ -227,6 +242,7 @@ export function GestionFacturacion() {
       String(c.con_estudio).includes(q) ||
       String(c.admision_id).includes(q) ||
       c.paciente.toLowerCase().includes(q) ||
+      usuarioDe(c).toLowerCase().includes(q) ||
       c.eps.toLowerCase().includes(q) ||
       (c.contrato || "").toLowerCase().includes(q) ||
       (c.procedimientos || "").toLowerCase().includes(q) ||
@@ -268,7 +284,7 @@ export function GestionFacturacion() {
         {TABS.map(t => (
           <button
             key={t.key}
-            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); setEpsFiltro("Todas"); setCausaFiltro("Todas"); setCausas([]); setResponsableFiltro("Todos"); setResponsables([]); }}
+            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); setEpsFiltro("Todas"); setCausaFiltro("Todas"); setCausas([]); setUsuarioFiltro("Todos"); setContratoFiltro("Todos"); }}
             style={{
               padding: "12px 20px", border: "none", cursor: "pointer",
               background: "transparent", fontWeight: 600, fontSize: 14,
@@ -367,91 +383,50 @@ export function GestionFacturacion() {
 
       {/* Buscador + chips de servicio — solo en bandejas simples */}
       {BANDEJAS_SIMPLES.includes(tab as any) && <>
-      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-        <input
-          placeholder="Filtrar por No. estudio, paciente, documento, EPS, contrato o CUPS..."
-          value={busqueda}
-          onChange={e => setBusqueda(e.target.value)}
-          style={{ ...inputStyle, flex: "1 1 320px", fontSize: 14 }}
-        />
-        <select
-          value={epsFiltro}
-          onChange={e => { setEpsFiltro(e.target.value); setServicioFiltro("Todos"); }}
-          style={{ ...inputStyle, flex: "0 1 360px", fontSize: 14 }}
-        >
-          {epsDisponibles.map(e => {
-            const n = e === "Todas" ? casos.length : casos.filter(c => (c.eps || "Sin EPS") === e).length;
-            return <option key={e} value={e}>{e === "Todas" ? "Todas las EPS" : e} ({n})</option>;
-          })}
-        </select>
+      {/* Filtros: búsqueda, usuario que cargó, EPS, contrato y (en realizados) causa */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Filtro etiqueta="Buscar" flex="1 1 260px">
+          <input
+            placeholder="No. estudio, paciente, documento o CUPS..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+          />
+        </Filtro>
+        {tab === "realizados" && (
+          <Filtro etiqueta="Usuario que cargó">
+            <select value={usuarioFiltro} onChange={e => { setUsuarioFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
+              <option value="Todos">Todos ({casos.length})</option>
+              {opcionesUsuario.map(o => <option key={o.valor} value={o.valor}>{o.valor} ({o.total})</option>)}
+            </select>
+          </Filtro>
+        )}
+        <Filtro etiqueta="EPS">
+          <select value={epsFiltro} onChange={e => { setEpsFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
+            <option value="Todas">Todas ({casos.length})</option>
+            {opcionesEps.map(o => <option key={o.valor} value={o.valor}>{o.valor} ({o.total})</option>)}
+          </select>
+        </Filtro>
+        <Filtro etiqueta="Contrato">
+          <select value={contratoFiltro} onChange={e => { setContratoFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
+            <option value="Todos">Todos ({casos.length})</option>
+            {opcionesContrato.map(o => <option key={o.valor} value={o.valor}>{o.valor} ({o.total})</option>)}
+          </select>
+        </Filtro>
+        {tab === "realizados" && causas.length > 0 && (
+          <Filtro etiqueta="Hallazgo / causa">
+            <select value={causaFiltro} onChange={e => { setCausaFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
+              <option value="Todas">Todas ({casos.length})</option>
+              {causas.map(c => <option key={c.causa} value={c.causa}>{c.texto} ({c.total})</option>)}
+            </select>
+          </Filtro>
+        )}
+        {hayFiltros && (
+          <button onClick={limpiarFiltros} style={{ ...btnSmall("#64748b"), padding: "8px 12px", marginBottom: 0 }}>
+            Limpiar filtros
+          </button>
+        )}
       </div>
-
-      {/* Causa por la que sigue sin factura (solo realizados) */}
-      {tab === "realizados" && causas.length > 0 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-          {[{ causa: "Todas", texto: "Todas las causas", total: casos.length }, ...causas].map(c => {
-            const [bg, fg] = CAUSA_COLOR[c.causa] || ["#f1f5f9", "#334155"];
-            const activo = causaFiltro === c.causa;
-            return (
-              <button
-                key={c.causa}
-                onClick={() => { setCausaFiltro(c.causa); setServicioFiltro("Todos"); }}
-                style={{
-                  padding: "6px 12px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 700,
-                  background: activo ? fg : bg, color: activo ? "#fff" : fg,
-                  border: `2px solid ${fg}`,
-                }}
-              >
-                {c.texto}: {c.total}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Quién debe resolver y cuánto dinero tiene detenido (solo realizados) */}
-      {tab === "realizados" && responsables.length > 0 && (
-        <div style={{ marginBottom: 14, border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: "#f1f5f9" }}>
-                {["Responsable de resolver", "Estudios", "Valor pendiente", "Causas"].map(h => (
-                  <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 12, color: "#334155" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {responsables.map(r => {
-                const activo = responsableFiltro === r.responsable;
-                return (
-                  <tr
-                    key={r.responsable}
-                    onClick={() => { setResponsableFiltro(activo ? "Todos" : r.responsable); setServicioFiltro("Todos"); }}
-                    style={{ cursor: "pointer", background: activo ? "#ede9fe" : "#fff", borderTop: "1px solid #f1f5f9" }}
-                    title="Clic para ver solo sus estudios"
-                  >
-                    <td style={{ padding: "8px 12px", fontWeight: 700, color: "#4c1d95" }}>{r.responsable}</td>
-                    <td style={{ padding: "8px 12px", fontWeight: 700 }}>{r.total}</td>
-                    <td style={{ padding: "8px 12px", fontWeight: 700, color: "#991b1b" }}>{fmt(r.valor)}</td>
-                    <td style={{ padding: "8px 12px" }}>
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                        {r.causas.map(c => {
-                          const [bg, fg] = CAUSA_COLOR[c.causa] || ["#f1f5f9", "#334155"];
-                          return (
-                            <span key={c.causa} style={{ background: bg, color: fg, padding: "1px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600 }}>
-                              {c.texto}: {c.total}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
 
       {/* Filtro por servicio */}
       <div style={{
@@ -520,8 +495,9 @@ export function GestionFacturacion() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "#1e2d5a" }}>
-                {["No. Estudio", "Paciente", "EPS / Servicio", "Valor", "Días", "Docs",
-                  tab === "realizados" ? "Por qué sigue sin factura" : "Estado", "Acciones"]
+                {["No. Estudio", "Paciente", ...(tab === "realizados" ? ["Usuario que cargó"] : []),
+                  "EPS / Contrato / Servicio", "Valor", "Días", "Docs",
+                  tab === "realizados" ? "Hallazgo / por qué sigue sin factura" : "Estado", "Acciones"]
                   .map(h => (
                     <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#fff", whiteSpace: "nowrap", fontSize: 12 }}>
                       {h}
@@ -554,6 +530,11 @@ export function GestionFacturacion() {
                     <div style={{ fontWeight: 500 }}>{c.paciente || "—"}</div>
                     <div style={{ fontSize: 11, color: "#94a3b8" }}>{c.documento}</div>
                   </td>
+                  {tab === "realizados" && (
+                    <td style={{ ...td, fontWeight: 600, color: c.usuario_cargue ? "#4c1d95" : "#94a3b8" }}>
+                      {c.usuario_cargue || "Sin usuario"}
+                    </td>
+                  )}
                   <td style={{ ...td, maxWidth: 300 }}>
                     <div style={{ fontWeight: 600 }}>{c.eps || "—"}</div>
                     {c.contrato && <div style={{ fontSize: 11, color: "#64748b" }}>{c.contrato}</div>}
@@ -591,11 +572,6 @@ export function GestionFacturacion() {
                     }}>
                       {c.causa_texto || "—"}
                     </span>
-                    {c.responsable_causa && (
-                      <div style={{ fontSize: 11, color: "#4c1d95", fontWeight: 700, marginTop: 3 }}>
-                        Responsable: {c.responsable_causa}
-                      </div>
-                    )}
                     {(c.detalle || []).map((d, di) => (
                       <div key={di} title={d} style={{ fontSize: 11, color: "#64748b", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         • {d}
@@ -918,6 +894,21 @@ export function GestionFacturacion() {
 
 // ── estilos inline ─────────────────────────────────────────────────────────
 const td: React.CSSProperties = { padding: "10px 12px", verticalAlign: "top" };
+const selectStyle: React.CSSProperties = {
+  padding: "7px 10px", border: "1px solid #c4b5fd", borderRadius: 7,
+  fontSize: 13, outline: "none", background: "#fff", width: "100%", maxWidth: 320,
+};
+
+function Filtro({ etiqueta, flex = "0 1 240px", children }: { etiqueta: string; flex?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 3, flex, minWidth: 160 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+        {etiqueta}
+      </span>
+      {children}
+    </div>
+  );
+}
 const inputStyle: React.CSSProperties = {
   padding: "7px 10px", border: "1px solid #c4b5fd", borderRadius: 7,
   fontSize: 13, outline: "none", background: "#fff",
