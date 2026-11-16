@@ -91,6 +91,9 @@ interface Caso {
   factura?: string;
   fecha_factura?: string | null;
   renombrado?: boolean;
+  radicado_zeus?: boolean;
+  fecha_radicado_zeus?: string | null;
+  remision_zeus?: string;
 }
 
 interface CausaResumen { causa: string; texto: string; total: number; }
@@ -168,6 +171,7 @@ export function GestionFacturacion() {
   const [causas, setCausas]                 = useState<CausaResumen[]>([]);
   const [usuarioFiltro, setUsuarioFiltro]   = useState<string>("Todos");
   const [contratoFiltro, setContratoFiltro] = useState<string>("Todos");
+  const [zeusFiltro, setZeusFiltro]         = useState<string>("Todos");
   const [represData, setRepresData]         = useState<RepresData | null>(null);
   const [expanded, setExpanded]             = useState<Set<number | string>>(new Set());
 
@@ -219,8 +223,7 @@ export function GestionFacturacion() {
 
   // Realizados y Facturados sin radicar: vista por causa/etapa, solo con el botón Ver
   const vistaCausa = tab === "realizados" || tab === "radicados";
-  const etiquetaUsuario = tab === "radicados" ? "Facturó" : "Usuario que cargó";
-  const etiquetaCausa = tab === "radicados" ? "Etapa en GE Documental" : "Hallazgo / por qué sigue sin factura";
+  const etiquetaCausa = tab === "radicados" ? "Etapa GE Documental / Zeus" : "Hallazgo / por qué sigue sin factura";
   const usuarioDe = (c: Caso) => c.usuario_cargue || "Sin usuario";
   // Opciones de cada filtro con su cantidad de estudios (sobre todos los casos de la bandeja)
   const opciones = (valores: string[]) => {
@@ -235,13 +238,14 @@ export function GestionFacturacion() {
     (epsFiltro === "Todas" || (c.eps || "Sin EPS") === epsFiltro) &&
     (contratoFiltro === "Todos" || (c.contrato || "Sin contrato") === contratoFiltro) &&
     (causaFiltro === "Todas" || c.causa === causaFiltro) &&
-    (usuarioFiltro === "Todos" || usuarioDe(c) === usuarioFiltro)
+    (usuarioFiltro === "Todos" || usuarioDe(c) === usuarioFiltro) &&
+    (zeusFiltro === "Todos" || (zeusFiltro === "radicada") === !!c.radicado_zeus)
   );
   const hayFiltros = epsFiltro !== "Todas" || contratoFiltro !== "Todos" || causaFiltro !== "Todas"
-    || usuarioFiltro !== "Todos" || servicioFiltro !== "Todos" || !!busqueda;
+    || usuarioFiltro !== "Todos" || servicioFiltro !== "Todos" || zeusFiltro !== "Todos" || !!busqueda;
   const limpiarFiltros = () => {
     setEpsFiltro("Todas"); setContratoFiltro("Todos"); setCausaFiltro("Todas");
-    setUsuarioFiltro("Todos"); setServicioFiltro("Todos"); setBusqueda("");
+    setUsuarioFiltro("Todos"); setServicioFiltro("Todos"); setZeusFiltro("Todos"); setBusqueda("");
   };
   const serviciosDisponibles = ["Todos", ...Array.from(new Set(casosEps.map(c => c.servicio))).sort()];
 
@@ -295,7 +299,7 @@ export function GestionFacturacion() {
         {TABS.map(t => (
           <button
             key={t.key}
-            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); setEpsFiltro("Todas"); setCausaFiltro("Todas"); setCausas([]); setUsuarioFiltro("Todos"); setContratoFiltro("Todos"); }}
+            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); setEpsFiltro("Todas"); setCausaFiltro("Todas"); setCausas([]); setUsuarioFiltro("Todos"); setContratoFiltro("Todos"); setZeusFiltro("Todos"); }}
             style={{
               padding: "12px 20px", border: "none", cursor: "pointer",
               background: "transparent", fontWeight: 600, fontSize: 14,
@@ -404,8 +408,8 @@ export function GestionFacturacion() {
             style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
           />
         </Filtro>
-        {vistaCausa && (
-          <Filtro etiqueta={etiquetaUsuario}>
+        {tab === "realizados" && (
+          <Filtro etiqueta="Usuario que cargó">
             <select value={usuarioFiltro} onChange={e => { setUsuarioFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
               <option value="Todos">Todos ({casos.length})</option>
               {opcionesUsuario.map(o => <option key={o.valor} value={o.valor}>{o.valor} ({o.total})</option>)}
@@ -429,6 +433,15 @@ export function GestionFacturacion() {
             <select value={causaFiltro} onChange={e => { setCausaFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
               <option value="Todas">Todas ({casos.length})</option>
               {causas.map(c => <option key={c.causa} value={c.causa}>{c.texto} ({c.total})</option>)}
+            </select>
+          </Filtro>
+        )}
+        {tab === "radicados" && (
+          <Filtro etiqueta="Radicación en Zeus">
+            <select value={zeusFiltro} onChange={e => { setZeusFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
+              <option value="Todos">Todas ({casos.length})</option>
+              <option value="radicada">Radicada en Zeus ({casos.filter(c => c.radicado_zeus).length})</option>
+              <option value="sin_radicar">Sin radicar en Zeus ({casos.filter(c => !c.radicado_zeus).length})</option>
             </select>
           </Filtro>
         )}
@@ -506,7 +519,7 @@ export function GestionFacturacion() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "#1e2d5a" }}>
-                {["No. Estudio", "Paciente", ...(vistaCausa ? [etiquetaUsuario] : []),
+                {["No. Estudio", "Paciente", ...(tab === "realizados" ? ["Usuario que cargó"] : []),
                   "EPS / Contrato / Servicio", "Valor", "Días", "Docs",
                   vistaCausa ? etiquetaCausa : "Estado", "Acciones"]
                   .map(h => (
@@ -547,7 +560,7 @@ export function GestionFacturacion() {
                     <div style={{ fontWeight: 500 }}>{c.paciente || "—"}</div>
                     <div style={{ fontSize: 11, color: "#94a3b8" }}>{c.documento}</div>
                   </td>
-                  {vistaCausa && (
+                  {tab === "realizados" && (
                     <td style={{ ...td, fontWeight: 600, color: c.usuario_cargue ? "#4c1d95" : "#94a3b8" }}>
                       {c.usuario_cargue || "Sin usuario"}
                     </td>
@@ -592,6 +605,13 @@ export function GestionFacturacion() {
                     }}>
                       {c.causa_texto || "—"}
                     </span>
+                    {tab === "radicados" && (
+                      <div style={{ fontSize: 11, marginTop: 4, fontWeight: 600, color: c.radicado_zeus ? "#166534" : "#991b1b" }}>
+                        {c.radicado_zeus
+                          ? `Zeus: radicada ${c.fecha_radicado_zeus || ""} · Rem. ${c.remision_zeus}`
+                          : "Zeus: sin radicar"}
+                      </div>
+                    )}
                     {(c.detalle || []).map((d, di) => (
                       <div key={di} title={d} style={{ fontSize: 11, color: "#64748b", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         • {d}
