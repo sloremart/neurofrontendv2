@@ -88,6 +88,9 @@ interface Caso {
   detalle?: string[];
   responsable_causa?: string;
   usuario_cargue?: string;
+  factura?: string;
+  fecha_factura?: string | null;
+  renombrado?: boolean;
 }
 
 interface CausaResumen { causa: string; texto: string; total: number; }
@@ -101,6 +104,10 @@ const CAUSA_COLOR: Record<string, [string, string]> = {
   antes_ia:            ["#f1f5f9", "#475569"],
   pendiente_cm:        ["#e0f2fe", "#075985"],
   aprobada_cm:         ["#dcfce7", "#166534"],
+  sin_resultado:          ["#ffedd5", "#9a3412"],
+  sin_factura_pdf:        ["#fce7f3", "#9d174d"],
+  pendiente_renombrar:    ["#fef3c7", "#92400e"],
+  renombrada_sin_radicar: ["#e0f2fe", "#075985"],
 };
 
 const TABS: { key: Bandeja; label: string; color: string }[] = [
@@ -210,6 +217,10 @@ export function GestionFacturacion() {
     cargar(tab);
   };
 
+  // Realizados y Facturados sin radicar: vista por causa/etapa, solo con el botón Ver
+  const vistaCausa = tab === "realizados" || tab === "radicados";
+  const etiquetaUsuario = tab === "radicados" ? "Facturó" : "Usuario que cargó";
+  const etiquetaCausa = tab === "radicados" ? "Etapa en GE Documental" : "Hallazgo / por qué sigue sin factura";
   const usuarioDe = (c: Caso) => c.usuario_cargue || "Sin usuario";
   // Opciones de cada filtro con su cantidad de estudios (sobre todos los casos de la bandeja)
   const opciones = (valores: string[]) => {
@@ -303,9 +314,9 @@ export function GestionFacturacion() {
 
       {/* KPIs */}
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-        {BANDEJAS_SIMPLES.includes(tab as any) ? (tab === "realizados" ? [
+        {BANDEJAS_SIMPLES.includes(tab as any) ? (vistaCausa ? [
           { label: "Total casos",    val: casos.length,          bg: "#f8fafc", text: "#1e293b" },
-          { label: "Valor sin facturar", val: fmt(casos.reduce((s, c) => s + c.valor_total, 0)), bg: "#fef2f2", text: "#991b1b" },
+          { label: tab === "realizados" ? "Valor sin facturar" : "Valor facturado sin radicar", val: fmt(casos.reduce((s, c) => s + c.valor_total, 0)), bg: "#fef2f2", text: "#991b1b" },
         ] : [
           { label: "Total casos",    val: casos.length,          bg: "#f8fafc", text: "#1e293b" },
           { label: "Pendientes",     val: totales.pendiente,     bg: "#fef3c7", text: "#92400e" },
@@ -393,8 +404,8 @@ export function GestionFacturacion() {
             style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
           />
         </Filtro>
-        {tab === "realizados" && (
-          <Filtro etiqueta="Usuario que cargó">
+        {vistaCausa && (
+          <Filtro etiqueta={etiquetaUsuario}>
             <select value={usuarioFiltro} onChange={e => { setUsuarioFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
               <option value="Todos">Todos ({casos.length})</option>
               {opcionesUsuario.map(o => <option key={o.valor} value={o.valor}>{o.valor} ({o.total})</option>)}
@@ -413,8 +424,8 @@ export function GestionFacturacion() {
             {opcionesContrato.map(o => <option key={o.valor} value={o.valor}>{o.valor} ({o.total})</option>)}
           </select>
         </Filtro>
-        {tab === "realizados" && causas.length > 0 && (
-          <Filtro etiqueta="Hallazgo / causa">
+        {vistaCausa && causas.length > 0 && (
+          <Filtro etiqueta={etiquetaCausa}>
             <select value={causaFiltro} onChange={e => { setCausaFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
               <option value="Todas">Todas ({casos.length})</option>
               {causas.map(c => <option key={c.causa} value={c.causa}>{c.texto} ({c.total})</option>)}
@@ -495,9 +506,9 @@ export function GestionFacturacion() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "#1e2d5a" }}>
-                {["No. Estudio", "Paciente", ...(tab === "realizados" ? ["Usuario que cargó"] : []),
+                {["No. Estudio", "Paciente", ...(vistaCausa ? [etiquetaUsuario] : []),
                   "EPS / Contrato / Servicio", "Valor", "Días", "Docs",
-                  tab === "realizados" ? "Hallazgo / por qué sigue sin factura" : "Estado", "Acciones"]
+                  vistaCausa ? etiquetaCausa : "Estado", "Acciones"]
                   .map(h => (
                     <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#fff", whiteSpace: "nowrap", fontSize: 12 }}>
                       {h}
@@ -512,7 +523,7 @@ export function GestionFacturacion() {
                   style={{
                     background: i % 2 === 0 ? "#fff" : "#f8fafc",
                     borderBottom: "1px solid #f1f5f9",
-                    opacity: tab !== "realizados" && c.estado === "resuelto" ? 0.6 : 1,
+                    opacity: !vistaCausa && c.estado === "resuelto" ? 0.6 : 1,
                   }}
                 >
                   <td style={td}>
@@ -522,6 +533,12 @@ export function GestionFacturacion() {
                     >
                       {c.con_estudio || c.admision_id}
                     </span>
+                    {tab === "radicados" && c.factura && (
+                      <div style={{ fontSize: 11, color: "#334155", fontWeight: 600 }}>{c.factura}</div>
+                    )}
+                    {tab === "radicados" && c.fecha_factura && (
+                      <div style={{ fontSize: 10, color: "#94a3b8" }}>{c.fecha_factura}</div>
+                    )}
                     {c.numero_radicado && (
                       <div style={{ fontSize: 11, color: "#64748b" }}>Rad: {c.numero_radicado}</div>
                     )}
@@ -530,7 +547,7 @@ export function GestionFacturacion() {
                     <div style={{ fontWeight: 500 }}>{c.paciente || "—"}</div>
                     <div style={{ fontSize: 11, color: "#94a3b8" }}>{c.documento}</div>
                   </td>
-                  {tab === "realizados" && (
+                  {vistaCausa && (
                     <td style={{ ...td, fontWeight: 600, color: c.usuario_cargue ? "#4c1d95" : "#94a3b8" }}>
                       {c.usuario_cargue || "Sin usuario"}
                     </td>
@@ -562,8 +579,11 @@ export function GestionFacturacion() {
                     {tab !== "realizados" && (
                       <DocBadge ok={c.tiene_factura} label="FAC" />
                     )}
+                    {tab === "radicados" && (
+                      <DocBadge ok={!!c.renombrado} label="REN" />
+                    )}
                   </td>
-                  {tab === "realizados" ? (
+                  {vistaCausa ? (
                   <td style={{ ...td, maxWidth: 280 }}>
                     <span style={{
                       display: "inline-block", padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 700,
@@ -598,7 +618,7 @@ export function GestionFacturacion() {
                   </td>
                   )}
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
-                    {tab !== "realizados" && <>
+                    {!vistaCausa && <>
                     {c.estado !== "en_gestion" && c.estado !== "resuelto" && (
                       <button onClick={() => cambiarEstado(c, "en_gestion")} style={btnSmall("#3b82f6")}>
                         En gestión
