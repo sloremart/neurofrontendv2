@@ -372,14 +372,24 @@ const DashboardDemandaInducida: React.FC = () => {
           : (json.error || "Error en la radicación"),
         volante_url: json.volante_pdf_url ? `http://192.168.1.211:5070${json.volante_pdf_url}` : undefined,
       }} : null);
-      // Actualizar autState para reflejar el estado en la tabla sin recargar
+      // Actualizar autState para reflejar el estado y archivos en la tabla sin recargar
       if (json.ok && fomagModal) {
         const docLimpio = (fomagModal.orden.Documento || "").replace(/[^0-9A-Za-z]/g, "");
         const cups_ = (fomagModal.orden.Cups || "").trim().split("-")[0];
         const clave = `fomag|${docLimpio}|${cups_}`;
+        const archivosNuevos = json.volante_pdf_url ? [{
+          tipo: "ORDEN_PDF",
+          nombre_archivo: json.volante_pdf_nombre || `volante_fomag_${cups_}.pdf`,
+          url_descarga: `http://192.168.1.211:5070${json.volante_pdf_url}`,
+        }] : [];
         setAutState(prev => ({
           ...prev,
-          [clave]: { status: "AUTORIZADO", num_autorizacion: json.num_autorizacion || "", fecha_vigencia: "" },
+          [clave]: {
+            status: "AUTORIZADO",
+            num_autorizacion: json.num_autorizacion || "",
+            fecha_vigencia: "",
+            ValEpsArchivos: archivosNuevos,
+          },
         }));
       }
     } catch (e) {
