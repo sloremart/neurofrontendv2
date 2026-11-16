@@ -7,55 +7,7 @@ import RegistrarDevolucionModal from "./RegistrarDevolucionModal.tsx";
 import CONFIG from '../../../config/api';
 const API = `${CONFIG.API_ENDPOINT}/gestion-facturacion`;
 
-type Bandeja = "realizados" | "radicados" | "devoluciones" | "represamiento_admisiones" | "represamiento_cuentas";
-
-interface RepCaso {
-  admision_id: number;
-  con_estudio: number;
-  paciente: string;
-  eps: string;
-  contrato?: string;
-  procedimientos?: string;
-  servicio: string;
-  valor_total: number;
-  fecha_ing: string | null;
-  hallazgos?: string[];
-  tiene_resultado?: boolean;
-  tiene_factura?: boolean;
-  fecha_factura?: string | null;
-  numero_radicado?: string;
-  estado?: string;
-  dias?: number | null;
-}
-
-interface GrupoAdmision {
-  usuario_id: number | null;
-  usuario_nombre: string;
-  admisiones: number;
-  valor_total: number;
-  con_hallazgos: number;
-  hallazgos_count: number;
-  sin_resultado: number;
-  con_resultado: number;
-  con_factura: number;
-  casos: RepCaso[];
-}
-
-interface GrupoCuentas {
-  responsable_id: number | null;
-  responsable_nombre: string;
-  admisiones: number;
-  valor_total: number;
-  al_dia: number;
-  vencidos: number;
-  dias_promedio: number;
-  casos: RepCaso[];
-}
-
-interface RepresData {
-  data: (GrupoAdmision | GrupoCuentas)[];
-  totales: Record<string, number>;
-}
+type Bandeja = "realizados" | "radicados" | "devoluciones";
 
 interface Caso {
   admision_id: number;
@@ -117,8 +69,6 @@ const TABS: { key: Bandeja; label: string; color: string }[] = [
   { key: "realizados",               label: "Realizados sin factura",      color: "#f59e0b" },
   { key: "radicados",                label: "Facturados sin radicar",      color: "#3b82f6" },
   { key: "devoluciones",             label: "Devoluciones EPS",            color: "#ef4444" },
-  { key: "represamiento_admisiones", label: "Represamiento Admisiones",    color: "#8b5cf6" },
-  { key: "represamiento_cuentas",    label: "Represamiento Radicación",    color: "#0ea5e9" },
 ];
 
 const BANDEJAS_SIMPLES: Bandeja[] = ["realizados", "radicados", "devoluciones"];
@@ -166,45 +116,26 @@ export function GestionFacturacion() {
   const [showDevModal, setShowDevModal] = useState(false);
   const [busqueda, setBusqueda]    = useState("");
   const [servicioFiltro, setServicioFiltro] = useState<string>("Todos");   // recuadro elegido (servicio o contrato)
-  const [agrupar, setAgrupar]               = useState<"servicio" | "contrato">("servicio");
+  const [agrupar, setAgrupar]               = useState<"servicio" | "contrato" | "usuario">("servicio");
   const [epsFiltro, setEpsFiltro]           = useState<string>("Todas");
   const [causaFiltro, setCausaFiltro]       = useState<string>("Todas");
   const [causas, setCausas]                 = useState<CausaResumen[]>([]);
   const [usuarioFiltro, setUsuarioFiltro]   = useState<string>("Todos");
   const [contratoFiltro, setContratoFiltro] = useState<string>("Todos");
-  const [represData, setRepresData]         = useState<RepresData | null>(null);
-  const [expanded, setExpanded]             = useState<Set<number | string>>(new Set());
 
   const cargar = useCallback(async (bandeja: Bandeja, fi = fechaIni, ff = fechaFin) => {
     setLoading(true);
-    setExpanded(new Set());
     try {
       const params: Record<string, string> = {};
       if (fi) params.fecha_inicio = fi;
       if (ff) params.fecha_fin    = ff;
-      if (bandeja === "represamiento_admisiones") {
-        const { data } = await axios.get(`${API}/represamiento-admisiones/`, {
-          headers: { Authorization: `Token ${getToken()}` }, params,
-        });
-        setRepresData(data);
-        setCasos([]);
-      } else if (bandeja === "represamiento_cuentas") {
-        const { data } = await axios.get(`${API}/represamiento-cuentas/`, {
-          headers: { Authorization: `Token ${getToken()}` }, params,
-        });
-        setRepresData(data);
-        setCasos([]);
-      } else {
-        const { data } = await axios.get(`${API}/${bandeja}/`, {
-          headers: { Authorization: `Token ${getToken()}` }, params,
-        });
-        setCasos(data.data || []);
-        setCausas(data.causas || []);
-        setRepresData(null);
-      }
+      const { data } = await axios.get(`${API}/${bandeja}/`, {
+        headers: { Authorization: `Token ${getToken()}` }, params,
+      });
+      setCasos(data.data || []);
+      setCausas(data.causas || []);
     } catch {
       setCasos([]);
-      setRepresData(null);
     } finally {
       setLoading(false);
     }
@@ -246,7 +177,9 @@ export function GestionFacturacion() {
     setEpsFiltro("Todas"); setContratoFiltro("Todos"); setCausaFiltro("Todas");
     setUsuarioFiltro("Todos"); setServicioFiltro("Todos"); setBusqueda("");
   };
-  const grupoDe = (c: Caso) => agrupar === "servicio" ? (c.servicio || "Sin servicio") : (c.contrato || "Sin contrato");
+  const grupoDe = (c: Caso) => agrupar === "servicio" ? (c.servicio || "Sin servicio")
+    : agrupar === "usuario" ? (c.usuario_cargue || "Sin usuario")
+    : (c.contrato || "Sin contrato");
   const serviciosDisponibles = ["Todos", ...Array.from(new Set(casosEps.map(grupoDe))).sort()];
 
   const casosFiltered = casosEps.filter(c => {
@@ -299,7 +232,7 @@ export function GestionFacturacion() {
         {TABS.map(t => (
           <button
             key={t.key}
-            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); setEpsFiltro("Todas"); setCausaFiltro("Todas"); setCausas([]); setUsuarioFiltro("Todos"); setContratoFiltro("Todos"); }}
+            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); setEpsFiltro("Todas"); setCausaFiltro("Todas"); setCausas([]); if (t.key !== "realizados") setAgrupar(g => g === "usuario" ? "servicio" : g); setUsuarioFiltro("Todos"); setContratoFiltro("Todos"); }}
             style={{
               padding: "12px 20px", border: "none", cursor: "pointer",
               background: "transparent", fontWeight: 600, fontSize: 14,
@@ -336,33 +269,7 @@ export function GestionFacturacion() {
             <div style={{ fontSize: 20, fontWeight: 700, color: k.text }}>{k.val}</div>
             <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{k.label}</div>
           </div>
-        )) : represData ? (() => {
-          const t = represData.totales;
-          const kpis = tab === "represamiento_admisiones"
-            ? [
-                { label: "Admisionistas",  val: t.usuarios   ?? 0,     bg: "#f3e8ff", text: "#6b21a8" },
-                { label: "Admisiones",     val: t.admisiones ?? 0,     bg: "#f8fafc", text: "#1e293b" },
-                { label: "Hallazgos IA",   val: t.hallazgos  ?? 0,     bg: "#fef3c7", text: "#92400e" },
-                { label: "Valor retenido", val: fmt(t.valor  ?? 0),    bg: "#fef2f2", text: "#991b1b" },
-                { label: "Coord. médica (resultado)", val: t.coordinacion_medica ?? 0, bg: "#ecfeff", text: "#155e75" },
-              ]
-            : [
-                { label: "Responsables",   val: t.responsables ?? 0,   bg: "#e0f2fe", text: "#075985" },
-                { label: "Admisiones",     val: t.admisiones   ?? 0,   bg: "#f8fafc", text: "#1e293b" },
-                { label: "Vencidos (>30 días)", val: t.vencidos ?? 0,  bg: "#fee2e2", text: "#991b1b" },
-                { label: "Valor retenido", val: fmt(t.valor    ?? 0),  bg: "#fef2f2", text: "#991b1b" },
-              ];
-          return kpis.map(k => (
-            <div key={k.label} style={{
-              background: k.bg, borderRadius: 10, padding: "10px 18px",
-              minWidth: 120, textAlign: "center",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.07)",
-            }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: k.text }}>{k.val}</div>
-              <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{k.label}</div>
-            </div>
-          ));
-        })() : null}
+        )) : null}
         <div style={{ flex: 1 }} />
         {/* Filtros */}
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -381,8 +288,8 @@ export function GestionFacturacion() {
               />
             </div>
             <span style={{ fontSize: 10, color: "#94a3b8", marginLeft: 2 }}>
-              {tab === "represamiento_admisiones" ? "Filtra por fecha del hallazgo" : "Filtra por fecha de ingreso"}
-              {tab === "radicados" || tab === "represamiento_cuentas"
+              {"Filtra por fecha de ingreso"}
+              {tab === "radicados"
                 ? " · sin rango: todo el histórico"
                 : " · sin rango: desde el inicio de la IA (20/10/2026)"}
             </span>
@@ -445,12 +352,12 @@ export function GestionFacturacion() {
         )}
       </div>
 
-      {/* Agrupar los recuadros por servicio o por contrato */}
+      {/* Agrupar los recuadros por servicio, contrato o (en realizados) usuario que cargó */}
       <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>
           Agrupar por
         </span>
-        {(["servicio", "contrato"] as const).map(a => (
+        {(tab === "realizados" ? ["servicio", "contrato", "usuario"] as const : ["servicio", "contrato"] as const).map(a => (
           <button
             key={a}
             onClick={() => { setAgrupar(a); setServicioFiltro("Todos"); }}
@@ -461,7 +368,7 @@ export function GestionFacturacion() {
               color: agrupar === a ? "#fff" : tabActual.color,
             }}
           >
-            {a === "servicio" ? "Servicio" : "Contrato"}
+            {a === "servicio" ? "Servicio" : a === "contrato" ? "Contrato" : "Usuario que cargó"}
           </button>
         ))}
       </div>
@@ -673,250 +580,6 @@ export function GestionFacturacion() {
         </div>
       )}
       </>}
-
-      {/* ── Represamiento Admisiones ─────────────────────────────────────────── */}
-      {tab === "represamiento_admisiones" && (
-        loading ? (
-          <div style={{ textAlign: "center", padding: 40, color: "#64748b" }}>Cargando...</div>
-        ) : !represData || represData.data.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 40, color: "#94a3b8", fontSize: 14 }}>
-            No hay represamiento de admisiones.
-          </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: "#1e2d5a" }}>
-                  {["Admisionista", "Admisiones pend.", "Estado docs", "Hallazgos IA pend.", "Valor retenido", ""].map(h => (
-                    <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#fff", whiteSpace: "nowrap", fontSize: 12 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(represData.data as GrupoAdmision[]).map((g, i) => {
-                  const key = g.usuario_id ?? `sin_${i}`;
-                  const isOpen = expanded.has(key);
-                  return (
-                    <React.Fragment key={key}>
-                      <tr style={{ background: i % 2 === 0 ? "#fff" : "#faf5ff", borderBottom: "1px solid #f3e8ff" }}>
-                        <td style={td}>
-                          <span style={{ fontWeight: 700, color: "#7c3aed" }}>{g.usuario_nombre}</span>
-                        </td>
-                        <td style={{ ...td, fontVariantNumeric: "tabular-nums" }}>
-                          <span style={{ fontSize: 18, fontWeight: 800, color: "#1e293b" }}>{g.admisiones}</span>
-                        </td>
-                        <td style={td}>
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {g.sin_resultado > 0 && (
-                              <span style={{ background: "#fee2e2", color: "#991b1b", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 600 }}>
-                                {g.sin_resultado} sin RES
-                              </span>
-                            )}
-                            {g.con_resultado > 0 && (
-                              <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 600 }}>
-                                {g.con_resultado} con RES
-                              </span>
-                            )}
-                            {g.con_factura > 0 && (
-                              <span style={{ background: "#dbeafe", color: "#1e40af", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 600 }}>
-                                {g.con_factura} con FAC
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td style={td}>
-                          {g.hallazgos_count > 0 ? (
-                            <span style={{ background: "#fef3c7", color: "#92400e", padding: "2px 10px", borderRadius: 20, fontWeight: 700, fontSize: 12 }}>
-                              {g.hallazgos_count} en {g.con_hallazgos} estudios
-                            </span>
-                          ) : (
-                            <span style={{ color: "#94a3b8", fontSize: 12 }}>Sin hallazgos</span>
-                          )}
-                        </td>
-                        <td style={{ ...td, fontVariantNumeric: "tabular-nums" }}>
-                          <span style={{ fontWeight: 700, color: "#991b1b" }}>{fmt(g.valor_total)}</span>
-                        </td>
-                        <td style={td}>
-                          <button
-                            onClick={() => setExpanded(prev => {
-                              const s = new Set(prev);
-                              s.has(key) ? s.delete(key) : s.add(key);
-                              return s;
-                            })}
-                            style={btnSmall("#8b5cf6")}
-                          >
-                            {isOpen ? "▲ Cerrar" : `▼ Ver ${g.admisiones}`}
-                          </button>
-                        </td>
-                      </tr>
-                      {isOpen && g.casos.map((c) => (
-                        <tr key={c.admision_id} style={{ background: "#faf5ff", borderBottom: "1px solid #ede9fe" }}>
-                          <td style={{ ...td, paddingLeft: 32 }}>
-                            <span
-                              onClick={() => setDetalleId(c.admision_id)}
-                              style={{ color: "#8b5cf6", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
-                            >
-                              {c.con_estudio || c.admision_id}
-                            </span>
-                            <div style={{ fontSize: 11, color: "#94a3b8" }}>{c.paciente}</div>
-                            {c.dias != null && (
-                              <div style={{ fontSize: 11, fontWeight: 700, color: c.dias > 30 ? "#ef4444" : c.dias > 15 ? "#f59e0b" : "#16a34a" }}>
-                                {c.dias}d con hallazgo
-                              </div>
-                            )}
-                          </td>
-                          <td style={td}>
-                            <div style={{ fontSize: 11, color: "#334155", fontWeight: 600 }}>{c.eps}</div>
-                            {c.contrato && <div style={{ fontSize: 10, color: "#64748b" }}>{c.contrato}</div>}
-                            <div style={{ fontSize: 11, color: "#6366f1" }}>{c.servicio}</div>
-                          </td>
-                          <td style={td}>
-                            <div style={{ display: "flex", gap: 4 }}>
-                              <span style={{ background: c.tiene_resultado ? "#dcfce7" : "#fee2e2", color: c.tiene_resultado ? "#166534" : "#991b1b", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>
-                                {c.tiene_resultado ? "RES ✓" : "Sin RES"}
-                              </span>
-                              <span style={{ background: c.tiene_factura ? "#dbeafe" : "#f1f5f9", color: c.tiene_factura ? "#1e40af" : "#94a3b8", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>
-                                {c.tiene_factura ? "FAC ✓" : "Sin FAC"}
-                              </span>
-                            </div>
-                          </td>
-                          <td style={td}>
-                            {c.hallazgos && c.hallazgos.length > 0 ? (
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                                {c.hallazgos.map((h, hi) => (
-                                  <span key={hi} style={{ background: "#fef3c7", color: "#92400e", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>
-                                    {h}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : <span style={{ color: "#94a3b8", fontSize: 11 }}>—</span>}
-                          </td>
-                          <td style={{ ...td, fontVariantNumeric: "tabular-nums", fontSize: 12 }}>{fmt(c.valor_total)}</td>
-                          <td style={td}>
-                            <button onClick={() => setDetalleId(c.admision_id)} style={btnSmall("#6366f1")}>Ver</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )
-      )}
-
-      {/* ── Represamiento Cuentas Médicas ────────────────────────────────────── */}
-      {tab === "represamiento_cuentas" && (
-        loading ? (
-          <div style={{ textAlign: "center", padding: 40, color: "#64748b" }}>Cargando...</div>
-        ) : !represData || represData.data.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 40, color: "#94a3b8", fontSize: 14 }}>
-            No hay facturas pendientes de radicar.
-          </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: "#1e2d5a" }}>
-                  {["Responsable", "Total admisiones", "Hasta 30 días", "Más de 30 días", "Días prom.", "Valor retenido", ""].map(h => (
-                    <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#fff", whiteSpace: "nowrap", fontSize: 12 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(represData.data as GrupoCuentas[]).map((g, i) => {
-                  const key = g.responsable_id ?? `sin_${i}`;
-                  const isOpen = expanded.has(key);
-                  return (
-                    <React.Fragment key={key}>
-                      <tr style={{ background: i % 2 === 0 ? "#fff" : "#f0f9ff", borderBottom: "1px solid #e0f2fe" }}>
-                        <td style={td}>
-                          <span style={{ fontWeight: 700, color: "#0369a1" }}>{g.responsable_nombre}</span>
-                        </td>
-                        <td style={{ ...td, fontVariantNumeric: "tabular-nums" }}>
-                          <span style={{ fontSize: 18, fontWeight: 800, color: "#1e293b" }}>{g.admisiones}</span>
-                        </td>
-                        <td style={td}>
-                          <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 10px", borderRadius: 20, fontWeight: 600, fontSize: 12 }}>
-                            {g.al_dia}
-                          </span>
-                        </td>
-                        <td style={td}>
-                          <span style={{ background: "#fef2f2", color: "#991b1b", padding: "2px 10px", borderRadius: 20, fontWeight: 600, fontSize: 12 }}>
-                            {g.vencidos}
-                          </span>
-                        </td>
-                        <td style={td}>
-                          <span style={{
-                            fontWeight: 700,
-                            color: g.dias_promedio > 30 ? "#ef4444" : g.dias_promedio > 15 ? "#f59e0b" : "#16a34a",
-                          }}>
-                            {g.dias_promedio > 0 ? `${g.dias_promedio}d` : "—"}
-                          </span>
-                        </td>
-                        <td style={{ ...td, fontVariantNumeric: "tabular-nums" }}>
-                          <span style={{ fontWeight: 700, color: "#991b1b" }}>{fmt(g.valor_total)}</span>
-                        </td>
-                        <td style={td}>
-                          <button
-                            onClick={() => setExpanded(prev => {
-                              const s = new Set(prev);
-                              s.has(key) ? s.delete(key) : s.add(key);
-                              return s;
-                            })}
-                            style={btnSmall("#0ea5e9")}
-                          >
-                            {isOpen ? "▲ Cerrar" : `▼ Ver ${g.admisiones}`}
-                          </button>
-                        </td>
-                      </tr>
-                      {isOpen && g.casos.map((c) => (
-                        <tr key={c.admision_id} style={{ background: "#f0f9ff", borderBottom: "1px solid #e0f2fe" }}>
-                          <td style={{ ...td, paddingLeft: 32 }}>
-                            <span
-                              onClick={() => setDetalleId(c.admision_id)}
-                              style={{ color: "#0ea5e9", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
-                            >
-                              {c.con_estudio || c.admision_id}
-                            </span>
-                            <div style={{ fontSize: 11, color: "#94a3b8" }}>{c.paciente}</div>
-                          </td>
-                          <td colSpan={2} style={td}>
-                            <div style={{ fontSize: 11, color: "#334155", fontWeight: 600 }}>{c.eps}</div>
-                            {c.contrato && <div style={{ fontSize: 10, color: "#64748b" }}>{c.contrato}</div>}
-                            <div style={{ fontSize: 11, color: "#6366f1" }}>{c.servicio}</div>
-                          </td>
-                          <td style={td}>
-                            <span style={{ background: "#f1f5f9", color: "#334155", padding: "1px 7px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
-                              Factura: {c.fecha_factura || "—"}
-                            </span>
-                            {c.numero_radicado && (
-                              <div style={{ fontSize: 10, color: "#64748b" }}>Rad: {c.numero_radicado}</div>
-                            )}
-                          </td>
-                          <td style={td}>
-                            <span style={{
-                              fontWeight: 700, fontSize: 12,
-                              color: (c.dias ?? 0) > 30 ? "#ef4444" : (c.dias ?? 0) > 15 ? "#f59e0b" : "#16a34a",
-                            }}>
-                              {c.dias != null ? `${c.dias}d` : "—"}
-                            </span>
-                          </td>
-                          <td style={{ ...td, fontVariantNumeric: "tabular-nums", fontSize: 12 }}>{fmt(c.valor_total)}</td>
-                          <td style={td}>
-                            <button onClick={() => setDetalleId(c.admision_id)} style={btnSmall("#6366f1")}>Ver</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )
-      )}
 
       {/* Drawer detalle */}
       {detalleId && (
