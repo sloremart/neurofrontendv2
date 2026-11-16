@@ -350,6 +350,7 @@ const DashboardDemandaInducida: React.FC = () => {
         body: JSON.stringify({
           url_pdf:          url || undefined,
           pdf_nombre:       `orden_${fomagModal.orden.NroOrden || d.documento}.pdf`,
+          nro_orden:        fomagModal.orden.NroOrden || undefined,
           documento:        d.documento,
           cups:             d.cups,
           fecha_orden:      d.fecha_orden,
