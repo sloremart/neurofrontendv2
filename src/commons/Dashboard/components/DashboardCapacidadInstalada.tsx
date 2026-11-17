@@ -8,6 +8,7 @@ import {
 import RefreshIcon from "@mui/icons-material/Refresh";
 import EventIcon from "@mui/icons-material/Event";
 import CONFIG from "../../../config/api.js";
+import { sedeLabel, sedeColor } from "../utils/sedeLabel";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 interface Consultorio {
@@ -376,13 +377,9 @@ const DashboardCapacidadInstalada: React.FC = () => {
                         </TableCell>
                         <TableCell align="center">
                           <Chip
-                            label={`S0${con.id_sede - 1}`}
+                            label={sedeLabel(con.id_sede)}
                             size="small"
-                            sx={{
-                              fontSize: 10, fontWeight: 700, height: 20,
-                              bgcolor: con.id_sede === 2 ? "#EDE9FB" : "#F3E8FF",
-                              color:   con.id_sede === 2 ? "#6D28D9" : "#7C3AED",
-                            }}
+                            sx={{ fontSize: 10, fontWeight: 700, height: 20, ...sedeColor(con.id_sede) }}
                           />
                         </TableCell>
                         <TableCell align="right">
@@ -458,13 +455,9 @@ const DashboardCapacidadInstalada: React.FC = () => {
                         </TableCell>
                         <TableCell align="center">
                           <Chip
-                            label={`S0${svc.id_sede - 1}`}
+                            label={sedeLabel(svc.id_sede)}
                             size="small"
-                            sx={{
-                              fontSize: 10, fontWeight: 700, height: 20,
-                              bgcolor: svc.id_sede === 2 ? "#EDE9FB" : "#F0FDFB",
-                              color:   svc.id_sede === 2 ? "#6D28D9" : "#0F766E",
-                            }}
+                            sx={{ fontSize: 10, fontWeight: 700, height: 20, ...sedeColor(svc.id_sede) }}
                           />
                         </TableCell>
                         <TableCell align="right">
@@ -597,13 +590,9 @@ const DashboardCapacidadInstalada: React.FC = () => {
                           </TableCell>
                           <TableCell align="center">
                             <Chip
-                              label={`S0${d.id_sede - 1}`}
+                              label={sedeLabel(d.id_sede)}
                               size="small"
-                              sx={{
-                                fontSize: 10, fontWeight: 700, height: 20,
-                                bgcolor: d.id_sede === 2 ? "#EDE9FB" : "#F0FDFB",
-                                color:   d.id_sede === 2 ? "#6D28D9" : "#0F766E",
-                              }}
+                              sx={{ fontSize: 10, fontWeight: 700, height: 20, ...sedeColor(d.id_sede) }}
                             />
                           </TableCell>
                           <TableCell align="right">
