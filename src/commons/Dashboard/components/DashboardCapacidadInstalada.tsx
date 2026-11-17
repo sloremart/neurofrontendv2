@@ -8,7 +8,13 @@ import {
 import RefreshIcon from "@mui/icons-material/Refresh";
 import EventIcon from "@mui/icons-material/Event";
 import CONFIG from "../../../config/api.js";
-import { sedeLabel, sedeColor } from "../utils/sedeLabel";
+
+// id_sede en ZeusSalud arranca en 2 (Sede 1 = id 2, Sede 2 = id 3)
+const sedeLabel = (id_sede: number) => `S0${id_sede - 1}`;
+const sedeColor = (id_sede: number) =>
+  id_sede === 2
+    ? { bgcolor: "#EDE9FB", color: "#6D28D9" }
+    : { bgcolor: "#F3E8FF", color: "#7C3AED" };
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 interface Consultorio {
