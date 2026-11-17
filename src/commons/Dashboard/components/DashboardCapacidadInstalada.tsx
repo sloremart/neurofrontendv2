@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
-  Box, Typography, Paper, Grid, CircularProgress, Alert,
+  Box, Typography, Paper, Grid, CircularProgress, Alert, AlertTitle,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Chip, LinearProgress, Tooltip, IconButton, MenuItem, Select,
   FormControl, InputLabel, SelectChangeEvent,
@@ -85,6 +85,103 @@ const mesesDisponibles = (): string[] => {
 const mesActual = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+// ── Generador de alertas automáticas ──────────────────────────────────────────
+interface Alerta {
+  tipo: "error" | "warning" | "success" | "info";
+  titulo: string;
+  detalle: string;
+}
+
+const generarAlertas = (datos: DatosCap): Alerta[] => {
+  const alertas: Alerta[] = [];
+
+  // 1. Ocupación global
+  if (datos.resumen.pct_ocupacion < 35) {
+    alertas.push({
+      tipo: "error",
+      titulo: `Ocupación global crítica: ${datos.resumen.pct_ocupacion}%`,
+      detalle: `Solo ${datos.resumen.agendados.toLocaleString("es-CO")} de ${datos.resumen.total_programado.toLocaleString("es-CO")} slots tienen cita. Quedan ${datos.resumen.disponibles.toLocaleString("es-CO")} cupos sin usar.`,
+    });
+  } else if (datos.resumen.pct_ocupacion < 60) {
+    alertas.push({
+      tipo: "warning",
+      titulo: `Ocupación global baja: ${datos.resumen.pct_ocupacion}%`,
+      detalle: `${datos.resumen.disponibles.toLocaleString("es-CO")} cupos disponibles sin agendar. Hay margen para aumentar la demanda.`,
+    });
+  }
+
+  // 2. Consultorios sin ninguna cita (con agenda significativa)
+  datos.consultorios
+    .filter((c) => c.agendados === 0 && c.total_programado > 10)
+    .forEach((c) => {
+      alertas.push({
+        tipo: "error",
+        titulo: `Sin citas: ${c.consultorio}`,
+        detalle: `${c.total_programado} slots programados y ninguna cita agendada. Verificar si la agenda está publicada o si el médico está activo.`,
+      });
+    });
+
+  // 3. Alta proporción de bloqueos (>25% y más de 20 slots bloqueados)
+  datos.consultorios
+    .filter(
+      (c) =>
+        c.total_programado > 0 &&
+        c.bloqueados / c.total_programado > 0.25 &&
+        c.bloqueados > 20
+    )
+    .forEach((c) => {
+      const p = Math.round((c.bloqueados / c.total_programado) * 100);
+      alertas.push({
+        tipo: "warning",
+        titulo: `Bloqueos elevados: ${c.consultorio}`,
+        detalle: `${c.bloqueados} slots bloqueados (${p}% de su agenda). Puede indicar ausencia médica prolongada o error de configuración.`,
+      });
+    });
+
+  // 4. Superprogramación — muchos cupos libres con muy baja ocupación
+  datos.consultorios
+    .filter(
+      (c) =>
+        c.disponibles > 300 &&
+        c.total_programado > 0 &&
+        c.agendados / c.total_programado < 0.15
+    )
+    .forEach((c) => {
+      const p = Math.round((c.agendados / c.total_programado) * 100);
+      alertas.push({
+        tipo: "warning",
+        titulo: `Posible superprogramación: ${c.consultorio}`,
+        detalle: `${c.disponibles.toLocaleString("es-CO")} cupos libres con solo ${p}% de ocupación. La capacidad programada supera la demanda real.`,
+      });
+    });
+
+  // 5. Consultorios con alta ocupación (éxito)
+  const llenos = datos.consultorios.filter(
+    (c) => c.total_programado > 10 && c.agendados / c.total_programado >= 0.95
+  );
+  if (llenos.length > 0) {
+    alertas.push({
+      tipo: "success",
+      titulo: `${llenos.length} consultorio(s) con ocupación ≥ 95%`,
+      detalle: llenos.map((c) => c.consultorio).join(" · "),
+    });
+  }
+
+  // 6. Insight de servicio más demandado
+  if (datos.servicios.length > 0) {
+    const top = datos.servicios[0];
+    const totalSvc = datos.servicios.reduce((a, s) => a + s.agendados, 0);
+    const p = totalSvc > 0 ? Math.round((top.agendados / totalSvc) * 100) : 0;
+    alertas.push({
+      tipo: "info",
+      titulo: `Servicio más demandado: ${top.servicio}`,
+      detalle: `Concentra el ${p}% de todas las citas agendadas en el mes (${top.agendados.toLocaleString("es-CO")} citas).`,
+    });
+  }
+
+  return alertas;
 };
 
 // ── KPI Card ───────────────────────────────────────────────────────────────
@@ -190,7 +287,9 @@ const DashboardCapacidadInstalada: React.FC = () => {
       )}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {datos && !cargando && (
+      {datos && !cargando && (() => {
+        const alertas = generarAlertas(datos);
+        return (
         <>
           {/* KPIs */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -227,6 +326,25 @@ const DashboardCapacidadInstalada: React.FC = () => {
               />
             </Grid>
           </Grid>
+
+          {/* Alertas y recomendaciones */}
+          {alertas.length > 0 && (
+            <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, mb: 3, overflow: "hidden" }}>
+              <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50" }}>
+                <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>
+                  Alertas y recomendaciones — {mesLabel(datos.mes)}
+                </Typography>
+              </Box>
+              <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                {alertas.map((a, i) => (
+                  <Alert key={i} severity={a.tipo} sx={{ alignItems: "flex-start" }}>
+                    <AlertTitle sx={{ fontWeight: 700, fontSize: 13, mb: 0.3 }}>{a.titulo}</AlertTitle>
+                    <Typography sx={{ fontSize: 12 }}>{a.detalle}</Typography>
+                  </Alert>
+                ))}
+              </Box>
+            </Paper>
+          )}
 
           {/* Tabla consultorios */}
           <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, mb: 3, overflow: "hidden" }}>
@@ -511,7 +629,8 @@ const DashboardCapacidadInstalada: React.FC = () => {
             </Grid>
           </Grid>
         </>
-      )}
+        );
+      })()}
     </Box>
   );
 };
