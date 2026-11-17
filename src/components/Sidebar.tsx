@@ -83,7 +83,6 @@ const MENU: MenuGroup[] = [
   {
     group: 'Evaluación',
     items: [
-      { label: 'Demanda Inducida', path: '/demanda_inducida',     icon: <HealingIcon />,          roles: ['AdministrativoGerencia', 'Facturador'] },
       { label: 'Dashboard Eval.', path: '/evaluacion_dashboard', icon: <WorkspacePremiumIcon />, roles: ['AdministrativoGerencia'] },
       { label: 'Eval. Personal',  path: '/evaluacion_personal',  icon: <PersonOutlineIcon />,   roles: TODOS },
     ],
