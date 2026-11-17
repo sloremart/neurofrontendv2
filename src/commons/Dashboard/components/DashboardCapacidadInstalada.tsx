@@ -391,8 +391,8 @@ const DashboardCapacidadInstalada: React.FC = () => {
             {/* Desglose bloqueados */}
             <Grid item xs={12} md={6}>
               <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
-                <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "#FFFBEB" }}>
-                  <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "#B45309" }}>
+                <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50", borderLeft: "3px solid #F59E0B" }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>
                     Desglose de bloqueados
                   </Typography>
                   <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 0.3 }}>
@@ -427,7 +427,7 @@ const DashboardCapacidadInstalada: React.FC = () => {
                             <Chip
                               label={b.bloqueados}
                               size="small"
-                              sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#FEF3C7", color: "#92400E" }}
+                              sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#FEF3C7", color: "#B45309" }}
                             />
                           </TableCell>
                         </TableRow>
@@ -448,8 +448,8 @@ const DashboardCapacidadInstalada: React.FC = () => {
             {/* Desglose disponibles */}
             <Grid item xs={12} md={6}>
               <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
-                <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "#F0F9FF" }}>
-                  <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "#0369A1" }}>
+                <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50", borderLeft: "3px solid #0EA5E9" }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>
                     Espacios disponibles
                   </Typography>
                   <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 0.3 }}>
@@ -492,7 +492,7 @@ const DashboardCapacidadInstalada: React.FC = () => {
                             <Chip
                               label={d.disponibles}
                               size="small"
-                              sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#E0F2FE", color: "#0369A1" }}
+                              sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#E0F2FE", color: "#0284C7" }}
                             />
                           </TableCell>
                         </TableRow>
