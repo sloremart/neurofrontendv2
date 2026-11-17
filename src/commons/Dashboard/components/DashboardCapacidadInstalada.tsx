@@ -32,12 +32,26 @@ interface Resumen {
   bloqueados: number;
   pct_ocupacion: number;
 }
+interface BloqueadoDetalle {
+  fecha: string;
+  consultorio: string;
+  cod_medi: string;
+  bloqueados: number;
+}
+interface DisponibleDetalle {
+  fecha: string;
+  consultorio: string;
+  id_sede: number;
+  disponibles: number;
+}
 interface DatosCap {
   ok: boolean;
   mes: string;
   resumen: Resumen;
   consultorios: Consultorio[];
   servicios: Servicio[];
+  bloqueados_detalle: BloqueadoDetalle[];
+  disponibles_detalle: DisponibleDetalle[];
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -299,7 +313,7 @@ const DashboardCapacidadInstalada: React.FC = () => {
           </Paper>
 
           {/* Tabla servicios */}
-          <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
+          <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, mb: 3, overflow: "hidden" }}>
             <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50" }}>
               <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>
                 Citas agendadas por tipo de servicio
@@ -371,6 +385,131 @@ const DashboardCapacidadInstalada: React.FC = () => {
               </Table>
             </TableContainer>
           </Paper>
+
+          {/* Desgloses lado a lado */}
+          <Grid container spacing={2}>
+            {/* Desglose bloqueados */}
+            <Grid item xs={12} md={6}>
+              <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
+                <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "#FFFBEB" }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "#B45309" }}>
+                    Desglose de bloqueados
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 0.3 }}>
+                    Slots inhabilitados por día y consultorio
+                  </Typography>
+                </Box>
+                <TableContainer sx={{ maxHeight: 340 }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow sx={{ "& th": { fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "text.secondary", bgcolor: "grey.50" } }}>
+                        <TableCell>Fecha</TableCell>
+                        <TableCell>Consultorio</TableCell>
+                        <TableCell>Médico</TableCell>
+                        <TableCell align="right">Slots</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {datos.bloqueados_detalle.map((b, i) => (
+                        <TableRow key={i} hover>
+                          <TableCell>
+                            <Typography sx={{ fontSize: 12, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                              {b.fecha}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography sx={{ fontSize: 12 }}>{b.consultorio}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>{b.cod_medi || "—"}</Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Chip
+                              label={b.bloqueados}
+                              size="small"
+                              sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#FEF3C7", color: "#92400E" }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {datos.bloqueados_detalle.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} align="center" sx={{ py: 4, color: "text.secondary", fontSize: 13 }}>
+                            Sin slots bloqueados
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+
+            {/* Desglose disponibles */}
+            <Grid item xs={12} md={6}>
+              <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
+                <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "#F0F9FF" }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "#0369A1" }}>
+                    Espacios disponibles
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 0.3 }}>
+                    Cupos libres por día y consultorio
+                  </Typography>
+                </Box>
+                <TableContainer sx={{ maxHeight: 340 }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow sx={{ "& th": { fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "text.secondary", bgcolor: "grey.50" } }}>
+                        <TableCell>Fecha</TableCell>
+                        <TableCell>Consultorio</TableCell>
+                        <TableCell align="center">Sede</TableCell>
+                        <TableCell align="right">Cupos</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {datos.disponibles_detalle.map((d, i) => (
+                        <TableRow key={i} hover>
+                          <TableCell>
+                            <Typography sx={{ fontSize: 12, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                              {d.fecha}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography sx={{ fontSize: 12 }}>{d.consultorio}</Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip
+                              label={`S0${d.id_sede - 1}`}
+                              size="small"
+                              sx={{
+                                fontSize: 10, fontWeight: 700, height: 20,
+                                bgcolor: d.id_sede === 2 ? "#EDE9FB" : "#F0FDFB",
+                                color:   d.id_sede === 2 ? "#6D28D9" : "#0F766E",
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Chip
+                              label={d.disponibles}
+                              size="small"
+                              sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#E0F2FE", color: "#0369A1" }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {datos.disponibles_detalle.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} align="center" sx={{ py: 4, color: "text.secondary", fontSize: 13 }}>
+                            Sin cupos disponibles
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+          </Grid>
         </>
       )}
     </Box>
