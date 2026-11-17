@@ -77,12 +77,12 @@ const MENU: MenuGroup[] = [
     items: [
       { label: 'Facturación',          path: '/dashboard',               icon: <BarChartIcon />,      roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera'] },
       { label: 'Agendamiento',         path: '/dashboard_agendamiento',  icon: <CalendarMonthIcon />, roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera', 'GerenciaCM'] },
-      { label: 'Capacidad Instalada',  path: '/capacidad_instalada',     icon: <SpeedIcon />,         roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas'] },
     ],
   },
   {
     group: 'Evaluación',
     items: [
+      { label: 'Demanda Inducida', path: '/demanda_inducida',     icon: <HealingIcon />,          roles: ['AdministrativoGerencia', 'Facturador'] },
       { label: 'Dashboard Eval.', path: '/evaluacion_dashboard', icon: <WorkspacePremiumIcon />, roles: ['AdministrativoGerencia'] },
       { label: 'Eval. Personal',  path: '/evaluacion_personal',  icon: <PersonOutlineIcon />,   roles: TODOS },
     ],
