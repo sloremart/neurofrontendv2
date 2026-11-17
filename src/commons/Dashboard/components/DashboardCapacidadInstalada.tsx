@@ -147,7 +147,7 @@ const DashboardCapacidadInstalada: React.FC = () => {
             Capacidad Instalada
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Ocupación real de agenda por consultorio y servicio — ZeusSalud
+            Ocupación real de agenda por consultorio y servicio
           </Typography>
         </Box>
 
