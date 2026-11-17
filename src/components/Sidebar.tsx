@@ -19,6 +19,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import DonutSmallIcon from '@mui/icons-material/DonutSmall';
+import SpeedIcon from '@mui/icons-material/Speed';
 import SavingsIcon from '@mui/icons-material/Savings';
 import SummarizeIcon from '@mui/icons-material/Summarize';
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
@@ -74,8 +75,9 @@ const MENU: MenuGroup[] = [
   {
     group: 'Dashboard',
     items: [
-      { label: 'Facturación',   path: '/dashboard',               icon: <BarChartIcon />,      roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera'] },
-      { label: 'Agendamiento',  path: '/dashboard_agendamiento',  icon: <CalendarMonthIcon />, roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera', 'GerenciaCM'] },
+      { label: 'Facturación',          path: '/dashboard',               icon: <BarChartIcon />,      roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera'] },
+      { label: 'Agendamiento',         path: '/dashboard_agendamiento',  icon: <CalendarMonthIcon />, roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera', 'GerenciaCM'] },
+      { label: 'Capacidad Instalada',  path: '/capacidad_instalada',     icon: <SpeedIcon />,         roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas'] },
     ],
   },
   {

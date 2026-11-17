@@ -32,6 +32,7 @@ import DashboardMedicos from '../commons/Dashboard/components/DashboardMedicos.t
 import DashboardProduccion from '../commons/Dashboard/components/DashboardProduccion.tsx';
 import DashboardResultados from '../commons/Dashboard/components/DashboardResultados.tsx';
 import DashboardDemandaInducida from '../commons/Dashboard/components/DashboardDemandaInducida.tsx';
+import DashboardCapacidadInstalada from '../commons/Dashboard/components/DashboardCapacidadInstalada.tsx';
 import InformeTotalFacturacion from '../commons/Auditoria/screen/InformeTotalFac.tsx';
 
 // Evaluación
@@ -118,6 +119,7 @@ export const AppRouter: React.FC = () => {
           <Route path="/dashboard_medicos"     element={<DashboardMedicos />} />
           <Route path="/dashboard_produccion"  element={<DashboardProduccion />} />
           <Route path="/dashboard_resultados"  element={<DashboardResultados />} />
+          <Route path="/capacidad_instalada"   element={<DashboardCapacidadInstalada />} />
           <Route path="/informe_fact"          element={<InformeTotalFacturacion />} />
           <Route path="/gestion_facturacion"   element={<GestionFacturacion />} />
           <Route path="/evaluacion_dashboard/*" element={<EvaluacionDashboard />} />
