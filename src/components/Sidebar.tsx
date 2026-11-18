@@ -31,7 +31,6 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import HealingIcon from '@mui/icons-material/Healing';
-import FactCheckIcon from '@mui/icons-material/FactCheck';
 
 const SIDEBAR_W = 248;
 const MINI_W    = 62;
@@ -78,7 +77,6 @@ const MENU: MenuGroup[] = [
     items: [
       { label: 'Facturación',          path: '/dashboard',               icon: <BarChartIcon />,      roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera'] },
       { label: 'Agendamiento',         path: '/dashboard_agendamiento',  icon: <CalendarMonthIcon />, roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera', 'GerenciaCM'] },
-      { label: 'Auditoría Honorarios', path: '/auditoria_honorarios',    icon: <FactCheckIcon />,     roles: ['Administrativo', 'AdministrativoGerencia', 'Sistemas', 'Financiera'] },
     ],
   },
   {
