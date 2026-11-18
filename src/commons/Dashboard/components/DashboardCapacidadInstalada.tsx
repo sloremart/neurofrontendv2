@@ -29,6 +29,7 @@ interface Consultorio {
 interface Servicio {
   asunto_id: number;
   servicio: string;
+  cups: string;
   id_sede: number;
   agendados: number;
 }
@@ -445,6 +446,7 @@ const DashboardCapacidadInstalada: React.FC = () => {
                 <TableHead>
                   <TableRow sx={{ "& th": { fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "text.secondary", bgcolor: "grey.50" } }}>
                     <TableCell>Servicio</TableCell>
+                    <TableCell align="center">CUPS</TableCell>
                     <TableCell align="center">Sede</TableCell>
                     <TableCell align="right">Citas agendadas</TableCell>
                     <TableCell sx={{ minWidth: 160 }}>Participación</TableCell>
@@ -454,10 +456,32 @@ const DashboardCapacidadInstalada: React.FC = () => {
                   {datos.servicios.map((svc, i) => {
                     const totalSvc = datos.servicios.reduce((a, s) => a + s.agendados, 0);
                     const p2 = pct(svc.agendados, totalSvc);
+                    const esSueno = ["891703","891704","891901","891402"].includes(svc.cups);
                     return (
-                      <TableRow key={`${svc.asunto_id}-${i}`} hover>
+                      <TableRow
+                        key={`${svc.asunto_id}-${i}`}
+                        hover
+                        sx={esSueno ? { bgcolor: "rgba(109,40,217,0.04)" } : {}}
+                      >
                         <TableCell>
-                          <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{svc.servicio}</Typography>
+                          <Typography sx={{ fontSize: 13, fontWeight: esSueno ? 700 : 500 }}>
+                            {svc.servicio}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          {svc.cups ? (
+                            <Chip
+                              label={svc.cups}
+                              size="small"
+                              sx={{
+                                fontSize: 10, fontWeight: 700, height: 20,
+                                bgcolor: esSueno ? "#EDE9FB" : "grey.100",
+                                color: esSueno ? "#6D28D9" : "text.secondary",
+                              }}
+                            />
+                          ) : (
+                            <Typography sx={{ fontSize: 11, color: "text.disabled" }}>—</Typography>
+                          )}
                         </TableCell>
                         <TableCell align="center">
                           <Chip
@@ -479,7 +503,7 @@ const DashboardCapacidadInstalada: React.FC = () => {
                                 value={Math.min(p2, 100)}
                                 sx={{
                                   height: 7, borderRadius: 4, bgcolor: "grey.100",
-                                  "& .MuiLinearProgress-bar": { bgcolor: "#6D28D9" },
+                                  "& .MuiLinearProgress-bar": { bgcolor: esSueno ? "#6D28D9" : "#94A3B8" },
                                 }}
                               />
                             </Box>
@@ -493,7 +517,7 @@ const DashboardCapacidadInstalada: React.FC = () => {
                   })}
                   {datos.servicios.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} align="center" sx={{ py: 4, color: "text.secondary", fontSize: 13 }}>
+                      <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary", fontSize: 13 }}>
                         Sin citas para este mes
                       </TableCell>
                     </TableRow>
