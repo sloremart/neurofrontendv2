@@ -33,6 +33,16 @@ interface Servicio {
   id_sede: number;
   agendados: number;
 }
+interface Medico {
+  medico: string;
+  cod_medi: string;
+  id_sede: number;
+  consultorio: string;
+  slots_totales: number;
+  citas_agendadas: number;
+  slots_disponibles: number;
+  slots_bloqueados: number;
+}
 interface Resumen {
   total_programado: number;
   agendados: number;
@@ -58,6 +68,7 @@ interface DatosCap {
   resumen: Resumen;
   consultorios: Consultorio[];
   servicios: Servicio[];
+  medicos: Medico[];
   bloqueados_detalle: BloqueadoDetalle[];
   disponibles_detalle: DisponibleDetalle[];
 }
@@ -456,28 +467,17 @@ const DashboardCapacidadInstalada: React.FC = () => {
                   {datos.servicios.map((svc, i) => {
                     const totalSvc = datos.servicios.reduce((a, s) => a + s.agendados, 0);
                     const p2 = pct(svc.agendados, totalSvc);
-                    const esSueno = ["891703","891704","891901","891402"].includes(svc.cups);
                     return (
-                      <TableRow
-                        key={`${svc.asunto_id}-${i}`}
-                        hover
-                        sx={esSueno ? { bgcolor: "rgba(109,40,217,0.04)" } : {}}
-                      >
+                      <TableRow key={`${svc.asunto_id}-${i}`} hover>
                         <TableCell>
-                          <Typography sx={{ fontSize: 13, fontWeight: esSueno ? 700 : 500 }}>
-                            {svc.servicio}
-                          </Typography>
+                          <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{svc.servicio}</Typography>
                         </TableCell>
                         <TableCell align="center">
                           {svc.cups ? (
                             <Chip
                               label={svc.cups}
                               size="small"
-                              sx={{
-                                fontSize: 10, fontWeight: 700, height: 20,
-                                bgcolor: esSueno ? "#EDE9FB" : "grey.100",
-                                color: esSueno ? "#6D28D9" : "text.secondary",
-                              }}
+                              sx={{ fontSize: 10, fontWeight: 700, height: 20, bgcolor: "grey.100", color: "text.secondary" }}
                             />
                           ) : (
                             <Typography sx={{ fontSize: 11, color: "text.disabled" }}>—</Typography>
@@ -503,7 +503,7 @@ const DashboardCapacidadInstalada: React.FC = () => {
                                 value={Math.min(p2, 100)}
                                 sx={{
                                   height: 7, borderRadius: 4, bgcolor: "grey.100",
-                                  "& .MuiLinearProgress-bar": { bgcolor: esSueno ? "#6D28D9" : "#94A3B8" },
+                                  "& .MuiLinearProgress-bar": { bgcolor: "#6D28D9" },
                                 }}
                               />
                             </Box>
@@ -519,6 +519,106 @@ const DashboardCapacidadInstalada: React.FC = () => {
                     <TableRow>
                       <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary", fontSize: 13 }}>
                         Sin citas para este mes
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+
+          {/* Tabla médicos */}
+          <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, mb: 3, overflow: "hidden" }}>
+            <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50" }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>
+                Capacidad instalada por médico
+              </Typography>
+              <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 0.3 }}>
+                Slots programados, citas agendadas y disponibilidad por médico y consultorio
+              </Typography>
+            </Box>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ "& th": { fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "text.secondary", bgcolor: "grey.50" } }}>
+                    <TableCell>Médico</TableCell>
+                    <TableCell>Consultorio</TableCell>
+                    <TableCell align="center">Sede</TableCell>
+                    <TableCell align="right">Slots prog.</TableCell>
+                    <TableCell align="right">Agendados</TableCell>
+                    <TableCell align="right">Disponibles</TableCell>
+                    <TableCell align="right">Bloqueados</TableCell>
+                    <TableCell sx={{ minWidth: 140 }}>Ocupación</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {datos.medicos.map((med, i) => {
+                    const pm = pct(med.citas_agendadas, med.slots_totales);
+                    const color = colorOcupacion(pm);
+                    return (
+                      <TableRow key={i} hover>
+                        <TableCell>
+                          <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{med.medico}</Typography>
+                          <Typography sx={{ fontSize: 10, color: "text.disabled" }}>{med.cod_medi}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography sx={{ fontSize: 12 }}>{med.consultorio}</Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={sedeLabel(med.id_sede)}
+                            size="small"
+                            sx={{ fontSize: 10, fontWeight: 700, height: 20, ...sedeColor(med.id_sede) }}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography sx={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
+                            {med.slots_totales.toLocaleString("es-CO")}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                            {med.citas_agendadas.toLocaleString("es-CO")}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography sx={{ fontSize: 13, color: "text.secondary", fontVariantNumeric: "tabular-nums" }}>
+                            {med.slots_disponibles.toLocaleString("es-CO")}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          {med.slots_bloqueados > 0 ? (
+                            <Chip
+                              label={med.slots_bloqueados}
+                              size="small"
+                              sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#FEF3C7", color: "#B45309" }}
+                            />
+                          ) : (
+                            <Typography sx={{ fontSize: 12, color: "text.disabled" }}>—</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box sx={{ flex: 1, minWidth: 70 }}>
+                              <LinearProgress
+                                variant="determinate"
+                                value={Math.min(pm, 100)}
+                                color={color}
+                                sx={{ height: 7, borderRadius: 4, bgcolor: "grey.100" }}
+                              />
+                            </Box>
+                            <Typography sx={{ fontSize: 12, fontWeight: 700, minWidth: 36, fontVariantNumeric: "tabular-nums" }}>
+                              {pm}%
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {datos.medicos.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8} align="center" sx={{ py: 4, color: "text.secondary", fontSize: 13 }}>
+                        Sin datos para este mes
                       </TableCell>
                     </TableRow>
                   )}
