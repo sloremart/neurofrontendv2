@@ -53,7 +53,7 @@ interface Resumen {
 interface BloqueadoDetalle {
   fecha: string;
   consultorio: string;
-  cod_medi: string;
+  medico: string;
   bloqueados: number;
 }
 interface DisponibleDetalle {
@@ -66,6 +66,7 @@ interface Comparativo {
   servicio: string;
   capacidad_excel: number;
   agendados: number;
+  confirmadas: number;
   pct_ocupacion: number | null;
 }
 interface DatosCap {
@@ -305,61 +306,126 @@ const DashboardCapacidadInstalada: React.FC = () => {
                   "& .MuiTabs-indicator": { bgcolor: "#6D28D9", height: 3 },
                 }}
               >
-                <Tab label={`Consultorios (${datos.consultorios.length})`} />
-                <Tab label={medicoFiltro ? "Médico seleccionado" : `Médicos (${medicosUnicos.length})`} />
                 <Tab label="Comparativo vs Capacidad" />
+                <Tab label={medicoFiltro ? "Médico seleccionado" : `Médicos (${medicosUnicos.length})`} />
                 <Tab label={`Servicios (${serviciosFiltrados.length})`} />
                 <Tab label="Desglose bloqueados / disponibles" />
               </Tabs>
             </Box>
 
-            {/* Tab 0 — Consultorios */}
+            {/* Tab 0 — Comparativo capacidad Excel vs agenda sistema */}
             <TabPanel value={tabActual} index={0}>
               <TableContainer>
                 <Table size="small">
                   <TableHead>
                     <TableRow sx={{ "& th": TH }}>
-                      <TableCell sx={{ pl: 2.5 }}>Consultorio</TableCell>
-                      <TableCell align="center">Sede</TableCell>
-                      <TableCell align="right">Programado</TableCell>
-                      <TableCell align="right">Agendado</TableCell>
-                      <TableCell align="right">Disponible</TableCell>
-                      <TableCell sx={{ minWidth: 160, pr: 2.5 }}>Ocupación</TableCell>
+                      <TableCell sx={{ pl: 2.5 }}>Servicio</TableCell>
+                      <TableCell align="right">Cap. instalada</TableCell>
+                      <TableCell align="right">Agendados</TableCell>
+                      <TableCell align="right">Confirmadas</TableCell>
+                      <TableCell sx={{ minWidth: 180, pr: 2.5 }}>Ocupación</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {datos.consultorios.map((con) => {
-                      const p = pct(con.agendados, con.total_programado);
+                    {(() => {
+                      const totalCap  = datos.comparativo.reduce((a, c) => a + c.capacidad_excel, 0);
+                      const totalAg   = datos.comparativo.reduce((a, c) => a + c.agendados, 0);
+                      const totalConf = datos.comparativo.reduce((a, c) => a + (c.confirmadas ?? 0), 0);
                       return (
-                        <TableRow key={`${con.con_id}-${con.id_sede}`} hover>
-                          <TableCell sx={{ pl: 2.5 }}>
-                            <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{con.consultorio}</Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip label={sedeLabel(con.id_sede)} size="small" sx={{ fontSize: 10, fontWeight: 700, height: 20, ...sedeColor(con.id_sede) }} />
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography sx={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>{con.total_programado.toLocaleString("es-CO")}</Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{con.agendados.toLocaleString("es-CO")}</Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography sx={{ fontSize: 13, color: "text.secondary", fontVariantNumeric: "tabular-nums" }}>{con.disponibles.toLocaleString("es-CO")}</Typography>
-                          </TableCell>
-                          <TableCell sx={{ pr: 2.5 }}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                              <Box sx={{ flex: 1, minWidth: 80 }}>
-                                <LinearProgress variant="determinate" value={Math.min(p, 100)} color={colorOcupacion(p)} sx={{ height: 7, borderRadius: 4, bgcolor: "grey.100" }} />
+                        <>
+                          {datos.comparativo.map((row, i) => {
+                            const p = row.pct_ocupacion ?? 0;
+                            const sinCap = row.capacidad_excel === 0;
+                            return (
+                              <TableRow key={i} hover sx={sinCap ? { opacity: 0.6 } : {}}>
+                                <TableCell sx={{ pl: 2.5 }}>
+                                  <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{row.servicio}</Typography>
+                                  {sinCap && <Typography sx={{ fontSize: 10, color: "warning.main" }}>Sin referencia en Excel</Typography>}
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography sx={{ fontSize: 13, fontVariantNumeric: "tabular-nums", color: "text.secondary" }}>
+                                    {sinCap ? "—" : row.capacidad_excel.toLocaleString("es-CO")}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                                    {row.agendados.toLocaleString("es-CO")}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right">
+                                  {(row.confirmadas ?? 0) > 0 ? (
+                                    <Chip
+                                      label={(row.confirmadas ?? 0).toLocaleString("es-CO")}
+                                      size="small"
+                                      sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#DCFCE7", color: "#166534" }}
+                                    />
+                                  ) : (
+                                    <Typography sx={{ fontSize: 12, color: "text.disabled" }}>—</Typography>
+                                  )}
+                                </TableCell>
+                                <TableCell sx={{ pr: 2.5 }}>
+                                  {sinCap ? (
+                                    <Typography sx={{ fontSize: 11, color: "text.disabled" }}>—</Typography>
+                                  ) : (
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                      <Box sx={{ flex: 1, minWidth: 100 }}>
+                                        <LinearProgress
+                                          variant="determinate"
+                                          value={Math.min(p, 100)}
+                                          color={colorOcupacion(p)}
+                                          sx={{ height: 7, borderRadius: 4, bgcolor: "grey.100" }}
+                                        />
+                                      </Box>
+                                      <Typography sx={{ fontSize: 12, fontWeight: 700, minWidth: 42, fontVariantNumeric: "tabular-nums" }}>
+                                        {p.toFixed(1)}%
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                          {/* Totales */}
+                          <TableRow sx={{ bgcolor: "grey.50", "& td": { borderTop: "2px solid", borderColor: "divider" } }}>
+                            <TableCell sx={{ pl: 2.5 }}>
+                              <Typography sx={{ fontSize: 13, fontWeight: 800 }}>TOTAL</Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                                {totalCap.toLocaleString("es-CO")}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                                {totalAg.toLocaleString("es-CO")}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                                {totalConf.toLocaleString("es-CO")}
+                              </Typography>
+                            </TableCell>
+                            <TableCell sx={{ pr: 2.5 }}>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <Box sx={{ flex: 1, minWidth: 100 }}>
+                                  <LinearProgress
+                                    variant="determinate"
+                                    value={Math.min(pct(totalAg, totalCap), 100)}
+                                    color={colorOcupacion(pct(totalAg, totalCap))}
+                                    sx={{ height: 8, borderRadius: 4, bgcolor: "grey.200" }}
+                                  />
+                                </Box>
+                                <Typography sx={{ fontSize: 13, fontWeight: 800, minWidth: 42, fontVariantNumeric: "tabular-nums" }}>
+                                  {pct(totalAg, totalCap)}%
+                                </Typography>
                               </Box>
-                              <Typography sx={{ fontSize: 12, fontWeight: 700, minWidth: 36, fontVariantNumeric: "tabular-nums" }}>{p}%</Typography>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
+                            </TableCell>
+                          </TableRow>
+                        </>
                       );
-                    })}
-                    {datos.consultorios.length === 0 && (
-                      <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4, color: "text.secondary" }}>Sin datos para este mes</TableCell></TableRow>
+                    })()}
+                    {datos.comparativo.length === 0 && (
+                      <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary" }}>Sin datos</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -431,109 +497,8 @@ const DashboardCapacidadInstalada: React.FC = () => {
               </TableContainer>
             </TabPanel>
 
-            {/* Tab 2 — Comparativo capacidad Excel vs agenda sistema */}
+            {/* Tab 2 — Servicios */}
             <TabPanel value={tabActual} index={2}>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow sx={{ "& th": TH }}>
-                      <TableCell sx={{ pl: 2.5 }}>Servicio</TableCell>
-                      <TableCell align="right">Cap. instalada</TableCell>
-                      <TableCell align="right">Agendados</TableCell>
-                      <TableCell sx={{ minWidth: 180, pr: 2.5 }}>Ocupación</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(() => {
-                      const totalCap = datos.comparativo.reduce((a, c) => a + c.capacidad_excel, 0);
-                      const totalAg  = datos.comparativo.reduce((a, c) => a + c.agendados, 0);
-                      return (
-                        <>
-                          {datos.comparativo.map((row, i) => {
-                            const p = row.pct_ocupacion ?? 0;
-                            const sinCap = row.capacidad_excel === 0;
-                            return (
-                              <TableRow key={i} hover sx={sinCap ? { opacity: 0.6 } : {}}>
-                                <TableCell sx={{ pl: 2.5 }}>
-                                  <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{row.servicio}</Typography>
-                                  {sinCap && <Typography sx={{ fontSize: 10, color: "warning.main" }}>Sin referencia en Excel</Typography>}
-                                </TableCell>
-                                <TableCell align="right">
-                                  <Typography sx={{ fontSize: 13, fontVariantNumeric: "tabular-nums", color: "text.secondary" }}>
-                                    {sinCap ? "—" : row.capacidad_excel.toLocaleString("es-CO")}
-                                  </Typography>
-                                </TableCell>
-                                <TableCell align="right">
-                                  <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                                    {row.agendados.toLocaleString("es-CO")}
-                                  </Typography>
-                                </TableCell>
-                                <TableCell sx={{ pr: 2.5 }}>
-                                  {sinCap ? (
-                                    <Typography sx={{ fontSize: 11, color: "text.disabled" }}>—</Typography>
-                                  ) : (
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                      <Box sx={{ flex: 1, minWidth: 100 }}>
-                                        <LinearProgress
-                                          variant="determinate"
-                                          value={Math.min(p, 100)}
-                                          color={colorOcupacion(p)}
-                                          sx={{ height: 7, borderRadius: 4, bgcolor: "grey.100" }}
-                                        />
-                                      </Box>
-                                      <Typography sx={{ fontSize: 12, fontWeight: 700, minWidth: 42, fontVariantNumeric: "tabular-nums" }}>
-                                        {p.toFixed(1)}%
-                                      </Typography>
-                                    </Box>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                          {/* Totales */}
-                          <TableRow sx={{ bgcolor: "grey.50", "& td": { borderTop: "2px solid", borderColor: "divider" } }}>
-                            <TableCell sx={{ pl: 2.5 }}>
-                              <Typography sx={{ fontSize: 13, fontWeight: 800 }}>TOTAL</Typography>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                                {totalCap.toLocaleString("es-CO")}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                                {totalAg.toLocaleString("es-CO")}
-                              </Typography>
-                            </TableCell>
-                            <TableCell sx={{ pr: 2.5 }}>
-                              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                <Box sx={{ flex: 1, minWidth: 100 }}>
-                                  <LinearProgress
-                                    variant="determinate"
-                                    value={Math.min(pct(totalAg, totalCap), 100)}
-                                    color={colorOcupacion(pct(totalAg, totalCap))}
-                                    sx={{ height: 8, borderRadius: 4, bgcolor: "grey.200" }}
-                                  />
-                                </Box>
-                                <Typography sx={{ fontSize: 13, fontWeight: 800, minWidth: 42, fontVariantNumeric: "tabular-nums" }}>
-                                  {pct(totalAg, totalCap)}%
-                                </Typography>
-                              </Box>
-                            </TableCell>
-                          </TableRow>
-                        </>
-                      );
-                    })()}
-                    {datos.comparativo.length === 0 && (
-                      <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4, color: "text.secondary" }}>Sin datos</TableCell></TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </TabPanel>
-
-            {/* Tab 3 — Servicios */}
-            <TabPanel value={tabActual} index={3}>
               <TableContainer>
                 <Table size="small">
                   <TableHead>
@@ -578,8 +543,8 @@ const DashboardCapacidadInstalada: React.FC = () => {
               </TableContainer>
             </TabPanel>
 
-            {/* Tab 4 — Desglose */}
-            <TabPanel value={tabActual} index={4}>
+            {/* Tab 3 — Desglose */}
+            <TabPanel value={tabActual} index={3}>
               <Grid container spacing={2} sx={{ p: 2 }}>
                 <Grid item xs={12} md={6}>
                   <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
@@ -601,7 +566,7 @@ const DashboardCapacidadInstalada: React.FC = () => {
                             <TableRow key={i} hover>
                               <TableCell><Typography sx={{ fontSize: 12, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{b.fecha}</Typography></TableCell>
                               <TableCell><Typography sx={{ fontSize: 12 }}>{b.consultorio}</Typography></TableCell>
-                              <TableCell><Typography sx={{ fontSize: 12, color: "text.secondary" }}>{b.cod_medi || "—"}</Typography></TableCell>
+                              <TableCell><Typography sx={{ fontSize: 12, color: "text.secondary" }}>{b.medico || "—"}</Typography></TableCell>
                               <TableCell align="right">
                                 <Chip label={b.bloqueados} size="small" sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#FEF3C7", color: "#B45309" }} />
                               </TableCell>
