@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { DataGrid, GridToolbarContainer, GridToolbarExport, type GridColDef } from "@mui/x-data-grid";
+import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import {
   Box, Button, Card, Chip, FormControl, InputLabel, MenuItem, Select, TextField, Tooltip, Typography,
 } from "@mui/material";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import FilterAltIcon from "@mui/icons-material/FilterAlt";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import CONFIG from "../../../config/api.js";
 import { Title } from "../../../components/Title.tsx";
 
@@ -83,17 +84,6 @@ const haceDias = (n: number) => new Date(Date.now() - n * 86400000).toISOString(
 const formatoFecha = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "";
 
-function CustomToolbar() {
-  return (
-    <GridToolbarContainer>
-      <GridToolbarExport
-        csvOptions={{ utf8WithBom: true, delimiter: ",", fileName: "hallazgos_ia" }}
-        printOptions={{ disableToolbarButton: true }}
-      />
-    </GridToolbarContainer>
-  );
-}
-
 const Indicador = ({ label, valor, color }: { label: string; valor: number | string; color: string }) => (
   <Card sx={{ flex: "1 1 160px", p: 2, borderTop: `4px solid ${color}`, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
     <Typography sx={{ fontSize: 12, color: "#6B7280", fontWeight: 600, textTransform: "uppercase" }}>{label}</Typography>
@@ -113,7 +103,9 @@ export const HallazgosIA: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const consultar = useCallback(async () => {
+  const [descargando, setDescargando] = useState(false);
+
+  const parametros = useCallback(() => {
     const params = new URLSearchParams({ fecha_inicio: fechaInicio, fecha_fin: fechaFin, estado });
     if (tipo) params.append("tipo", tipo);
     if (admision.trim()) params.append("admision", admision.trim());
@@ -123,6 +115,11 @@ export const HallazgosIA: React.FC = () => {
         if (ud.id) params.append("usuario_id", String(ud.id));
       } catch { /* sin usuario en sesión */ }
     }
+    return params;
+  }, [fechaInicio, fechaFin, estado, tipo, admision, soloMios]);
+
+  const consultar = useCallback(async () => {
+    const params = parametros();
     setLoading(true);
     setError(null);
     try {
@@ -138,7 +135,28 @@ export const HallazgosIA: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [fechaInicio, fechaFin, estado, tipo, admision, soloMios]);
+  }, [parametros]);
+
+  // Excel real (.xlsx) generado en el backend: el CSV se descuadraba al abrirlo en Excel
+  const descargarExcel = async () => {
+    const params = parametros();
+    params.append("formato", "xlsx");
+    setDescargando(true);
+    try {
+      const res = await fetch(`${API_ENDPOINT}/gedocumental/hallazgos-ia/?${params}`);
+      if (!res.ok) throw new Error("No se pudo generar el Excel");
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `hallazgos_ia_${fechaInicio}_${fechaFin}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setDescargando(false);
+    }
+  };
 
   useEffect(() => { consultar(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -244,6 +262,10 @@ export const HallazgosIA: React.FC = () => {
           sx={{ background: "linear-gradient(90deg, #381A73 0%, #1E2E71 100%)" }}>
           Consultar
         </Button>
+        <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={descargarExcel}
+          disabled={descargando || loading || !filas.length}>
+          {descargando ? "Generando..." : "Descargar Excel"}
+        </Button>
       </Card>
 
       {error && <Typography color="error" sx={{ mb: 1 }}>{error}</Typography>}
@@ -255,7 +277,6 @@ export const HallazgosIA: React.FC = () => {
           getRowId={(r) => r.IdRevision}
           getRowHeight={() => "auto"}
           loading={loading}
-          slots={{ toolbar: CustomToolbar }}
           initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
           pageSizeOptions={[25, 50, 100]}
           disableRowSelectionOnClick
