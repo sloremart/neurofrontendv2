@@ -1,15 +1,14 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Box, Typography, Paper, Grid, CircularProgress, Alert, AlertTitle,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Chip, LinearProgress, Tooltip, IconButton, MenuItem, Select,
-  FormControl, InputLabel, SelectChangeEvent,
+  FormControl, InputLabel, SelectChangeEvent, Tabs, Tab,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import EventIcon from "@mui/icons-material/Event";
 import CONFIG from "../../../config/api.js";
 
-// id_sede en ZeusSalud arranca en 2 (Sede 1 = id 2, Sede 2 = id 3)
 const sedeLabel = (id_sede: number) => `S0${id_sede - 1}`;
 const sedeColor = (id_sede: number) =>
   id_sede === 2
@@ -29,6 +28,8 @@ interface Consultorio {
 interface Servicio {
   asunto_id: number;
   servicio: string;
+  cod_medi: string;
+  medico: string;
   id_sede: number;
   agendados: number;
 }
@@ -89,7 +90,6 @@ const mesLabel = (ym: string) => {
   return `${nombres[parseInt(m) - 1]} ${y}`;
 };
 
-// Generar últimos 12 meses como YYYY-MM
 const mesesDisponibles = (): string[] => {
   const result: string[] = [];
   const now = new Date();
@@ -105,143 +105,65 @@ const mesActual = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 
-// ── Generador de alertas automáticas ──────────────────────────────────────────
-interface Alerta {
-  tipo: "error" | "warning" | "success" | "info";
-  titulo: string;
-  detalle: string;
-}
+// ── Alertas ────────────────────────────────────────────────────────────────
+interface Alerta { tipo: "error" | "warning" | "success" | "info"; titulo: string; detalle: string; }
 
 const generarAlertas = (datos: DatosCap): Alerta[] => {
   const alertas: Alerta[] = [];
-
-  // 1. Ocupación global
   if (datos.resumen.pct_ocupacion < 35) {
-    alertas.push({
-      tipo: "error",
-      titulo: `Ocupación global crítica: ${datos.resumen.pct_ocupacion}%`,
-      detalle: `Solo ${datos.resumen.agendados.toLocaleString("es-CO")} de ${datos.resumen.total_programado.toLocaleString("es-CO")} slots tienen cita. Quedan ${datos.resumen.disponibles.toLocaleString("es-CO")} cupos sin usar.`,
-    });
+    alertas.push({ tipo: "error", titulo: `Ocupación global crítica: ${datos.resumen.pct_ocupacion}%`, detalle: `Solo ${datos.resumen.agendados.toLocaleString("es-CO")} de ${datos.resumen.total_programado.toLocaleString("es-CO")} slots tienen cita. Quedan ${datos.resumen.disponibles.toLocaleString("es-CO")} cupos sin usar.` });
   } else if (datos.resumen.pct_ocupacion < 60) {
-    alertas.push({
-      tipo: "warning",
-      titulo: `Ocupación global baja: ${datos.resumen.pct_ocupacion}%`,
-      detalle: `${datos.resumen.disponibles.toLocaleString("es-CO")} cupos disponibles sin agendar. Hay margen para aumentar la demanda.`,
-    });
+    alertas.push({ tipo: "warning", titulo: `Ocupación global baja: ${datos.resumen.pct_ocupacion}%`, detalle: `${datos.resumen.disponibles.toLocaleString("es-CO")} cupos disponibles sin agendar.` });
   }
-
-  // 2. Consultorios sin ninguna cita (con agenda significativa)
-  datos.consultorios
-    .filter((c) => c.agendados === 0 && c.total_programado > 10)
-    .forEach((c) => {
-      alertas.push({
-        tipo: "error",
-        titulo: `Sin citas: ${c.consultorio}`,
-        detalle: `${c.total_programado} slots programados y ninguna cita agendada. Verificar si la agenda está publicada o si el médico está activo.`,
-      });
-    });
-
-  // 3. Alta proporción de bloqueos (>25% y más de 20 slots bloqueados)
-  datos.consultorios
-    .filter(
-      (c) =>
-        c.total_programado > 0 &&
-        c.bloqueados / c.total_programado > 0.25 &&
-        c.bloqueados > 20
-    )
-    .forEach((c) => {
-      const p = Math.round((c.bloqueados / c.total_programado) * 100);
-      alertas.push({
-        tipo: "warning",
-        titulo: `Bloqueos elevados: ${c.consultorio}`,
-        detalle: `${c.bloqueados} slots bloqueados (${p}% de su agenda). Puede indicar ausencia médica prolongada o error de configuración.`,
-      });
-    });
-
-  // 4. Superprogramación — muchos cupos libres con muy baja ocupación
-  datos.consultorios
-    .filter(
-      (c) =>
-        c.disponibles > 300 &&
-        c.total_programado > 0 &&
-        c.agendados / c.total_programado < 0.15
-    )
-    .forEach((c) => {
-      const p = Math.round((c.agendados / c.total_programado) * 100);
-      alertas.push({
-        tipo: "warning",
-        titulo: `Posible superprogramación: ${c.consultorio}`,
-        detalle: `${c.disponibles.toLocaleString("es-CO")} cupos libres con solo ${p}% de ocupación. La capacidad programada supera la demanda real.`,
-      });
-    });
-
-  // 5. Consultorios con alta ocupación (éxito)
-  const llenos = datos.consultorios.filter(
-    (c) => c.total_programado > 10 && c.agendados / c.total_programado >= 0.95
-  );
+  datos.consultorios.filter((c) => c.agendados === 0 && c.total_programado > 10).forEach((c) => {
+    alertas.push({ tipo: "error", titulo: `Sin citas: ${c.consultorio}`, detalle: `${c.total_programado} slots programados y ninguna cita agendada.` });
+  });
+  datos.consultorios.filter((c) => c.total_programado > 0 && c.bloqueados / c.total_programado > 0.25 && c.bloqueados > 20).forEach((c) => {
+    const p = Math.round((c.bloqueados / c.total_programado) * 100);
+    alertas.push({ tipo: "warning", titulo: `Bloqueos elevados: ${c.consultorio}`, detalle: `${c.bloqueados} slots bloqueados (${p}% de su agenda).` });
+  });
+  const llenos = datos.consultorios.filter((c) => c.total_programado > 10 && c.agendados / c.total_programado >= 0.95);
   if (llenos.length > 0) {
-    alertas.push({
-      tipo: "success",
-      titulo: `${llenos.length} consultorio(s) con ocupación ≥ 95%`,
-      detalle: llenos.map((c) => c.consultorio).join(" · "),
-    });
+    alertas.push({ tipo: "success", titulo: `${llenos.length} consultorio(s) con ocupación ≥ 95%`, detalle: llenos.map((c) => c.consultorio).join(" · ") });
   }
-
-  // 6. Insight de servicio más demandado
   if (datos.servicios.length > 0) {
-    const top = datos.servicios[0];
+    const agg: Record<string, number> = {};
+    datos.servicios.forEach((s) => { agg[s.servicio] = (agg[s.servicio] || 0) + s.agendados; });
+    const topSvc = Object.entries(agg).sort((a, b) => b[1] - a[1])[0];
     const totalSvc = datos.servicios.reduce((a, s) => a + s.agendados, 0);
-    const p = totalSvc > 0 ? Math.round((top.agendados / totalSvc) * 100) : 0;
-    alertas.push({
-      tipo: "info",
-      titulo: `Servicio más demandado: ${top.servicio}`,
-      detalle: `Concentra el ${p}% de todas las citas agendadas en el mes (${top.agendados.toLocaleString("es-CO")} citas).`,
-    });
+    const p = totalSvc > 0 ? Math.round((topSvc[1] / totalSvc) * 100) : 0;
+    alertas.push({ tipo: "info", titulo: `Servicio más demandado: ${topSvc[0]}`, detalle: `Concentra el ${p}% de las citas agendadas (${topSvc[1].toLocaleString("es-CO")} citas).` });
   }
-
   return alertas;
 };
 
 // ── KPI Card ───────────────────────────────────────────────────────────────
-const KpiCard: React.FC<{
-  label: string;
-  value: string | number;
-  sub?: string;
-  color?: string;
-}> = ({ label, value, sub, color = "#6D28D9" }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      p: 2.5,
-      border: "1px solid",
-      borderColor: "divider",
-      borderTop: `3px solid ${color}`,
-      borderRadius: 2,
-      height: "100%",
-    }}
-  >
-    <Typography
-      sx={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "text.secondary", mb: 0.5 }}
-    >
-      {label}
-    </Typography>
+const KpiCard: React.FC<{ label: string; value: string | number; sub?: string; color?: string }> = ({ label, value, sub, color = "#6D28D9" }) => (
+  <Paper elevation={0} sx={{ p: 2.5, border: "1px solid", borderColor: "divider", borderTop: `3px solid ${color}`, borderRadius: 2, height: "100%" }}>
+    <Typography sx={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "text.secondary", mb: 0.5 }}>{label}</Typography>
     <Typography sx={{ fontSize: 28, fontWeight: 800, color: "text.primary", lineHeight: 1 }}>
       {typeof value === "number" ? value.toLocaleString("es-CO") : value}
     </Typography>
-    {sub && (
-      <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 0.5 }}>
-        {sub}
-      </Typography>
-    )}
+    {sub && <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 0.5 }}>{sub}</Typography>}
   </Paper>
 );
 
+// ── Tab Panel ──────────────────────────────────────────────────────────────
+const TabPanel: React.FC<{ children: React.ReactNode; value: number; index: number }> = ({ children, value, index }) => (
+  <Box hidden={value !== index}>{value === index && children}</Box>
+);
+
+// ── Tabla header reutilizable ──────────────────────────────────────────────
+const TH = { fontWeight: 700, fontSize: 11, textTransform: "uppercase" as const, letterSpacing: 0.5, color: "text.secondary", bgcolor: "grey.50" };
+
 // ── Componente principal ───────────────────────────────────────────────────
 const DashboardCapacidadInstalada: React.FC = () => {
-  const [datos, setDatos]       = useState<DatosCap | null>(null);
-  const [cargando, setCargando] = useState(false);
-  const [error, setError]       = useState<string | null>(null);
-  const [mes, setMes]           = useState(mesActual());
+  const [datos, setDatos]               = useState<DatosCap | null>(null);
+  const [cargando, setCargando]         = useState(false);
+  const [error, setError]               = useState<string | null>(null);
+  const [mes, setMes]                   = useState(mesActual());
+  const [tabActual, setTabActual]       = useState(0);
+  const [medicoFiltro, setMedicoFiltro] = useState<string>("");
 
   const cargar = useCallback(async (mesParam: string) => {
     setCargando(true);
@@ -254,6 +176,7 @@ const DashboardCapacidadInstalada: React.FC = () => {
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || "Error al cargar datos");
       setDatos(json);
+      setMedicoFiltro("");
     } catch (err: any) {
       setError(err.message || "Error de conexión");
     } finally {
@@ -263,30 +186,56 @@ const DashboardCapacidadInstalada: React.FC = () => {
 
   useEffect(() => { cargar(mes); }, [mes, cargar]);
 
-  const handleMes = (e: SelectChangeEvent) => setMes(e.target.value);
-
   const meses = mesesDisponibles();
+
+  const medicosUnicos = useMemo(() => {
+    if (!datos) return [];
+    const seen = new Set<string>();
+    return datos.medicos
+      .filter((m) => { const k = m.cod_medi; if (seen.has(k)) return false; seen.add(k); return true; })
+      .sort((a, b) => a.medico.localeCompare(b.medico));
+  }, [datos]);
+
+  const medicosFiltrados = useMemo(() => {
+    if (!datos) return [];
+    return medicoFiltro ? datos.medicos.filter((m) => m.cod_medi === medicoFiltro) : datos.medicos;
+  }, [datos, medicoFiltro]);
+
+  const serviciosFiltrados = useMemo(() => {
+    if (!datos) return [];
+    const rows = medicoFiltro ? datos.servicios.filter((s) => s.cod_medi === medicoFiltro) : datos.servicios;
+    const agg: Record<string, Servicio> = {};
+    rows.forEach((s) => {
+      const k = `${s.asunto_id}-${s.id_sede}`;
+      agg[k] = agg[k] ? { ...agg[k], agendados: agg[k].agendados + s.agendados } : { ...s };
+    });
+    return Object.values(agg).sort((a, b) => b.agendados - a.agendados);
+  }, [datos, medicoFiltro]);
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, mx: "auto" }}>
       {/* Header */}
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2, mb: 3 }}>
+      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 2, mb: 3 }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: "text.primary" }}>
-            Capacidad Instalada
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Ocupación real de agenda por consultorio y servicio
-          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: "text.primary" }}>Capacidad Instalada</Typography>
+          <Typography variant="body2" color="text.secondary">Ocupación real de agenda por consultorio, médico y servicio</Typography>
         </Box>
-
-        <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+        <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap" }}>
+          {datos && medicosUnicos.length > 0 && (
+            <FormControl size="small" sx={{ minWidth: 230 }}>
+              <InputLabel>Médico</InputLabel>
+              <Select value={medicoFiltro} label="Médico" onChange={(e: SelectChangeEvent) => setMedicoFiltro(e.target.value)}>
+                <MenuItem value=""><em>Todos los médicos</em></MenuItem>
+                {medicosUnicos.map((m) => (
+                  <MenuItem key={m.cod_medi} value={m.cod_medi}>{m.medico}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Mes</InputLabel>
-            <Select value={mes} label="Mes" onChange={handleMes} startAdornment={<EventIcon sx={{ mr: 0.5, fontSize: 16, color: "text.secondary" }} />}>
-              {meses.map((m) => (
-                <MenuItem key={m} value={m}>{mesLabel(m)}</MenuItem>
-              ))}
+            <Select value={mes} label="Mes" onChange={(e: SelectChangeEvent) => setMes(e.target.value)} startAdornment={<EventIcon sx={{ mr: 0.5, fontSize: 16, color: "text.secondary" }} />}>
+              {meses.map((m) => <MenuItem key={m} value={m}>{mesLabel(m)}</MenuItem>)}
             </Select>
           </FormControl>
           <Tooltip title="Recargar">
@@ -297,12 +246,7 @@ const DashboardCapacidadInstalada: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Estado de carga */}
-      {cargando && (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress size={36} />
-        </Box>
-      )}
+      {cargando && <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress size={36} /></Box>}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {datos && !cargando && (() => {
@@ -311,429 +255,296 @@ const DashboardCapacidadInstalada: React.FC = () => {
         <>
           {/* KPIs */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={6} md={3}>
-              <KpiCard
-                label="Total programado"
-                value={datos.resumen.total_programado}
-                sub={`${mesLabel(datos.mes)}`}
-                color="#6D28D9"
-              />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <KpiCard
-                label="Agendados"
-                value={datos.resumen.agendados}
-                sub={`${datos.resumen.pct_ocupacion}% de ocupación`}
-                color="#059669"
-              />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <KpiCard
-                label="Disponibles"
-                value={datos.resumen.disponibles}
-                sub={`${pct(datos.resumen.disponibles, datos.resumen.total_programado)}% libre`}
-                color="#0EA5E9"
-              />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <KpiCard
-                label="Bloqueados"
-                value={datos.resumen.bloqueados}
-                sub={`${pct(datos.resumen.bloqueados, datos.resumen.total_programado)}% del total`}
-                color="#F59E0B"
-              />
-            </Grid>
+            {[
+              { label: "Total programado", value: datos.resumen.total_programado, sub: mesLabel(datos.mes), color: "#6D28D9" },
+              { label: "Agendados",        value: datos.resumen.agendados,        sub: `${datos.resumen.pct_ocupacion}% de ocupación`, color: "#059669" },
+              { label: "Disponibles",      value: datos.resumen.disponibles,      sub: `${pct(datos.resumen.disponibles, datos.resumen.total_programado)}% libre`, color: "#0EA5E9" },
+              { label: "Bloqueados",       value: datos.resumen.bloqueados,       sub: `${pct(datos.resumen.bloqueados, datos.resumen.total_programado)}% del total`, color: "#F59E0B" },
+            ].map((kpi) => (
+              <Grid item xs={6} md={3} key={kpi.label}>
+                <KpiCard {...kpi} />
+              </Grid>
+            ))}
           </Grid>
 
-          {/* Alertas y recomendaciones */}
+          {/* Alertas */}
           {alertas.length > 0 && (
             <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, mb: 3, overflow: "hidden" }}>
-              <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50" }}>
-                <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>
+              <Box sx={{ px: 2.5, py: 1.5, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50" }}>
+                <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>
                   Alertas y recomendaciones — {mesLabel(datos.mes)}
                 </Typography>
               </Box>
-              <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
+              <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1 }}>
                 {alertas.map((a, i) => (
-                  <Alert key={i} severity={a.tipo} sx={{ alignItems: "flex-start" }}>
-                    <AlertTitle sx={{ fontWeight: 700, fontSize: 13, mb: 0.3 }}>{a.titulo}</AlertTitle>
-                    <Typography sx={{ fontSize: 12 }}>{a.detalle}</Typography>
+                  <Alert key={i} severity={a.tipo} sx={{ alignItems: "flex-start", py: 0.5 }}>
+                    <AlertTitle sx={{ fontWeight: 700, fontSize: 12, mb: 0.2 }}>{a.titulo}</AlertTitle>
+                    <Typography sx={{ fontSize: 11 }}>{a.detalle}</Typography>
                   </Alert>
                 ))}
               </Box>
             </Paper>
           )}
 
-          {/* Tabla consultorios */}
-          <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, mb: 3, overflow: "hidden" }}>
-            <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50" }}>
-              <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>
-                Ocupación por consultorio
-              </Typography>
+          {/* Panel con tabs */}
+          <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
+            <Box sx={{ borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50", px: 1.5 }}>
+              <Tabs
+                value={tabActual}
+                onChange={(_, v) => setTabActual(v)}
+                sx={{
+                  "& .MuiTab-root": { fontSize: 12, fontWeight: 600, textTransform: "none", minHeight: 44, px: 2 },
+                  "& .Mui-selected": { color: "#6D28D9 !important" },
+                  "& .MuiTabs-indicator": { bgcolor: "#6D28D9", height: 3 },
+                }}
+              >
+                <Tab label={`Consultorios (${datos.consultorios.length})`} />
+                <Tab label={medicoFiltro ? "Médico seleccionado" : `Médicos (${medicosUnicos.length})`} />
+                <Tab label={`Servicios (${serviciosFiltrados.length})`} />
+                <Tab label="Desglose bloqueados / disponibles" />
+              </Tabs>
             </Box>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ "& th": { fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "text.secondary", bgcolor: "grey.50" } }}>
-                    <TableCell>Consultorio</TableCell>
-                    <TableCell align="center">Sede</TableCell>
-                    <TableCell align="right">Programado</TableCell>
-                    <TableCell align="right">Agendado</TableCell>
-                    <TableCell align="right">Disponible</TableCell>
-                    <TableCell sx={{ minWidth: 160 }}>Ocupación</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {datos.consultorios.map((con) => {
-                    const p = pct(con.agendados, con.total_programado);
-                    const color = colorOcupacion(p);
-                    return (
-                      <TableRow key={`${con.con_id}-${con.id_sede}`} hover>
-                        <TableCell>
-                          <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{con.consultorio}</Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={sedeLabel(con.id_sede)}
-                            size="small"
-                            sx={{ fontSize: 10, fontWeight: 700, height: 20, ...sedeColor(con.id_sede) }}
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography sx={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
-                            {con.total_programado.toLocaleString("es-CO")}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                            {con.agendados.toLocaleString("es-CO")}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography sx={{ fontSize: 13, color: "text.secondary", fontVariantNumeric: "tabular-nums" }}>
-                            {con.disponibles.toLocaleString("es-CO")}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Box sx={{ flex: 1, minWidth: 80 }}>
-                              <LinearProgress
-                                variant="determinate"
-                                value={Math.min(p, 100)}
-                                color={color}
-                                sx={{ height: 7, borderRadius: 4, bgcolor: "grey.100" }}
-                              />
-                            </Box>
-                            <Typography sx={{ fontSize: 12, fontWeight: 700, minWidth: 36, fontVariantNumeric: "tabular-nums" }}>
-                              {p}%
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {datos.consultorios.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 4, color: "text.secondary", fontSize: 13 }}>
-                        Sin datos para este mes
-                      </TableCell>
+
+            {/* Tab 0 — Consultorios */}
+            <TabPanel value={tabActual} index={0}>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ "& th": TH }}>
+                      <TableCell sx={{ pl: 2.5 }}>Consultorio</TableCell>
+                      <TableCell align="center">Sede</TableCell>
+                      <TableCell align="right">Programado</TableCell>
+                      <TableCell align="right">Agendado</TableCell>
+                      <TableCell align="right">Disponible</TableCell>
+                      <TableCell sx={{ minWidth: 160, pr: 2.5 }}>Ocupación</TableCell>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-
-          {/* Tabla servicios */}
-          <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, mb: 3, overflow: "hidden" }}>
-            <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50" }}>
-              <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>
-                Citas agendadas por tipo de servicio
-              </Typography>
-            </Box>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ "& th": { fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "text.secondary", bgcolor: "grey.50" } }}>
-                    <TableCell>Servicio</TableCell>
-                    <TableCell align="center">Sede</TableCell>
-                    <TableCell align="right">Citas agendadas</TableCell>
-                    <TableCell sx={{ minWidth: 160 }}>Participación</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {datos.servicios.map((svc, i) => {
-                    const totalSvc = datos.servicios.reduce((a, s) => a + s.agendados, 0);
-                    const p2 = pct(svc.agendados, totalSvc);
-                    return (
-                      <TableRow key={`${svc.asunto_id}-${i}`} hover>
-                        <TableCell>
-                          <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{svc.servicio}</Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={sedeLabel(svc.id_sede)}
-                            size="small"
-                            sx={{ fontSize: 10, fontWeight: 700, height: 20, ...sedeColor(svc.id_sede) }}
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                            {svc.agendados.toLocaleString("es-CO")}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Box sx={{ flex: 1, minWidth: 80 }}>
-                              <LinearProgress
-                                variant="determinate"
-                                value={Math.min(p2, 100)}
-                                sx={{
-                                  height: 7, borderRadius: 4, bgcolor: "grey.100",
-                                  "& .MuiLinearProgress-bar": { bgcolor: "#6D28D9" },
-                                }}
-                              />
-                            </Box>
-                            <Typography sx={{ fontSize: 12, fontWeight: 700, minWidth: 36, fontVariantNumeric: "tabular-nums" }}>
-                              {p2}%
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {datos.servicios.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center" sx={{ py: 4, color: "text.secondary", fontSize: 13 }}>
-                        Sin citas para este mes
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-
-          {/* Tabla médicos */}
-          <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, mb: 3, overflow: "hidden" }}>
-            <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50" }}>
-              <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>
-                Capacidad instalada por médico
-              </Typography>
-              <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 0.3 }}>
-                Slots programados, citas agendadas y disponibilidad por médico y consultorio
-              </Typography>
-            </Box>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ "& th": { fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "text.secondary", bgcolor: "grey.50" } }}>
-                    <TableCell>Médico</TableCell>
-                    <TableCell>Consultorio</TableCell>
-                    <TableCell align="center">Sede</TableCell>
-                    <TableCell align="right">Slots prog.</TableCell>
-                    <TableCell align="right">Agendados</TableCell>
-                    <TableCell align="right">Disponibles</TableCell>
-                    <TableCell align="right">Bloqueados</TableCell>
-                    <TableCell sx={{ minWidth: 140 }}>Ocupación</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {datos.medicos.map((med, i) => {
-                    const pm = pct(med.citas_agendadas, med.slots_totales);
-                    const color = colorOcupacion(pm);
-                    return (
-                      <TableRow key={i} hover>
-                        <TableCell>
-                          <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{med.medico}</Typography>
-                          <Typography sx={{ fontSize: 10, color: "text.disabled" }}>{med.cod_medi}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography sx={{ fontSize: 12 }}>{med.consultorio}</Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={sedeLabel(med.id_sede)}
-                            size="small"
-                            sx={{ fontSize: 10, fontWeight: 700, height: 20, ...sedeColor(med.id_sede) }}
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography sx={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
-                            {med.slots_totales.toLocaleString("es-CO")}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                            {med.citas_agendadas.toLocaleString("es-CO")}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography sx={{ fontSize: 13, color: "text.secondary", fontVariantNumeric: "tabular-nums" }}>
-                            {med.slots_disponibles.toLocaleString("es-CO")}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          {med.slots_bloqueados > 0 ? (
-                            <Chip
-                              label={med.slots_bloqueados}
-                              size="small"
-                              sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#FEF3C7", color: "#B45309" }}
-                            />
-                          ) : (
-                            <Typography sx={{ fontSize: 12, color: "text.disabled" }}>—</Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Box sx={{ flex: 1, minWidth: 70 }}>
-                              <LinearProgress
-                                variant="determinate"
-                                value={Math.min(pm, 100)}
-                                color={color}
-                                sx={{ height: 7, borderRadius: 4, bgcolor: "grey.100" }}
-                              />
-                            </Box>
-                            <Typography sx={{ fontSize: 12, fontWeight: 700, minWidth: 36, fontVariantNumeric: "tabular-nums" }}>
-                              {pm}%
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {datos.medicos.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ py: 4, color: "text.secondary", fontSize: 13 }}>
-                        Sin datos para este mes
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-
-          {/* Desgloses lado a lado */}
-          <Grid container spacing={2}>
-            {/* Desglose bloqueados */}
-            <Grid item xs={12} md={6}>
-              <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
-                <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50", borderLeft: "3px solid #F59E0B" }}>
-                  <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>
-                    Desglose de bloqueados
-                  </Typography>
-                  <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 0.3 }}>
-                    Slots inhabilitados por día y consultorio
-                  </Typography>
-                </Box>
-                <TableContainer sx={{ maxHeight: 340 }}>
-                  <Table size="small" stickyHeader>
-                    <TableHead>
-                      <TableRow sx={{ "& th": { fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "text.secondary", bgcolor: "grey.50" } }}>
-                        <TableCell>Fecha</TableCell>
-                        <TableCell>Consultorio</TableCell>
-                        <TableCell>Médico</TableCell>
-                        <TableCell align="right">Slots</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {datos.bloqueados_detalle.map((b, i) => (
-                        <TableRow key={i} hover>
-                          <TableCell>
-                            <Typography sx={{ fontSize: 12, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                              {b.fecha}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography sx={{ fontSize: 12 }}>{b.consultorio}</Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>{b.cod_medi || "—"}</Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Chip
-                              label={b.bloqueados}
-                              size="small"
-                              sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#FEF3C7", color: "#B45309" }}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {datos.bloqueados_detalle.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={4} align="center" sx={{ py: 4, color: "text.secondary", fontSize: 13 }}>
-                            Sin slots bloqueados
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
-            </Grid>
-
-            {/* Desglose disponibles */}
-            <Grid item xs={12} md={6}>
-              <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
-                <Box sx={{ px: 2.5, py: 1.8, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50", borderLeft: "3px solid #0EA5E9" }}>
-                  <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>
-                    Espacios disponibles
-                  </Typography>
-                  <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 0.3 }}>
-                    Cupos libres por día y consultorio
-                  </Typography>
-                </Box>
-                <TableContainer sx={{ maxHeight: 340 }}>
-                  <Table size="small" stickyHeader>
-                    <TableHead>
-                      <TableRow sx={{ "& th": { fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "text.secondary", bgcolor: "grey.50" } }}>
-                        <TableCell>Fecha</TableCell>
-                        <TableCell>Consultorio</TableCell>
-                        <TableCell align="center">Sede</TableCell>
-                        <TableCell align="right">Cupos</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {datos.disponibles_detalle.map((d, i) => (
-                        <TableRow key={i} hover>
-                          <TableCell>
-                            <Typography sx={{ fontSize: 12, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                              {d.fecha}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography sx={{ fontSize: 12 }}>{d.consultorio}</Typography>
+                  </TableHead>
+                  <TableBody>
+                    {datos.consultorios.map((con) => {
+                      const p = pct(con.agendados, con.total_programado);
+                      return (
+                        <TableRow key={`${con.con_id}-${con.id_sede}`} hover>
+                          <TableCell sx={{ pl: 2.5 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{con.consultorio}</Typography>
                           </TableCell>
                           <TableCell align="center">
-                            <Chip
-                              label={sedeLabel(d.id_sede)}
-                              size="small"
-                              sx={{ fontSize: 10, fontWeight: 700, height: 20, ...sedeColor(d.id_sede) }}
-                            />
+                            <Chip label={sedeLabel(con.id_sede)} size="small" sx={{ fontSize: 10, fontWeight: 700, height: 20, ...sedeColor(con.id_sede) }} />
                           </TableCell>
                           <TableCell align="right">
-                            <Chip
-                              label={d.disponibles}
-                              size="small"
-                              sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#E0F2FE", color: "#0284C7" }}
-                            />
+                            <Typography sx={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>{con.total_programado.toLocaleString("es-CO")}</Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{con.agendados.toLocaleString("es-CO")}</Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography sx={{ fontSize: 13, color: "text.secondary", fontVariantNumeric: "tabular-nums" }}>{con.disponibles.toLocaleString("es-CO")}</Typography>
+                          </TableCell>
+                          <TableCell sx={{ pr: 2.5 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Box sx={{ flex: 1, minWidth: 80 }}>
+                                <LinearProgress variant="determinate" value={Math.min(p, 100)} color={colorOcupacion(p)} sx={{ height: 7, borderRadius: 4, bgcolor: "grey.100" }} />
+                              </Box>
+                              <Typography sx={{ fontSize: 12, fontWeight: 700, minWidth: 36, fontVariantNumeric: "tabular-nums" }}>{p}%</Typography>
+                            </Box>
                           </TableCell>
                         </TableRow>
-                      ))}
-                      {datos.disponibles_detalle.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={4} align="center" sx={{ py: 4, color: "text.secondary", fontSize: 13 }}>
-                            Sin cupos disponibles
+                      );
+                    })}
+                    {datos.consultorios.length === 0 && (
+                      <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4, color: "text.secondary" }}>Sin datos para este mes</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </TabPanel>
+
+            {/* Tab 1 — Médicos */}
+            <TabPanel value={tabActual} index={1}>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ "& th": TH }}>
+                      <TableCell sx={{ pl: 2.5 }}>Médico</TableCell>
+                      <TableCell>Consultorio</TableCell>
+                      <TableCell align="center">Sede</TableCell>
+                      <TableCell align="right">Slots prog.</TableCell>
+                      <TableCell align="right">Agendados</TableCell>
+                      <TableCell align="right">Disponibles</TableCell>
+                      <TableCell align="right">Bloqueados</TableCell>
+                      <TableCell sx={{ minWidth: 150, pr: 2.5 }}>Ocupación</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {medicosFiltrados.map((med, i) => {
+                      const pm = pct(med.citas_agendadas, med.slots_totales);
+                      return (
+                        <TableRow key={i} hover>
+                          <TableCell sx={{ pl: 2.5 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{med.medico}</Typography>
+                            <Typography sx={{ fontSize: 10, color: "text.disabled" }}>{med.cod_medi}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography sx={{ fontSize: 12 }}>{med.consultorio}</Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip label={sedeLabel(med.id_sede)} size="small" sx={{ fontSize: 10, fontWeight: 700, height: 20, ...sedeColor(med.id_sede) }} />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography sx={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>{med.slots_totales.toLocaleString("es-CO")}</Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{med.citas_agendadas.toLocaleString("es-CO")}</Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography sx={{ fontSize: 13, color: "text.secondary", fontVariantNumeric: "tabular-nums" }}>{med.slots_disponibles.toLocaleString("es-CO")}</Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            {med.slots_bloqueados > 0
+                              ? <Chip label={med.slots_bloqueados} size="small" sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#FEF3C7", color: "#B45309" }} />
+                              : <Typography sx={{ fontSize: 12, color: "text.disabled" }}>—</Typography>
+                            }
+                          </TableCell>
+                          <TableCell sx={{ pr: 2.5 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Box sx={{ flex: 1, minWidth: 80 }}>
+                                <LinearProgress variant="determinate" value={Math.min(pm, 100)} color={colorOcupacion(pm)} sx={{ height: 7, borderRadius: 4, bgcolor: "grey.100" }} />
+                              </Box>
+                              <Typography sx={{ fontSize: 12, fontWeight: 700, minWidth: 36, fontVariantNumeric: "tabular-nums" }}>{pm}%</Typography>
+                            </Box>
                           </TableCell>
                         </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
-            </Grid>
-          </Grid>
+                      );
+                    })}
+                    {medicosFiltrados.length === 0 && (
+                      <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4, color: "text.secondary" }}>Sin datos para este médico</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </TabPanel>
+
+            {/* Tab 2 — Servicios */}
+            <TabPanel value={tabActual} index={2}>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ "& th": TH }}>
+                      <TableCell sx={{ pl: 2.5 }}>Servicio</TableCell>
+                      <TableCell align="center">Sede</TableCell>
+                      <TableCell align="right">Citas agendadas</TableCell>
+                      <TableCell sx={{ minWidth: 160, pr: 2.5 }}>Participación</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {serviciosFiltrados.map((svc, i) => {
+                      const totalSvc = serviciosFiltrados.reduce((a, s) => a + s.agendados, 0);
+                      const p2 = pct(svc.agendados, totalSvc);
+                      return (
+                        <TableRow key={i} hover>
+                          <TableCell sx={{ pl: 2.5 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{svc.servicio}</Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip label={sedeLabel(svc.id_sede)} size="small" sx={{ fontSize: 10, fontWeight: 700, height: 20, ...sedeColor(svc.id_sede) }} />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{svc.agendados.toLocaleString("es-CO")}</Typography>
+                          </TableCell>
+                          <TableCell sx={{ pr: 2.5 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Box sx={{ flex: 1, minWidth: 80 }}>
+                                <LinearProgress variant="determinate" value={Math.min(p2, 100)} sx={{ height: 7, borderRadius: 4, bgcolor: "grey.100", "& .MuiLinearProgress-bar": { bgcolor: "#6D28D9" } }} />
+                              </Box>
+                              <Typography sx={{ fontSize: 12, fontWeight: 700, minWidth: 36, fontVariantNumeric: "tabular-nums" }}>{p2}%</Typography>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {serviciosFiltrados.length === 0 && (
+                      <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4, color: "text.secondary" }}>Sin citas para este médico</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </TabPanel>
+
+            {/* Tab 3 — Desglose */}
+            <TabPanel value={tabActual} index={3}>
+              <Grid container spacing={2} sx={{ p: 2 }}>
+                <Grid item xs={12} md={6}>
+                  <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
+                    <Box sx={{ px: 2, py: 1.5, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50", borderLeft: "3px solid #F59E0B" }}>
+                      <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>Bloqueados por día</Typography>
+                    </Box>
+                    <TableContainer sx={{ maxHeight: 380 }}>
+                      <Table size="small" stickyHeader>
+                        <TableHead>
+                          <TableRow sx={{ "& th": TH }}>
+                            <TableCell>Fecha</TableCell>
+                            <TableCell>Consultorio</TableCell>
+                            <TableCell>Médico</TableCell>
+                            <TableCell align="right">Slots</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {datos.bloqueados_detalle.map((b, i) => (
+                            <TableRow key={i} hover>
+                              <TableCell><Typography sx={{ fontSize: 12, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{b.fecha}</Typography></TableCell>
+                              <TableCell><Typography sx={{ fontSize: 12 }}>{b.consultorio}</Typography></TableCell>
+                              <TableCell><Typography sx={{ fontSize: 12, color: "text.secondary" }}>{b.cod_medi || "—"}</Typography></TableCell>
+                              <TableCell align="right">
+                                <Chip label={b.bloqueados} size="small" sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#FEF3C7", color: "#B45309" }} />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {datos.bloqueados_detalle.length === 0 && (
+                            <TableRow><TableCell colSpan={4} align="center" sx={{ py: 3, color: "text.secondary" }}>Sin slots bloqueados</TableCell></TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
+                    <Box sx={{ px: 2, py: 1.5, borderBottom: "1px solid", borderColor: "divider", bgcolor: "grey.50", borderLeft: "3px solid #0EA5E9" }}>
+                      <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "text.secondary" }}>Disponibles por día</Typography>
+                    </Box>
+                    <TableContainer sx={{ maxHeight: 380 }}>
+                      <Table size="small" stickyHeader>
+                        <TableHead>
+                          <TableRow sx={{ "& th": TH }}>
+                            <TableCell>Fecha</TableCell>
+                            <TableCell>Consultorio</TableCell>
+                            <TableCell align="center">Sede</TableCell>
+                            <TableCell align="right">Cupos</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {datos.disponibles_detalle.map((d, i) => (
+                            <TableRow key={i} hover>
+                              <TableCell><Typography sx={{ fontSize: 12, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{d.fecha}</Typography></TableCell>
+                              <TableCell><Typography sx={{ fontSize: 12 }}>{d.consultorio}</Typography></TableCell>
+                              <TableCell align="center">
+                                <Chip label={sedeLabel(d.id_sede)} size="small" sx={{ fontSize: 10, fontWeight: 700, height: 20, ...sedeColor(d.id_sede) }} />
+                              </TableCell>
+                              <TableCell align="right">
+                                <Chip label={d.disponibles} size="small" sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#E0F2FE", color: "#0284C7" }} />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {datos.disponibles_detalle.length === 0 && (
+                            <TableRow><TableCell colSpan={4} align="center" sx={{ py: 3, color: "text.secondary" }}>Sin cupos disponibles</TableCell></TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Paper>
+                </Grid>
+              </Grid>
+            </TabPanel>
+          </Paper>
         </>
         );
       })()}
