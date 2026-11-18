@@ -32,6 +32,7 @@ interface Detalle {
 interface Hallazgo {
   clave: string; tipo: string; fecha: string | null; paciente: string; documento: string; cups: string;
   examen: string; medico_zeus: string; medico_lumier: string; cups_lumier?: string; examen_lumier?: string;
+  cod_medico_zeus: number | null; cod_medico_lumier: number | null; medico_lumier_zeus: string;
   estudio: number | null; decision: string; nota: string; validado_por: string;
 }
 interface Tarifa {
@@ -83,6 +84,7 @@ export function AuditoriaHonorarios() {
   const [error, setError] = useState("");
   const [aviso, setAviso] = useState("");
   const [medicoSel, setMedicoSel] = useState<number | null>(null);
+  const [medicoLumier, setMedicoLumier] = useState<string>("Todos");
   const lumierInput = useRef<HTMLInputElement>(null);
 
   const cargarResumen = useCallback(async () => {
@@ -133,7 +135,7 @@ export function AuditoriaHonorarios() {
           ["lumier", `Hallazgos Lumier${resumen?.lumier.pendientes ? ` (${resumen.lumier.pendientes})` : ""}`],
           ["tarifas", "Tarifas"],
         ] as [Vista, string][]).map(([k, label]) => (
-          <button key={k} onClick={() => { setVista(k); setMedicoSel(null); }} style={{
+          <button key={k} onClick={() => { setVista(k); setMedicoSel(null); setMedicoLumier("Todos"); }} style={{
             padding: "12px 20px", border: "none", cursor: "pointer", background: "transparent", fontWeight: 600, fontSize: 14,
             color: vista === k ? "#6d28d9" : "#64748b",
             borderBottom: vista === k ? "3px solid #6d28d9" : "3px solid transparent", marginBottom: -1,
@@ -170,9 +172,11 @@ export function AuditoriaHonorarios() {
         )}
         {vista === "medicos" && medicoSel !== null && (
           <DetalleMedico periodo={periodo} codMedico={medicoSel}
-            onVolver={() => { setMedicoSel(null); cargarResumen(); }} />
+            onVolver={() => { setMedicoSel(null); cargarResumen(); }}
+            onVerLumier={() => { setMedicoLumier(String(medicoSel)); setMedicoSel(null); setVista("lumier"); }} />
         )}
-        {vista === "lumier" && <HallazgosLumier periodo={periodo} onCambio={cargarResumen} />}
+        {vista === "lumier" && <HallazgosLumier periodo={periodo} onCambio={cargarResumen}
+          medicoInicial={medicoLumier} />}
         {vista === "tarifas" && <Tarifas />}
       </div>
     </div>
@@ -257,7 +261,9 @@ function TablaMedicos({ resumen, cargando, periodo, onAbrir, onVerLumier }: {
 
 // ── Detalle de un médico ────────────────────────────────────────────────────
 
-function DetalleMedico({ periodo, codMedico, onVolver }: { periodo: string; codMedico: number; onVolver: () => void }) {
+function DetalleMedico({ periodo, codMedico, onVolver, onVerLumier }: {
+  periodo: string; codMedico: number; onVolver: () => void; onVerLumier: () => void;
+}) {
   const [det, setDet] = useState<Detalle | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
@@ -340,6 +346,7 @@ function DetalleMedico({ periodo, codMedico, onVolver }: { periodo: string; codM
           <div style={{ fontSize: 12, color: "#64748b" }}>{det.especialidad} · {nombreMes(periodo)}</div>
         </div>
         <div style={{ flex: 1 }} />
+        <button onClick={onVerLumier} style={btnStyle("#b91c1c")}>Hallazgos Lumier del médico</button>
         <button onClick={() => exportar("general")} style={btnStyle("#0f766e")}>Exportar formato</button>
         {det.tiene_formato_fisiatria && <button onClick={() => exportar("fisiatria")} style={btnStyle("#0f766e")}>Formato Fisiatría</button>}
         {bloqueada
@@ -502,12 +509,14 @@ function EditarLinea({ linea, onCerrar, onGuardar }: {
 
 // ── Hallazgos Lumier ────────────────────────────────────────────────────────
 
-function HallazgosLumier({ periodo, onCambio }: { periodo: string; onCambio: () => void }) {
+function HallazgosLumier({ periodo, onCambio, medicoInicial = "Todos" }: {
+  periodo: string; onCambio: () => void; medicoInicial?: string;
+}) {
   const [datos, setDatos] = useState<{ cargado: boolean; estudios: number; hallazgos: Hallazgo[] } | null>(null);
   const [cargando, setCargando] = useState(false);
   const [tipoF, setTipoF] = useState("Todos");
   const [estadoF, setEstadoF] = useState("Pendientes");
-  const [medicoF, setMedicoF] = useState("Todos");
+  const [medicoF, setMedicoF] = useState(medicoInicial);
   const [notas, setNotas] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
 
@@ -538,12 +547,19 @@ function HallazgosLumier({ periodo, onCambio }: { periodo: string; onCambio: () 
   if (!datos.cargado) return (
     <Mensaje color="#475569" fondo="#f1f5f9" texto={`No se ha cargado el informe de Lumier de ${nombreMes(periodo)}. Use "Cargar informe de Lumier" arriba.`} />
   );
-  const medicos = Array.from(new Set(datos.hallazgos.flatMap(h => [h.medico_zeus, h.medico_lumier]).filter(Boolean))).sort();
+  // Médicos por código de Zeus (Lumier escribe el nombre distinto: 'William  García  Rossi')
+  const nombresMedico = new Map<string, string>();
+  datos.hallazgos.forEach(h => {
+    if (h.cod_medico_zeus) nombresMedico.set(String(h.cod_medico_zeus), h.medico_zeus);
+    if (h.cod_medico_lumier) nombresMedico.set(String(h.cod_medico_lumier), h.medico_lumier_zeus || h.medico_lumier);
+  });
+  const medicos = Array.from(nombresMedico.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  const delMedico = (h: Hallazgo) =>
+    medicoF === "Todos" || String(h.cod_medico_zeus) === medicoF || String(h.cod_medico_lumier) === medicoF;
   const lista = datos.hallazgos.filter(h =>
     (tipoF === "Todos" || h.tipo === tipoF) &&
-    (estadoF === "Todos" || (estadoF === "Pendientes" ? !h.decision : !!h.decision)) &&
-    (medicoF === "Todos" || h.medico_zeus === medicoF || h.medico_lumier === medicoF));
-  const conteo = (t: string) => datos.hallazgos.filter(h => h.tipo === t && !h.decision).length;
+    (estadoF === "Todos" || (estadoF === "Pendientes" ? !h.decision : !!h.decision)) && delMedico(h));
+  const conteo = (t: string) => datos.hallazgos.filter(h => h.tipo === t && !h.decision && delMedico(h)).length;
 
   return (
     <>
@@ -558,7 +574,7 @@ function HallazgosLumier({ periodo, onCambio }: { periodo: string; onCambio: () 
         <Filtro etiqueta="Médico">
           <select value={medicoF} onChange={e => setMedicoF(e.target.value)} style={selectStyle}>
             <option value="Todos">Todos</option>
-            {medicos.map(m => <option key={m} value={m}>{m}</option>)}
+            {medicos.map(([cod, nombre]) => <option key={cod} value={cod}>{nombre}</option>)}
           </select>
         </Filtro>
         <Filtro etiqueta="Estado" flex="0 1 160px">
