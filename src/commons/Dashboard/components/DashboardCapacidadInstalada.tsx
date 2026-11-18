@@ -67,6 +67,8 @@ interface Comparativo {
   capacidad_excel: number;
   agendados: number;
   confirmadas: number;
+  canceladas: number;
+  disponibles: number | null;
   pct_ocupacion: number | null;
 }
 interface DatosCap {
@@ -318,19 +320,22 @@ const DashboardCapacidadInstalada: React.FC = () => {
               <TableContainer>
                 <Table size="small">
                   <TableHead>
-                    <TableRow sx={{ "& th": TH }}>
+                    <TableRow sx={{ "& th": { ...TH, py: 1.5 } }}>
                       <TableCell sx={{ pl: 2.5 }}>Servicio</TableCell>
-                      <TableCell align="right">Cap. instalada</TableCell>
+                      <TableCell align="right" sx={{ color: "#0369A1 !important" }}>Espacios disponibles</TableCell>
+                      <TableCell align="right" sx={{ color: "#166534 !important" }}>Confirmados y atendidos</TableCell>
+                      <TableCell align="right" sx={{ color: "#B45309 !important" }}>Cancelados e incumplidos</TableCell>
                       <TableCell align="right">Agendados</TableCell>
-                      <TableCell align="right">Confirmadas</TableCell>
-                      <TableCell sx={{ minWidth: 180, pr: 2.5 }}>Ocupación</TableCell>
+                      <TableCell sx={{ minWidth: 160, pr: 2.5 }}>Ocupación</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {(() => {
-                      const totalCap  = datos.comparativo.reduce((a, c) => a + c.capacidad_excel, 0);
-                      const totalAg   = datos.comparativo.reduce((a, c) => a + c.agendados, 0);
+                      const totalDisp = datos.comparativo.reduce((a, c) => a + (c.disponibles ?? 0), 0);
                       const totalConf = datos.comparativo.reduce((a, c) => a + (c.confirmadas ?? 0), 0);
+                      const totalCanc = datos.comparativo.reduce((a, c) => a + (c.canceladas ?? 0), 0);
+                      const totalAg   = datos.comparativo.reduce((a, c) => a + c.agendados, 0);
+                      const totalCap  = datos.comparativo.reduce((a, c) => a + c.capacidad_excel, 0);
                       return (
                         <>
                           {datos.comparativo.map((row, i) => {
@@ -340,17 +345,16 @@ const DashboardCapacidadInstalada: React.FC = () => {
                               <TableRow key={i} hover sx={sinCap ? { opacity: 0.6 } : {}}>
                                 <TableCell sx={{ pl: 2.5 }}>
                                   <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{row.servicio}</Typography>
-                                  {sinCap && <Typography sx={{ fontSize: 10, color: "warning.main" }}>Sin referencia en Excel</Typography>}
+                                  {sinCap && <Typography sx={{ fontSize: 10, color: "warning.main" }}>Sin referencia en capacidad instalada</Typography>}
                                 </TableCell>
                                 <TableCell align="right">
-                                  <Typography sx={{ fontSize: 13, fontVariantNumeric: "tabular-nums", color: "text.secondary" }}>
-                                    {sinCap ? "—" : row.capacidad_excel.toLocaleString("es-CO")}
-                                  </Typography>
-                                </TableCell>
-                                <TableCell align="right">
-                                  <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                                    {row.agendados.toLocaleString("es-CO")}
-                                  </Typography>
+                                  {sinCap ? (
+                                    <Typography sx={{ fontSize: 12, color: "text.disabled" }}>—</Typography>
+                                  ) : (
+                                    <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: "tabular-nums", color: "#0369A1" }}>
+                                      {(row.disponibles ?? 0).toLocaleString("es-CO")}
+                                    </Typography>
+                                  )}
                                 </TableCell>
                                 <TableCell align="right">
                                   {(row.confirmadas ?? 0) > 0 ? (
@@ -363,12 +367,28 @@ const DashboardCapacidadInstalada: React.FC = () => {
                                     <Typography sx={{ fontSize: 12, color: "text.disabled" }}>—</Typography>
                                   )}
                                 </TableCell>
+                                <TableCell align="right">
+                                  {(row.canceladas ?? 0) > 0 ? (
+                                    <Chip
+                                      label={(row.canceladas ?? 0).toLocaleString("es-CO")}
+                                      size="small"
+                                      sx={{ fontSize: 11, fontWeight: 700, height: 20, bgcolor: "#FEF3C7", color: "#B45309" }}
+                                    />
+                                  ) : (
+                                    <Typography sx={{ fontSize: 12, color: "text.disabled" }}>—</Typography>
+                                  )}
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                                    {row.agendados.toLocaleString("es-CO")}
+                                  </Typography>
+                                </TableCell>
                                 <TableCell sx={{ pr: 2.5 }}>
                                   {sinCap ? (
                                     <Typography sx={{ fontSize: 11, color: "text.disabled" }}>—</Typography>
                                   ) : (
                                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                      <Box sx={{ flex: 1, minWidth: 100 }}>
+                                      <Box sx={{ flex: 1, minWidth: 90 }}>
                                         <LinearProgress
                                           variant="determinate"
                                           value={Math.min(p, 100)}
@@ -391,8 +411,18 @@ const DashboardCapacidadInstalada: React.FC = () => {
                               <Typography sx={{ fontSize: 13, fontWeight: 800 }}>TOTAL</Typography>
                             </TableCell>
                             <TableCell align="right">
-                              <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                                {totalCap.toLocaleString("es-CO")}
+                              <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "#0369A1" }}>
+                                {totalDisp.toLocaleString("es-CO")}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "#166534" }}>
+                                {totalConf.toLocaleString("es-CO")}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "#B45309" }}>
+                                {totalCanc.toLocaleString("es-CO")}
                               </Typography>
                             </TableCell>
                             <TableCell align="right">
@@ -400,14 +430,9 @@ const DashboardCapacidadInstalada: React.FC = () => {
                                 {totalAg.toLocaleString("es-CO")}
                               </Typography>
                             </TableCell>
-                            <TableCell align="right">
-                              <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                                {totalConf.toLocaleString("es-CO")}
-                              </Typography>
-                            </TableCell>
                             <TableCell sx={{ pr: 2.5 }}>
                               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                <Box sx={{ flex: 1, minWidth: 100 }}>
+                                <Box sx={{ flex: 1, minWidth: 90 }}>
                                   <LinearProgress
                                     variant="determinate"
                                     value={Math.min(pct(totalAg, totalCap), 100)}
@@ -425,7 +450,7 @@ const DashboardCapacidadInstalada: React.FC = () => {
                       );
                     })()}
                     {datos.comparativo.length === 0 && (
-                      <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary" }}>Sin datos</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4, color: "text.secondary" }}>Sin datos</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
