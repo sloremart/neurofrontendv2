@@ -89,21 +89,41 @@ const API_ENDPOINT = CONFIG.API_ENDPOINT;
  * hallazgos IA pendientes → falta RESULTADO → documentos sin revisión IA → pre-auditada.
  * La FACTURA no cuenta: la carga Cuentas Médicas.
  */
-const EstadoPreauditoria = ({ existentes, ia }: {
+const EstadoPreauditoria = ({ existentes, ia, faltantesContrato, anulada }: {
   existentes: { [tipo: string]: { IdArchivo: number; NombreArchivo: string }[] };
   ia: { [tipo: string]: { tipo: string; descripcion: string } | null };
+  faltantesContrato?: string[] | null;   // documentos que exige el contrato y faltan (backend)
+  anulada?: boolean;
 }) => {
+  if (anulada) {
+    return (
+      <Box sx={{ display: "flex", gap: 1.5, alignItems: "flex-start", mb: 2, p: 1.5, borderRadius: 2,
+                 bgcolor: "#F3F4F6", border: "1px solid #D1D5DB" }}>
+        <CheckCircleIcon sx={{ color: "#6B7280" }} />
+        <Box>
+          <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#374151" }}>Admisión anulada en SIESA</Typography>
+          <Typography sx={{ fontSize: 12, color: "#374151" }}>
+            No requiere documentos ni pasa a Cuentas Médicas.
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
   const tipos = Object.keys(existentes).filter((t) => t !== "FACTURA" && existentes[t]?.length);
   if (!tipos.length) return null;
   const conHallazgo = tipos.filter((t) => ia[t] && !["OK", "REVISANDO"].includes(ia[t]!.tipo));
   const revisando = tipos.filter((t) => ia[t]?.tipo === "REVISANDO");
   const sinRevision = tipos.filter((t) => !ia[t]);
   const tieneResultado = !!existentes["RESULTADO"]?.length;
-  const faltanDocumentos = ["ORDEN", "AUTORIZACION", "COMPROBANTE"].filter((t) => !existentes[t]?.length);
+  // Según el contrato (Colsanitas, IPS Consultorio, MRC, Solimed...); si no llegó, la regla general
+  // ("ORDEN o AUTORIZACION" se cumple con cualquiera; lo recién subido cuenta aunque no se haya recargado)
+  const faltanDocumentos = faltantesContrato
+    ? faltantesContrato.filter((req) => !req.split(" o ").some((t) => existentes[t]?.length))
+    : ["ORDEN", "AUTORIZACION", "COMPROBANTE"].filter((t) => !existentes[t]?.length);
 
   let color = "#166534", fondo = "#F0FDF4", borde = "#BBF7D0", icono = <CheckCircleIcon sx={{ color: "#16A34A" }} />;
   let titulo = "Pre-auditada: ya está en la bandeja de Cuentas Médicas para auditar";
-  let detalle = "Tiene ORDEN, AUTORIZACION, COMPROBANTE y RESULTADO revisados sin hallazgos. Cuentas Médicas carga la FACTURA.";
+  let detalle = "Tiene los documentos del contrato y el RESULTADO revisados sin hallazgos. Cuentas Médicas carga la FACTURA.";
   if (conHallazgo.length) {
     color = "#991B1B"; fondo = "#FEF2F2"; borde = "#FCA5A5"; icono = <WarningAmberIcon sx={{ color: "#DC2626" }} />;
     titulo = `Tiene hallazgos por corregir: ${conHallazgo.join(", ")}`;
@@ -115,7 +135,7 @@ const EstadoPreauditoria = ({ existentes, ia }: {
   } else if (faltanDocumentos.length) {
     color = "#92400E"; fondo = "#FFFBEB"; borde = "#FCD34D"; icono = <WarningAmberIcon sx={{ color: "#D97706" }} />;
     titulo = `Faltan documentos: ${faltanDocumentos.join(", ")}`;
-    detalle = "Para pasar a Cuentas Médicas debe tener ORDEN, AUTORIZACION, COMPROBANTE y RESULTADO.";
+    detalle = "Para pasar a Cuentas Médicas debe tener los documentos que exige el contrato y el RESULTADO.";
   } else if (!tieneResultado) {
     color = "#1E40AF"; fondo = "#EFF6FF"; borde = "#BFDBFE"; icono = <SmartToyIcon sx={{ color: "#2563EB" }} />;
     titulo = "Esperando RESULTADO";
@@ -214,6 +234,8 @@ export const GeDocumental = () => {
   const [bandeja, setBandeja] = useState(0);
   const { admision_pendientes_facturacion } = useSelector((state: RootState) => state.talento_humano);
   const [archivosExistentes, setArchivosExistentes] = useState<{ [tipo: string]: { IdArchivo: number; NombreArchivo: string }[] }>({});
+  const [faltantesContrato, setFaltantesContrato] = useState<string[] | null>(null);
+  const [admisionAnulada, setAdmisionAnulada] = useState(false);
   const [aiResultados, setAiResultados] = useState<{ [tipo: string]: { tipo: string; descripcion: string } | null }>({});
   // Archivos recién guardados cuya revisión IA (en segundo plano) aún no llega
   const pendientesIARef = useRef<Set<number>>(new Set());
@@ -282,6 +304,9 @@ export const GeDocumental = () => {
           }
         }
         setArchivosExistentes(porTipo);
+        setFaltantesContrato(data.data.particular ? []
+          : Array.isArray(data.data.documentos_faltantes) ? data.data.documentos_faltantes : null);
+        setAdmisionAnulada(!!data.data.anulada);
         setAiResultados(iaPorTipo);
         setHayPendientesIA(pendientesIARef.current.size > 0);
         if (llegaronRevisiones) cargarHallazgosIA();
@@ -316,6 +341,8 @@ export const GeDocumental = () => {
       const data = responseData.data;
       setAdmisionData(data);
       setArchivosExistentes({});
+      setFaltantesContrato(null);
+      setAdmisionAnulada(!!data?.ValidacionPaciente?.anulada);
       if (data.ContratoRegimen === 1) handleRegimenChange("C");
       else if (data.ContratoRegimen === 2) handleRegimenChange("S");
       else {
@@ -716,7 +743,18 @@ export const GeDocumental = () => {
               </Box>
 
               {/* Datos del paciente incompletos en ZeusSalud */}
-              {admisionData.ValidacionPaciente && (
+              {admisionData.ValidacionPaciente?.anulada ? (
+                <Box sx={{ mt: 2, px: 2, py: 1, borderRadius: 2, bgcolor: "#F3F4F6", border: "1px solid #D1D5DB",
+                           display: "flex", alignItems: "center", gap: 1 }}>
+                  <WarningAmberIcon sx={{ color: "#6B7280", fontSize: 18 }} />
+                  <Typography sx={{ fontSize: 13, color: "#374151" }}>
+                    <b>Admisión anulada en SIESA</b>
+                    {admisionData.ValidacionPaciente.motivo_anulacion
+                      ? `: ${admisionData.ValidacionPaciente.motivo_anulacion}` : ""}
+                    . No se exigen datos ni documentos.
+                  </Typography>
+                </Box>
+              ) : admisionData.ValidacionPaciente && (
                 admisionData.ValidacionPaciente.completo ? (
                   <Box sx={{ mt: 2, px: 2, py: 1, borderRadius: 2, bgcolor: "#F0FDF4", border: "1px solid #BBF7D0",
                              display: "flex", alignItems: "center", gap: 1 }}>
@@ -762,7 +800,8 @@ export const GeDocumental = () => {
         <Card variant="outlined" sx={{ mb: 3, borderRadius: 2, border: "1px solid #E5E7EB" }}>
           <CardHeader icon={<UploadFileIcon />} label="Cargar documentos" />
           <CardContent sx={{ pb: "16px !important" }}>
-            <EstadoPreauditoria existentes={archivosExistentes} ia={aiResultados} />
+            <EstadoPreauditoria existentes={archivosExistentes} ia={aiResultados}
+              faltantesContrato={faltantesContrato} anulada={admisionAnulada} />
             {admisionData.TiposDocumentos.map((tipoDocumento, index) => (
               <Box
                 key={index}

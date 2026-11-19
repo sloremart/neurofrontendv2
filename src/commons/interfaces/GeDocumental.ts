@@ -119,6 +119,8 @@ export interface IAdmisiones {
   ValidacionPaciente?: {
     completo: boolean;
     faltantes: { campo: string; motivo: string; obligatorio: boolean }[];
+    anulada?: boolean;
+    motivo_anulacion?: string;
   } | null;
 }
 
