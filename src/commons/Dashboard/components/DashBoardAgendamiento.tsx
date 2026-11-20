@@ -72,7 +72,9 @@ const AgendamientoDashboard = () => {
     };
 
     const topEntidad  = agendamientoEntidades[0];
-    const topServicio = agendamientoServicios[0];
+    // Los servicios llegan ordenados por nombre (para las tarjetas); el principal es el de MÁS citas
+    const topServicio = agendamientoServicios.reduce<typeof agendamientoServicios[number] | undefined>(
+        (max, s) => (!max || s.total > max.total ? s : max), undefined);
     const est = agendamientoEstados ?? { total: 0, atendidas: 0, programadas: 0, incumplidas: 0, canceladas: 0, sin_estado: 0 };
     const allMedicos  = agendamientoMedicos ?? [];
     const topMedicos  = allMedicos.slice(0, 12);
