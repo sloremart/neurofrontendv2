@@ -117,7 +117,9 @@ export const TablaRadicacion = () => {
       "COLMEDICA LINEA ESMERALDA": renombrar_colmedica,
       "COLMEDICA TARIFA HUMANA TRADICIONAL": renombrar_colmedica,
     };
-    const thunk = thunkMap[codigoEntidad] ?? renombrar_otros;
+    // Todo contrato que contenga MEDISANITAS (MEDISANITAS, MEDISANITAS PLAN ACTIVA, ...) se renombra igual
+    const esMedisanitas = (codigoEntidad || "").toUpperCase().includes("MEDISANITAS");
+    const thunk = esMedisanitas ? renombrar_medisanitas : (thunkMap[codigoEntidad] ?? renombrar_otros);
     await dispatch(thunk(admisionId, idusuario));
   };
 
