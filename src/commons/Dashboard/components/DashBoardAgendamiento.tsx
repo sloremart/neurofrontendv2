@@ -244,11 +244,17 @@ const AgendamientoDashboard = () => {
                             { key: "Procedimientos", label: "Procedimientos",       color: "#1d4ed8", icon: "⚕️"  },
                             { key: "Otros",          label: "Otros Servicios",      color: "#64748b", icon: "📋" },
                         ];
-                        const catData = cats.map(c => ({
+                        const catData = cats.filter(c => c.key !== "Otros").map(c => ({
                             ...c,
                             citas: agendamientoServicios.filter(s => s.categoria === c.key).reduce((a, s) => a + s.total, 0),
                             valor: agendamientoServicios.filter(s => s.categoria === c.key).reduce((a, s) => a + (s.valor ?? 0), 0),
-                        })).filter(c => c.citas > 0);
+                        }))
+                        // Servicios sin categoría: se muestran con su nombre real, no agrupados como "Otros"
+                        .concat(agendamientoServicios.filter(s => s.categoria === "Otros").map(s => ({
+                            key: s.nombre, label: s.nombre, color: "#64748b", icon: "📋",
+                            citas: s.total, valor: s.valor ?? 0,
+                        })))
+                        .filter(c => c.citas > 0);
                         const maxVal = Math.max(...catData.map(c => c.valor), 1);
                         return (
                             <>
