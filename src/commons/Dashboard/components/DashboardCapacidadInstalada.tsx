@@ -65,6 +65,7 @@ interface DisponibleDetalle {
 interface Comparativo {
   servicio: string;
   capacidad_excel: number;
+  unidad: string;
   agendados: number;
   confirmadas: number;
   canceladas: number;
@@ -322,6 +323,7 @@ const DashboardCapacidadInstalada: React.FC = () => {
                   <TableHead>
                     <TableRow sx={{ "& th": { ...TH, py: 1.5 } }}>
                       <TableCell sx={{ pl: 2.5 }}>Servicio</TableCell>
+                      <TableCell>Unidad</TableCell>
                       <TableCell align="right" sx={{ color: "#0369A1 !important" }}>Espacios disponibles</TableCell>
                       <TableCell align="right" sx={{ color: "#166534 !important" }}>Confirmados y atendidos</TableCell>
                       <TableCell align="right" sx={{ color: "#B45309 !important" }}>Cancelados e incumplidos</TableCell>
@@ -346,6 +348,22 @@ const DashboardCapacidadInstalada: React.FC = () => {
                                 <TableCell sx={{ pl: 2.5 }}>
                                   <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{row.servicio}</Typography>
                                   {sinCap && <Typography sx={{ fontSize: 10, color: "warning.main" }}>Sin referencia en capacidad instalada</Typography>}
+                                </TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={(row.unidad ?? 'estudios').toUpperCase()}
+                                    size="small"
+                                    sx={{
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      height: 18,
+                                      ...(row.unidad === 'espacios'
+                                        ? { bgcolor: "#EDE9FE", color: "#5B21B6" }
+                                        : row.unidad === 'servicios'
+                                        ? { bgcolor: "#FEE2E2", color: "#991B1B" }
+                                        : { bgcolor: "#DBEAFE", color: "#1E40AF" }),
+                                    }}
+                                  />
                                 </TableCell>
                                 <TableCell align="right">
                                   {sinCap ? (
