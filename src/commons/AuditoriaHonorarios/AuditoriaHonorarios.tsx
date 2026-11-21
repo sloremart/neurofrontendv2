@@ -6,11 +6,11 @@ import CONFIG from "../../config/api";
 const API = `${CONFIG.API_ENDPOINT}/gestion-facturacion/auditoria`;
 const auth = () => ({ headers: { Authorization: `Token ${getToken()}` } });
 
-type Vista = "medicos" | "lumier" | "tarifas";
+type Vista = "medicos" | "lumier" | "sin_facturar" | "indicadores" | "tarifas";
 
 interface MedicoResumen {
   cod_medico: number; medico: string; especialidad: string; lineas: number; honorario: number;
-  facturado: number; pendientes: number; ok: number; glosas: number; con_alertas: number;
+  facturado: number; pendientes: number; ok: number; glosas: number; glosado: number; con_alertas: number;
   sin_tarifa: number; hallazgos_lumier: number; cerrada: boolean; cerrada_por: string;
 }
 interface Resumen {
@@ -24,10 +24,13 @@ interface Linea {
   valor_ajustado: number | null; honorario: number; estado: "PENDIENTE" | "OK" | "GLOSA";
   observacion: string; auditado_por: string; alertas: string[]; sin_tarifa: boolean;
   lumier: { profesional: string; cups: string; examen: string } | null;
+  tipo: "SERVICIO" | "AGENDA"; por_horas: boolean; valor_glosa: number | null; valor_glosado: number;
+  bloques: { inicio: string; fin: string; horas: number }[] | null;
 }
 interface Detalle {
   periodo: string; cod_medico: number; medico: string; especialidad: string; cerrada: boolean;
   cerrada_por: string; lineas: Linea[]; tiene_formato_fisiatria: boolean;
+  por_horas: boolean; valor_hora: number | null;
 }
 interface Hallazgo {
   clave: string; tipo: string; fecha: string | null; paciente: string; documento: string; cups: string;
@@ -133,6 +136,8 @@ export function AuditoriaHonorarios() {
         {([
           ["medicos", "Médicos del mes"],
           ["lumier", `Hallazgos Lumier${resumen?.lumier.pendientes ? ` (${resumen.lumier.pendientes})` : ""}`],
+          ["sin_facturar", "Sin facturar en SIESA"],
+          ["indicadores", "Indicadores"],
           ["tarifas", "Tarifas"],
         ] as [Vista, string][]).map(([k, label]) => (
           <button key={k} onClick={() => { setVista(k); setMedicoSel(null); setMedicoLumier("Todos"); }} style={{
@@ -144,7 +149,7 @@ export function AuditoriaHonorarios() {
       </div>
 
       <div style={{ padding: "20px 24px" }}>
-        {vista !== "tarifas" && (
+        {vista !== "tarifas" && vista !== "indicadores" && (
           <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
             <Filtro etiqueta="Mes auditado">
               <input type="month" value={periodo} onChange={e => { setPeriodo(e.target.value); setMedicoSel(null); }} style={inputStyle} />
@@ -177,7 +182,9 @@ export function AuditoriaHonorarios() {
         )}
         {vista === "lumier" && <HallazgosLumier periodo={periodo} onCambio={cargarResumen}
           medicoInicial={medicoLumier} />}
-        {vista === "tarifas" && <Tarifas />}
+        {vista === "sin_facturar" && <SinFacturar periodo={periodo} />}
+        {vista === "indicadores" && <Indicadores />}
+        {vista === "tarifas" && <Tarifas periodo={periodo} />}
       </div>
     </div>
   );
@@ -293,8 +300,13 @@ function DetalleMedico({ periodo, codMedico, onVolver, onVerLumier }: {
   ), [det, estadoF, soloAlertas, buscar]);
 
   const guardar = async (ids: number[], cambios: Record<string, any>) => {
+    // Foto de cada línea (lo que se ve en pantalla) para los indicadores
+    const fotos: Record<string, any> = {};
+    (det?.lineas || []).filter(l => ids.includes(l.sis_deta_id)).forEach(l => {
+      fotos[String(l.sis_deta_id)] = { honorario_calculado: l.honorario_calculado, cups: l.cups, descripcion: l.descripcion, contrato: l.contrato };
+    });
     try {
-      await axios.post(`${API}/linea/`, { periodo, cod_medico: codMedico, ids, ...cambios }, auth());
+      await axios.post(`${API}/linea/`, { periodo, cod_medico: codMedico, ids, lineas: fotos, ...cambios }, auth());
       await cargar();
       return true;
     } catch (e) {
@@ -333,9 +345,98 @@ function DetalleMedico({ periodo, codMedico, onVolver, onVerLumier }: {
 
   const total = det.lineas.reduce((s, l) => s + l.honorario, 0);
   const pend = det.lineas.filter(l => l.estado === "PENDIENTE").length;
-  const glosado = det.lineas.filter(l => l.estado === "GLOSA").reduce((s, l) => s + l.honorario_calculado, 0);
+  const glosado = det.lineas.reduce((s, l) => s + (l.valor_glosado || 0), 0);
   const todosSel = lineas.length > 0 && lineas.every(l => sel.has(l.sis_deta_id));
   const bloqueada = det.cerrada;
+  const agenda = lineas.filter(l => l.tipo === "AGENDA");
+  const servicios = lineas.filter(l => l.tipo !== "AGENDA");
+  const horasMes = det.lineas.filter(l => l.tipo === "AGENDA").reduce((s, l) => s + l.cantidad, 0);
+  const pendientesIds = det.lineas.filter(l => l.estado === "PENDIENTE").map(l => l.sis_deta_id);
+  const okTodas = async () => {
+    if (!pendientesIds.length) return;
+    if (!window.confirm(`¿Marcar OK las ${pendientesIds.length} líneas pendientes de este médico? Las glosas ya registradas no cambian.`)) return;
+    await guardar(pendientesIds, { estado: "OK" });
+  };
+  const fila = (l: Linea) => (
+    <tr key={l.sis_deta_id} style={{ borderBottom: "1px solid #f1f5f9", background: l.estado === "GLOSA" ? "#fff7f7" : l.por_horas ? "#fafafa" : undefined }}>
+      <td style={td}>
+        {!bloqueada && <input type="checkbox" checked={sel.has(l.sis_deta_id)} onChange={() => {
+          const n = new Set(sel); n.has(l.sis_deta_id) ? n.delete(l.sis_deta_id) : n.add(l.sis_deta_id); setSel(n);
+        }} />}
+      </td>
+      <td style={{ ...td, whiteSpace: "nowrap" }}>
+        {fecha(l.fecha)}
+        {l.tipo !== "AGENDA" && <div style={{ fontSize: 11, color: "#94a3b8" }}>Est. {l.estudio}</div>}
+      </td>
+      {l.tipo === "AGENDA" ? (
+        <td style={td} colSpan={2}>
+          <div style={{ fontWeight: 600, color: "#1e293b" }}>Horas de agenda</div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+            {(l.bloques || []).map(b => <Chip key={b.inicio} texto={`${b.inicio} – ${b.fin} · ${b.horas} h`} color={["#e0f2fe", "#075985"]} />)}
+          </div>
+          {l.observacion && <div style={{ fontSize: 11, color: "#7c2d12", marginTop: 4 }}>📝 {l.observacion}</div>}
+        </td>
+      ) : <>
+        <td style={td}>
+          <div style={{ fontWeight: 600, color: "#1e293b" }}>{l.paciente}</div>
+          <div style={{ fontSize: 11, color: "#64748b" }}>{l.tipo_id} {l.documento}</div>
+        </td>
+        <td style={{ ...td, maxWidth: 300 }}>
+          <div><b>{l.cups}</b> {l.descripcion}</div>
+          {l.alertas.length > 0 && (
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+              {l.alertas.map(a => <Chip key={a} texto={a} color={a.startsWith("Lumier") || a.startsWith("No está") ? ["#fee2e2", "#991b1b"] : ["#fef3c7", "#92400e"]} />)}
+            </div>
+          )}
+          {l.observacion && <div style={{ fontSize: 11, color: "#7c2d12", marginTop: 4 }}>📝 {l.observacion}</div>}
+        </td>
+      </>}
+      <td style={tdNum}>{l.tipo === "AGENDA" ? `${l.cantidad} h` : l.cantidad}</td>
+      <td style={td}>
+        {l.tipo === "AGENDA" ? <span style={{ color: "#94a3b8" }}>—</span> : <>
+          <div style={{ fontSize: 12 }}>{l.contrato}</div>
+          <div style={{ fontSize: 11, color: "#64748b" }}>{GRUPO_TEXTO[l.grupo]}{l.factura ? ` · ${l.factura}` : ""}</div>
+        </>}
+      </td>
+      <td style={tdNum}>{l.tipo === "AGENDA" ? "—" : fmt(l.valor_facturado)}</td>
+      <td style={{ ...td, fontSize: 12, color: l.por_horas ? "#0369a1" : "#475569" }}>{l.tarifa || <span style={{ color: "#991b1b" }}>Sin tarifa</span>}</td>
+      <td style={{ ...tdNum, fontWeight: 700 }}>
+        {fmt(l.honorario)}
+        {(l.valor_ajustado != null || (l.estado === "GLOSA" && l.valor_glosa != null)) &&
+          <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400, textDecoration: "line-through" }}>{fmt(l.honorario_calculado)}</div>}
+        {l.estado === "GLOSA" && l.valor_glosado > 0 && <div style={{ fontSize: 11, color: "#991b1b", fontWeight: 600 }}>Glosa {fmt(l.valor_glosado)}</div>}
+      </td>
+      <td style={td}>
+        <Chip texto={l.estado === "PENDIENTE" ? "Pendiente" : l.estado === "OK" ? "OK" : (l.valor_glosa != null ? "Glosa parcial" : "Glosa")} color={ESTADO_COLOR[l.estado]} />
+        {l.auditado_por && <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>{l.auditado_por}</div>}
+      </td>
+      <td style={{ ...td, whiteSpace: "nowrap" }}>
+        {!bloqueada && (
+          <>
+            {l.estado !== "OK" && <button style={btnSmall("#16a34a")} onClick={() => guardar([l.sis_deta_id], { estado: "OK" })}>OK</button>}
+            <button style={btnSmall("#7c3aed")} onClick={() => setEditando(l)}>Glosa / ajuste</button>
+          </>
+        )}
+      </td>
+    </tr>
+  );
+  const encabezadoTabla = (lista: Linea[]) => {
+    const todas = lista.length > 0 && lista.every(l => sel.has(l.sis_deta_id));
+    return (
+      <thead>
+        <tr style={thRow}>
+          <th style={th}>
+            {!bloqueada && <input type="checkbox" checked={todas} onChange={() => {
+              const n = new Set(sel);
+              lista.forEach(l => todas ? n.delete(l.sis_deta_id) : n.add(l.sis_deta_id));
+              setSel(n);
+            }} />}
+          </th>
+          {["Fecha", "Paciente", "Servicio", "Cant.", "Contrato", "Facturado", "Tarifa", "Honorario", "Estado", ""].map(t => <th key={t} style={th}>{t}</th>)}
+        </tr>
+      </thead>
+    );
+  };
 
   return (
     <>
@@ -363,6 +464,7 @@ function DetalleMedico({ periodo, codMedico, onVolver, onVerLumier }: {
         <Kpi valor={String(det.lineas.length)} texto="Líneas" fondo="#f8fafc" color="#1e293b" />
         <Kpi valor={String(pend)} texto="Pendientes" fondo="#fef3c7" color="#92400e" />
         <Kpi valor={fmt(glosado)} texto="Glosado" fondo="#fee2e2" color="#991b1b" />
+        {det.por_horas && <Kpi valor={`${horasMes} h`} texto={`Agenda × ${fmt(det.valor_hora)} la hora`} fondo="#e0f2fe" color="#075985" />}
         <div style={{ flex: 1 }} />
         <Filtro etiqueta="Buscar">
           <input value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Paciente, documento, CUPS, estudio" style={inputStyle} />
@@ -377,6 +479,18 @@ function DetalleMedico({ periodo, codMedico, onVolver, onVerLumier }: {
         </label>
       </div>
 
+      {!bloqueada && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+          <button style={btnStyle("#16a34a")} onClick={okTodas} disabled={!pendientesIds.length}
+            title="Marca OK todas las líneas pendientes del médico; luego glose solo las que tengan novedad">
+            OK a todas las pendientes ({pendientesIds.length})
+          </button>
+          <button style={btnStyle("#7c3aed")} onClick={() => setSel(todosSel ? new Set() : new Set(lineas.map(l => l.sis_deta_id)))}>
+            {todosSel ? "Quitar selección" : `Seleccionar todas (${lineas.length})`}
+          </button>
+        </div>
+      )}
+
       {!bloqueada && sel.size > 0 && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, background: "#f5f3ff", padding: "8px 12px", borderRadius: 8 }}>
           <span style={{ fontSize: 13, color: "#5b21b6", fontWeight: 600 }}>{sel.size} seleccionadas</span>
@@ -386,71 +500,29 @@ function DetalleMedico({ periodo, codMedico, onVolver, onVerLumier }: {
         </div>
       )}
 
+      {det.por_horas && (
+        <>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#075985", margin: "4px 0 6px" }}>
+            Horas de agenda del mes · se pagan {fmt(det.valor_hora)} por hora (las consultas van incluidas)
+          </div>
+          <div style={{ ...tablaWrap, marginBottom: 18 }}>
+            <table style={tabla}>
+              {encabezadoTabla(agenda)}
+              <tbody>
+                {agenda.map(fila)}
+                {!agenda.length && <tr><td colSpan={11} style={{ ...td, textAlign: "center", color: "#94a3b8" }}>Sin agenda en Zeus para este mes</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#475569", margin: "4px 0 6px" }}>Servicios del mes</div>
+        </>
+      )}
       <div style={tablaWrap}>
         <table style={tabla}>
-          <thead>
-            <tr style={thRow}>
-              <th style={th}>
-                {!bloqueada && <input type="checkbox" checked={todosSel} onChange={() => {
-                  const n = new Set(sel);
-                  lineas.forEach(l => todosSel ? n.delete(l.sis_deta_id) : n.add(l.sis_deta_id));
-                  setSel(n);
-                }} />}
-              </th>
-              {["Fecha", "Paciente", "Servicio", "Cant.", "Contrato", "Facturado", "Tarifa", "Honorario", "Estado", ""].map(t => <th key={t} style={th}>{t}</th>)}
-            </tr>
-          </thead>
+          {encabezadoTabla(servicios)}
           <tbody>
-            {lineas.map(l => (
-              <tr key={l.sis_deta_id} style={{ borderBottom: "1px solid #f1f5f9", background: l.estado === "GLOSA" ? "#fff7f7" : undefined }}>
-                <td style={td}>
-                  {!bloqueada && <input type="checkbox" checked={sel.has(l.sis_deta_id)} onChange={() => {
-                    const n = new Set(sel); n.has(l.sis_deta_id) ? n.delete(l.sis_deta_id) : n.add(l.sis_deta_id); setSel(n);
-                  }} />}
-                </td>
-                <td style={{ ...td, whiteSpace: "nowrap" }}>
-                  {fecha(l.fecha)}
-                  <div style={{ fontSize: 11, color: "#94a3b8" }}>Est. {l.estudio}</div>
-                </td>
-                <td style={td}>
-                  <div style={{ fontWeight: 600, color: "#1e293b" }}>{l.paciente}</div>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>{l.tipo_id} {l.documento}</div>
-                </td>
-                <td style={{ ...td, maxWidth: 300 }}>
-                  <div><b>{l.cups}</b> {l.descripcion}</div>
-                  {l.alertas.length > 0 && (
-                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
-                      {l.alertas.map(a => <Chip key={a} texto={a} color={a.startsWith("Lumier") || a.startsWith("No está") ? ["#fee2e2", "#991b1b"] : ["#fef3c7", "#92400e"]} />)}
-                    </div>
-                  )}
-                  {l.observacion && <div style={{ fontSize: 11, color: "#7c2d12", marginTop: 4 }}>📝 {l.observacion}</div>}
-                </td>
-                <td style={tdNum}>{l.cantidad}</td>
-                <td style={td}>
-                  <div style={{ fontSize: 12 }}>{l.contrato}</div>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>{GRUPO_TEXTO[l.grupo]}{l.factura ? ` · ${l.factura}` : ""}</div>
-                </td>
-                <td style={tdNum}>{fmt(l.valor_facturado)}</td>
-                <td style={{ ...td, fontSize: 12, color: "#475569" }}>{l.tarifa || <span style={{ color: "#991b1b" }}>Sin tarifa</span>}</td>
-                <td style={{ ...tdNum, fontWeight: 700 }}>
-                  {fmt(l.honorario)}
-                  {l.valor_ajustado != null && <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400, textDecoration: "line-through" }}>{fmt(l.honorario_calculado)}</div>}
-                </td>
-                <td style={td}>
-                  <Chip texto={l.estado === "PENDIENTE" ? "Pendiente" : l.estado === "OK" ? "OK" : "Glosa"} color={ESTADO_COLOR[l.estado]} />
-                  {l.auditado_por && <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>{l.auditado_por}</div>}
-                </td>
-                <td style={{ ...td, whiteSpace: "nowrap" }}>
-                  {!bloqueada && (
-                    <>
-                      {l.estado !== "OK" && <button style={btnSmall("#16a34a")} onClick={() => guardar([l.sis_deta_id], { estado: "OK" })}>OK</button>}
-                      <button style={btnSmall("#7c3aed")} onClick={() => setEditando(l)}>Glosa / ajuste</button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {!lineas.length && <tr><td colSpan={11} style={{ ...td, textAlign: "center", color: "#94a3b8" }}>Sin líneas con estos filtros</td></tr>}
+            {servicios.map(fila)}
+            {!servicios.length && <tr><td colSpan={11} style={{ ...td, textAlign: "center", color: "#94a3b8" }}>Sin líneas con estos filtros</td></tr>}
           </tbody>
         </table>
       </div>
@@ -469,7 +541,10 @@ function EditarLinea({ linea, onCerrar, onGuardar }: {
   const [estado, setEstado] = useState<string>(linea.estado === "PENDIENTE" ? "GLOSA" : linea.estado);
   const [obs, setObs] = useState(linea.observacion);
   const [ajuste, setAjuste] = useState(linea.valor_ajustado != null ? String(linea.valor_ajustado) : "");
-  const falta = estado === "GLOSA" && !obs.trim();
+  const [glosa, setGlosa] = useState(linea.valor_glosa != null ? String(linea.valor_glosa) : "");
+  const base = linea.valor_ajustado != null ? linea.valor_ajustado : linea.honorario_calculado;
+  const glosaNum = glosa === "" ? base : Math.min(Number(glosa), base);
+  const falta = estado === "GLOSA" && (!obs.trim() || (glosa !== "" && Number(glosa) <= 0));
   return (
     <Modal titulo={`${linea.cups} · ${linea.paciente}`} onCerrar={onCerrar}>
       <div style={{ fontSize: 13, color: "#475569", marginBottom: 12 }}>
@@ -478,13 +553,23 @@ function EditarLinea({ linea, onCerrar, onGuardar }: {
       </div>
       <Filtro etiqueta="Resultado" flex="1">
         <div style={{ display: "flex", gap: 8 }}>
-          {[["OK", "OK (se paga)"], ["GLOSA", "Glosa (no se paga)"], ["PENDIENTE", "Pendiente"]].map(([v, t]) => (
+          {[["OK", "OK (se paga)"], ["GLOSA", "Glosa"], ["PENDIENTE", "Pendiente"]].map(([v, t]) => (
             <label key={v} style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 13 }}>
               <input type="radio" checked={estado === v} onChange={() => setEstado(v)} /> {t}
             </label>
           ))}
         </div>
       </Filtro>
+      {estado === "GLOSA" && (
+        <div style={{ marginTop: 12 }}>
+          <Filtro etiqueta="Valor a glosar (vacío = se glosa todo)" flex="1">
+            <input value={glosa} onChange={e => setGlosa(e.target.value.replace(/[^\d]/g, ""))} placeholder={String(Math.round(base))} style={inputStyle} />
+          </Filtro>
+          <div style={{ fontSize: 12, color: "#475569", marginTop: 6 }}>
+            Se glosa <b style={{ color: "#991b1b" }}>{fmt(glosaNum)}</b> · se paga <b style={{ color: "#166534" }}>{fmt(Math.max(base - glosaNum, 0))}</b>
+          </div>
+        </div>
+      )}
       {estado !== "GLOSA" && (
         <div style={{ marginTop: 12 }}>
           <Filtro etiqueta="Valor ajustado (opcional, reemplaza el calculado)" flex="1">
@@ -500,7 +585,8 @@ function EditarLinea({ linea, onCerrar, onGuardar }: {
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
         <button onClick={onCerrar} style={btnStyle("#94a3b8")}>Cancelar</button>
         <button disabled={falta} onClick={() => onGuardar({
-          estado, observacion: obs, valor_ajustado: estado === "GLOSA" ? null : (ajuste === "" ? null : Number(ajuste)),
+          estado, observacion: obs,
+          ...(estado === "GLOSA" ? { valor_glosa: glosa === "" ? null : Number(glosa) } : { valor_ajustado: ajuste === "" ? null : Number(ajuste) }),
         })} style={{ ...btnStyle("#6d28d9"), opacity: falta ? 0.5 : 1 }}>Guardar</button>
       </div>
     </Modal>
@@ -647,8 +733,10 @@ function HallazgosLumier({ periodo, onCambio, medicoInicial = "Todos" }: {
 
 // ── Tarifas ─────────────────────────────────────────────────────────────────
 
-function Tarifas() {
+function Tarifas({ periodo }: { periodo: string }) {
   const [tarifas, setTarifas] = useState<Tarifa[]>([]);
+  const [verSinTarifa, setVerSinTarifa] = useState(false);
+  const [inicial, setInicial] = useState<Partial<Tarifa> | null>(null);
   const [medicosZeus, setMedicosZeus] = useState<MedicoZeus[]>([]);
   const [buscar, setBuscar] = useState("");
   const [medicoF, setMedicoF] = useState("Todos");
@@ -731,10 +819,15 @@ function Tarifas() {
           </select>
         </Filtro>
         <div style={{ flex: 1 }} />
+        <button onClick={() => setVerSinTarifa(!verSinTarifa)} style={btnStyle(verSinTarifa ? "#64748b" : "#b91c1c")}>
+          {verSinTarifa ? "Ocultar CUPS sin tarifa" : `CUPS sin tarifa (${nombreMes(periodo)})`}
+        </button>
         <button onClick={() => setNueva(true)} style={btnStyle("#6d28d9")}>Nueva tarifa</button>
         <input ref={input} type="file" accept=".xlsx" style={{ display: "none" }} onChange={e => e.target.files?.[0] && importar(e.target.files[0])} />
         <button onClick={() => input.current?.click()} style={btnStyle("#0f766e")}>Importar Excel de tarifas</button>
       </div>
+
+      {verSinTarifa && <CupsSinTarifa periodo={periodo} onCrear={c => { setInicial(c); setNueva(true); }} />}
 
       {(sinMedico.length > 0 || medicoF !== "Todos") && (
         <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: 12, marginBottom: 12 }}>
@@ -773,20 +866,22 @@ function Tarifas() {
       </div>
 
       {(editando || nueva) && (
-        <EditarTarifa tarifa={editando} medicos={medicosZeus}
-          onCerrar={() => { setEditando(null); setNueva(false); }}
-          onGuardado={() => { setEditando(null); setNueva(false); cargar(); }} />
+        <EditarTarifa tarifa={editando} medicos={medicosZeus} inicial={inicial}
+          onCerrar={() => { setEditando(null); setNueva(false); setInicial(null); }}
+          onGuardado={() => { setEditando(null); setNueva(false); setInicial(null); cargar(); }} />
       )}
     </>
   );
 }
 
-function EditarTarifa({ tarifa, medicos, onCerrar, onGuardado }: {
+function EditarTarifa({ tarifa, medicos, onCerrar, onGuardado, inicial }: {
   tarifa: Tarifa | null; medicos: MedicoZeus[]; onCerrar: () => void; onGuardado: () => void;
+  inicial?: Partial<Tarifa> | null;
 }) {
   const [f, setF] = useState({
-    cod_medico: tarifa?.cod_medico != null ? String(tarifa.cod_medico) : "", cups: tarifa?.cups || "",
-    descripcion: tarifa?.descripcion || "", grupo: tarifa?.grupo || "TODOS", tipo: tarifa?.tipo || "FIJO",
+    cod_medico: tarifa?.cod_medico != null ? String(tarifa.cod_medico) : (inicial?.cod_medico != null ? String(inicial.cod_medico) : ""),
+    cups: tarifa?.cups || inicial?.cups || "",
+    descripcion: tarifa?.descripcion || inicial?.descripcion || "", grupo: tarifa?.grupo || "TODOS", tipo: tarifa?.tipo || "FIJO",
     valor: tarifa?.valor != null ? String(tarifa.valor) : "", porcentaje: tarifa?.porcentaje != null ? String(tarifa.porcentaje) : "",
     max_puntos: tarifa?.max_puntos != null ? String(tarifa.max_puntos) : "", escalas: tarifa?.escalas || "",
     por_unidad: tarifa?.por_unidad || false, solo_contrato: tarifa?.solo_contrato || "", activo: tarifa?.activo ?? true,
@@ -866,6 +961,272 @@ function EditarTarifa({ tarifa, medicos, onCerrar, onGuardado }: {
         <button onClick={guardar} style={btnStyle("#6d28d9")}>Guardar</button>
       </div>
     </Modal>
+  );
+}
+
+// ── CUPS sin tarifa ─────────────────────────────────────────────────────────
+
+interface CupsSinTarifaFila {
+  cod_medico: number; medico: string; cups: string; descripcion: string; lineas: number; facturado: number;
+  contratos: string[]; motivo: string;
+}
+
+function CupsSinTarifa({ periodo, onCrear }: { periodo: string; onCrear: (t: Partial<Tarifa>) => void }) {
+  const [filas, setFilas] = useState<CupsSinTarifaFila[] | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    setFilas(null);
+    axios.get(`${API}/sin-tarifa/`, { ...auth(), params: { periodo } })
+      .then(({ data }) => setFilas(data.cups))
+      .catch(e => setError(errorDe(e, "No se pudieron consultar los CUPS sin tarifa")));
+  }, [periodo]);
+  if (error) return <Mensaje color="#991b1b" fondo="#fee2e2" texto={error} />;
+  if (!filas) return <Cargando />;
+  return (
+    <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: 12, marginBottom: 14 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "#9a3412", marginBottom: 8 }}>
+        CUPS facturados en {nombreMes(periodo)} sin tarifa del médico ({filas.length}) · el honorario de esas líneas queda en $0
+      </div>
+      <div style={tablaWrap}>
+        <table style={tabla}>
+          <thead><tr style={thRow}>{["Médico", "CUPS", "Líneas", "Facturado", "Contratos", "Motivo", ""].map(t => <th key={t} style={th}>{t}</th>)}</tr></thead>
+          <tbody>
+            {filas.map(f => (
+              <tr key={`${f.cod_medico}-${f.cups}`} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                <td style={{ ...td, fontWeight: 600 }}>{f.medico}</td>
+                <td style={{ ...td, maxWidth: 360 }}><b>{f.cups}</b> {f.descripcion}</td>
+                <td style={tdNum}>{f.lineas}</td>
+                <td style={tdNum}>{fmt(f.facturado)}</td>
+                <td style={{ ...td, fontSize: 11, color: "#64748b", maxWidth: 220 }}>{f.contratos.join(", ")}</td>
+                <td style={{ ...td, fontSize: 12, color: "#9a3412" }}>{f.motivo}</td>
+                <td style={td}><button style={btnSmall("#6d28d9")} onClick={() => onCrear({ cod_medico: f.cod_medico, cups: f.cups, descripcion: f.descripcion })}>Crear tarifa</button></td>
+              </tr>
+            ))}
+            {!filas.length && <tr><td colSpan={7} style={{ ...td, textAlign: "center", color: "#94a3b8" }}>Todos los CUPS del mes tienen tarifa</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Sin facturar en SIESA ───────────────────────────────────────────────────
+
+interface SinFacturarFila {
+  sis_deta_id: number; estudio: number; fecha: string | null; entidad: string; cups: string; descripcion: string;
+  paciente: string; tipo_id: string; documento: string; cantidad: number; valor: number; medico: string;
+}
+
+function SinFacturar({ periodo }: { periodo: string }) {
+  const [filas, setFilas] = useState<SinFacturarFila[] | null>(null);
+  const [error, setError] = useState("");
+  const [entidadF, setEntidadF] = useState("Todas");
+  const [buscar, setBuscar] = useState("");
+  useEffect(() => {
+    setFilas(null); setError("");
+    axios.get(`${API}/sin-facturar/`, { ...auth(), params: { periodo } })
+      .then(({ data }) => setFilas(data.filas))
+      .catch(e => setError(errorDe(e, "No se pudieron consultar los servicios sin factura")));
+  }, [periodo]);
+  const exportar = async () => {
+    try {
+      const resp = await axios.get(`${API}/sin-facturar/`, { ...auth(), params: { periodo, exportar: 1 }, responseType: "blob" });
+      const url = URL.createObjectURL(resp.data);
+      const a = document.createElement("a");
+      a.href = url; a.download = `Sin_facturar_SIESA_${periodo}.xlsx`; a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("No se pudo generar el Excel");
+    }
+  };
+  if (error) return <Mensaje color="#991b1b" fondo="#fee2e2" texto={error} onCerrar={() => setError("")} />;
+  if (!filas) return <Cargando />;
+  const porEntidad = new Map<string, { n: number; valor: number }>();
+  filas.forEach(f => {
+    const e = porEntidad.get(f.entidad) || { n: 0, valor: 0 };
+    e.n += 1; e.valor += f.valor; porEntidad.set(f.entidad, e);
+  });
+  const entidades = Array.from(porEntidad.entries()).sort((a, b) => b[1].n - a[1].n);
+  const lista = filas.filter(f => (entidadF === "Todas" || f.entidad === entidadF) &&
+    (!buscar || `${f.paciente} ${f.documento} ${f.cups} ${f.descripcion} ${f.estudio} ${f.medico}`.toLowerCase().includes(buscar.toLowerCase())));
+  const total = lista.reduce((s, f) => s + f.valor, 0);
+  return (
+    <>
+      <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Kpi valor={lista.length.toLocaleString("es-CO")} texto="Servicios sin factura" fondo="#fee2e2" color="#991b1b" />
+        <Kpi valor={fmt(total)} texto="Valor sin facturar" fondo="#fef3c7" color="#92400e" />
+        <Kpi valor={String(entidades.length)} texto="Entidades" fondo="#f8fafc" color="#1e293b" />
+        <div style={{ flex: 1 }} />
+        <Filtro etiqueta="Entidad">
+          <select value={entidadF} onChange={e => setEntidadF(e.target.value)} style={selectStyle}>
+            <option value="Todas">Todas</option>
+            {entidades.map(([e, v]) => <option key={e} value={e}>{e} ({v.n})</option>)}
+          </select>
+        </Filtro>
+        <Filtro etiqueta="Buscar">
+          <input value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Paciente, CUPS, estudio, médico" style={inputStyle} />
+        </Filtro>
+        <button onClick={exportar} style={btnStyle("#0f766e")}>Exportar Excel</button>
+      </div>
+      <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 10px" }}>
+        Servicios de {nombreMes(periodo)} que no tienen número de factura en SIESA, por entidad, procedimiento y fecha.
+        El Excel trae además un resumen por entidad y procedimiento.
+      </p>
+      <div style={tablaWrap}>
+        <table style={tabla}>
+          <thead><tr style={thRow}>{["Entidad", "Procedimiento", "Fecha", "Paciente", "Médico", "Cant.", "Valor"].map(t => <th key={t} style={th}>{t}</th>)}</tr></thead>
+          <tbody>
+            {lista.slice(0, 500).map(f => (
+              <tr key={f.sis_deta_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                <td style={{ ...td, fontSize: 12 }}>{f.entidad}</td>
+                <td style={{ ...td, maxWidth: 320 }}><b>{f.cups}</b> {f.descripcion}</td>
+                <td style={{ ...td, whiteSpace: "nowrap" }}>{fecha(f.fecha)}<div style={{ fontSize: 11, color: "#94a3b8" }}>Est. {f.estudio}</div></td>
+                <td style={td}><div style={{ fontWeight: 600 }}>{f.paciente}</div><div style={{ fontSize: 11, color: "#64748b" }}>{f.tipo_id} {f.documento}</div></td>
+                <td style={{ ...td, fontSize: 12 }}>{f.medico}</td>
+                <td style={tdNum}>{f.cantidad}</td>
+                <td style={tdNum}>{fmt(f.valor)}</td>
+              </tr>
+            ))}
+            {lista.length > 500 && <tr><td colSpan={7} style={{ ...td, textAlign: "center", color: "#64748b" }}>Se muestran 500 de {lista.length}: use los filtros o el Excel para ver todo</td></tr>}
+            {!lista.length && <tr><td colSpan={7} style={{ ...td, textAlign: "center", color: "#94a3b8" }}>Todo lo del mes tiene factura en SIESA</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+// ── Indicadores ─────────────────────────────────────────────────────────────
+
+interface IndicadoresDatos {
+  desde: string; hasta: string; cierres: number;
+  medicos: { cod_medico: number; medico: string; especialidad: string; lineas: number; ok: number; glosas: number;
+    glosado: number; pagado: number; calculado: number; pct_glosas: number }[];
+  meses: { periodo: string; pagado: number; glosado: number; glosas: number; lineas: number }[];
+  motivos: { motivo: string; glosas: number; glosado: number }[];
+  cups: { cups: string; descripcion: string; glosas: number; glosado: number }[];
+}
+
+function Indicadores() {
+  const hasta0 = mesAnterior();
+  const [desde, setDesde] = useState(() => {
+    const [a, m] = hasta0.split("-").map(Number);
+    const d = new Date(a, m - 6, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [hasta, setHasta] = useState(hasta0);
+  const [datos, setDatos] = useState<IndicadoresDatos | null>(null);
+  const [orden, setOrden] = useState<"pagado" | "glosado" | "glosas" | "pct_glosas">("pagado");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    setDatos(null); setError("");
+    axios.get(`${API}/indicadores/`, { ...auth(), params: { desde, hasta } })
+      .then(({ data }) => setDatos(data))
+      .catch(e => setError(errorDe(e, "No se pudieron cargar los indicadores")));
+  }, [desde, hasta]);
+  const filtros = (
+    <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
+      <Filtro etiqueta="Desde" flex="0 1 180px"><input type="month" value={desde} onChange={e => setDesde(e.target.value)} style={inputStyle} /></Filtro>
+      <Filtro etiqueta="Hasta" flex="0 1 180px"><input type="month" value={hasta} onChange={e => setHasta(e.target.value)} style={inputStyle} /></Filtro>
+    </div>
+  );
+  if (error) return <>{filtros}<Mensaje color="#991b1b" fondo="#fee2e2" texto={error} /></>;
+  if (!datos) return <>{filtros}<Cargando /></>;
+  const pagado = datos.medicos.reduce((s, m) => s + m.pagado, 0);
+  const glosado = datos.medicos.reduce((s, m) => s + m.glosado, 0);
+  const lineas = datos.medicos.reduce((s, m) => s + m.lineas, 0);
+  const glosas = datos.medicos.reduce((s, m) => s + m.glosas, 0);
+  const medicos = [...datos.medicos].sort((a, b) => b[orden] - a[orden]);
+  const maxOrden = Math.max(1, ...medicos.map(m => m[orden]));
+  const maxMes = Math.max(1, ...datos.meses.map(m => m.pagado + m.glosado));
+  const valorOrden = (m: IndicadoresDatos["medicos"][number]) =>
+    orden === "glosas" ? String(m.glosas) : orden === "pct_glosas" ? `${m.pct_glosas}%` : fmt(m[orden]);
+  return (
+    <>
+      {filtros}
+      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+        <Kpi valor={fmt(pagado)} texto="Honorarios pagados" fondo="#ede9fe" color="#5b21b6" />
+        <Kpi valor={fmt(glosado)} texto="Valor glosado" fondo="#fee2e2" color="#991b1b" />
+        <Kpi valor={`${glosas.toLocaleString("es-CO")} / ${lineas.toLocaleString("es-CO")}`} texto="Líneas glosadas / auditadas" fondo="#fef3c7" color="#92400e" />
+        <Kpi valor={lineas ? `${(100 * glosas / lineas).toFixed(1)}%` : "—"} texto="% de glosa" fondo="#f8fafc" color="#1e293b" />
+        <Kpi valor={String(datos.cierres)} texto="Auditorías cerradas" fondo="#dcfce7" color="#166534" />
+      </div>
+      {!lineas && <Mensaje color="#475569" fondo="#f1f5f9" texto="Aún no hay líneas auditadas en este rango. Los indicadores se llenan a medida que se marcan OK y glosas." />}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 16 }}>
+        <Tarjeta titulo="Médicos">
+          <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+            {([["pagado", "Más se les paga"], ["glosado", "Más valor glosado"], ["glosas", "Más glosas"], ["pct_glosas", "Mayor % de glosa"]] as const).map(([k, t]) => (
+              <button key={k} onClick={() => setOrden(k)} style={{ ...btnSmall(orden === k ? "#6d28d9" : "#cbd5e1"), color: orden === k ? "#fff" : "#334155" }}>{t}</button>
+            ))}
+          </div>
+          {medicos.slice(0, 15).map(m => (
+            <div key={m.cod_medico} style={{ marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <span style={{ fontWeight: 600, color: "#1e293b" }}>{m.medico}</span>
+                <span style={{ fontWeight: 700 }}>{valorOrden(m)}</span>
+              </div>
+              <div style={{ background: "#f1f5f9", borderRadius: 4, height: 7, marginTop: 3 }}>
+                <div style={{ width: `${(100 * m[orden]) / maxOrden}%`, height: 7, borderRadius: 4, background: orden === "pagado" ? "#7c3aed" : "#dc2626" }} />
+              </div>
+              <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>
+                {m.lineas} líneas · {m.glosas} glosas ({m.pct_glosas}%) · pagado {fmt(m.pagado)} · glosado {fmt(m.glosado)}
+              </div>
+            </div>
+          ))}
+        </Tarjeta>
+
+        <Tarjeta titulo="Por mes">
+          {datos.meses.map(m => (
+            <div key={m.periodo} style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <span style={{ fontWeight: 600, textTransform: "capitalize" }}>{nombreMes(m.periodo)}</span>
+                <span>{fmt(m.pagado)} <span style={{ color: "#dc2626" }}>· glosa {fmt(m.glosado)}</span></span>
+              </div>
+              <div style={{ display: "flex", height: 8, marginTop: 3, borderRadius: 4, overflow: "hidden", background: "#f1f5f9" }}>
+                <div style={{ width: `${(100 * m.pagado) / maxMes}%`, background: "#7c3aed" }} />
+                <div style={{ width: `${(100 * m.glosado) / maxMes}%`, background: "#dc2626" }} />
+              </div>
+              <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>{m.lineas} líneas auditadas · {m.glosas} glosas</div>
+            </div>
+          ))}
+          {!datos.meses.length && <div style={{ color: "#94a3b8", fontSize: 13 }}>Sin datos</div>}
+        </Tarjeta>
+
+        <Tarjeta titulo="Motivos de glosa más frecuentes">
+          <TablaSimple filas={datos.motivos.map(m => [m.motivo, String(m.glosas), fmt(m.glosado)])} columnas={["Motivo", "Glosas", "Valor"]} />
+        </Tarjeta>
+
+        <Tarjeta titulo="CUPS más glosados">
+          <TablaSimple filas={datos.cups.map(c => [`${c.cups} ${c.descripcion}`, String(c.glosas), fmt(c.glosado)])} columnas={["CUPS", "Glosas", "Valor"]} />
+        </Tarjeta>
+      </div>
+    </>
+  );
+}
+
+function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 10, padding: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.07)", minWidth: 0 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: 10 }}>{titulo}</div>
+      {children}
+    </div>
+  );
+}
+
+function TablaSimple({ filas, columnas }: { filas: string[][]; columnas: string[] }) {
+  if (!filas.length) return <div style={{ color: "#94a3b8", fontSize: 13 }}>Sin glosas en el rango</div>;
+  return (
+    <table style={tabla}>
+      <thead><tr style={thRow}>{columnas.map(c => <th key={c} style={th}>{c}</th>)}</tr></thead>
+      <tbody>
+        {filas.map((f, i) => (
+          <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+            {f.map((v, j) => <td key={j} style={j === 0 ? { ...td, fontSize: 12 } : tdNum}>{v}</td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
