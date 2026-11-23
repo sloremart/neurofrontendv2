@@ -26,6 +26,7 @@ interface Linea {
   lumier: { profesional: string; cups: string; examen: string } | null;
   tipo: "SERVICIO" | "AGENDA"; por_horas: boolean; valor_glosa: number | null; valor_glosado: number;
   bloques: { inicio: string; fin: string; horas: number }[] | null;
+  cod_medico?: number | null; cod_medico_zeus?: number | null; medico_agenda?: string;
 }
 interface Detalle {
   periodo: string; cod_medico: number; medico: string; especialidad: string; cerrada: boolean;
@@ -36,7 +37,7 @@ interface Hallazgo {
   clave: string; tipo: string; fecha: string | null; paciente: string; documento: string; cups: string;
   examen: string; medico_zeus: string; medico_lumier: string; cups_lumier?: string; examen_lumier?: string;
   cod_medico_zeus: number | null; cod_medico_lumier: number | null; medico_lumier_zeus: string;
-  estudio: number | null; decision: string; nota: string; validado_por: string;
+  estudio: number | null; decision: string; nota: string; validado_por: string; automatico?: boolean;
 }
 interface Tarifa {
   id: number; area: string; encabezado: string; cod_medico: number | null; medico: string; cups: string;
@@ -383,6 +384,11 @@ function DetalleMedico({ periodo, codMedico, onVolver, onVerLumier }: {
         </td>
         <td style={{ ...td, maxWidth: 300 }}>
           <div><b>{l.cups}</b> {l.descripcion}</div>
+          {l.medico_agenda && (
+            <div style={{ marginTop: 4 }}>
+              <Chip texto={`Leído en Lumier${l.lumier ? ` por ${l.lumier.profesional}` : ""} · en la agenda de Zeus: ${l.medico_agenda}`} color={["#e0f2fe", "#075985"]} />
+            </div>
+          )}
           {l.alertas.length > 0 && (
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
               {l.alertas.map(a => <Chip key={a} texto={a} color={a.startsWith("Lumier") || a.startsWith("No está") ? ["#fee2e2", "#991b1b"] : ["#fef3c7", "#92400e"]} />)}
@@ -670,8 +676,8 @@ function HallazgosLumier({ periodo, onCambio, medicoInicial = "Todos" }: {
         </Filtro>
       </div>
       <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 10px" }}>
-        Cruce por documento del paciente, CUPS y fecha (±5 días). "Médico diferente": el radiólogo que leyó en Lumier no es el médico de la línea en Zeus;
-        si decide pagar al de Lumier, la línea pasa a la auditoría de ese médico.
+        Cruce por documento del paciente, CUPS y fecha (±5 días). "Médico diferente": el radiólogo que leyó en Lumier no es el médico de la línea en Zeus.
+        Se paga automáticamente al de Lumier (es quien leyó el examen) y la línea pasa a la auditoría de ese médico; use "Pagar a Zeus" solo si hay que dejarla al de Zeus.
       </p>
       <div style={tablaWrap}>
         <table style={tabla}>
@@ -701,10 +707,12 @@ function HallazgosLumier({ periodo, onCambio, medicoInicial = "Todos" }: {
                 <td style={{ ...td, minWidth: 260 }}>
                   {h.decision ? (
                     <div>
-                      <Chip texto={DECISION_TEXTO[h.decision]} color={["#dcfce7", "#166534"]} />
+                      <Chip texto={DECISION_TEXTO[h.decision] + (h.automatico ? " (automático)" : "")} color={["#dcfce7", "#166534"]} />
                       {h.nota && <div style={{ fontSize: 11, color: "#475569", marginTop: 3 }}>{h.nota}</div>}
                       <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>{h.validado_por}
-                        <button style={{ ...btnSmall("#94a3b8"), marginLeft: 6 }} onClick={() => resolver(h, "")}>Deshacer</button>
+                        {h.automatico
+                          ? <button style={{ ...btnSmall("#1e40af"), marginLeft: 6 }} onClick={() => resolver(h, "ZEUS")}>Pagar a Zeus</button>
+                          : <button style={{ ...btnSmall("#94a3b8"), marginLeft: 6 }} onClick={() => resolver(h, "")}>Deshacer</button>}
                       </div>
                     </div>
                   ) : (
