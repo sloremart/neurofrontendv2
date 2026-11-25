@@ -1,13 +1,15 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
 import { getToken } from "../../../config/token.jsx";
 import DetalleCasoDrawer from "./DetalleCasoDrawer.tsx";
 import RegistrarDevolucionModal from "./RegistrarDevolucionModal.tsx";
+import HallazgosPendientes from "./HallazgosPendientes.tsx";
+import Seccion from "./Seccion.tsx";
 
 import CONFIG from '../../../config/api';
 const API = `${CONFIG.API_ENDPOINT}/gestion-facturacion`;
 
-type Bandeja = "realizados" | "radicados" | "devoluciones";
+type Bandeja = "realizados" | "radicados" | "devoluciones" | "hallazgos";
 
 interface Caso {
   admision_id: number;
@@ -46,11 +48,13 @@ interface Caso {
   radicado_zeus?: boolean;
   fecha_radicado_zeus?: string | null;
   remision_zeus?: string;
+  hallazgos?: { tipo: string; documento: string; responsable: string }[];
 }
 
 interface CausaResumen { causa: string; texto: string; total: number; }
 
 const CAUSA_COLOR: Record<string, [string, string]> = {
+  facturada_siesa:     ["#ede9fe", "#5b21b6"],
   devuelta_cm:         ["#fee2e2", "#991b1b"],
   hallazgo_admisiones: ["#fef3c7", "#92400e"],
   hallazgo_resultado:  ["#ffedd5", "#9a3412"],
@@ -69,7 +73,33 @@ const TABS: { key: Bandeja; label: string; color: string }[] = [
   { key: "realizados",               label: "Realizados sin factura",      color: "#f59e0b" },
   { key: "radicados",                label: "Facturados sin radicar",      color: "#3b82f6" },
   { key: "devoluciones",             label: "Devoluciones EPS",            color: "#ef4444" },
+  { key: "hallazgos",                label: "Hallazgos IA",                color: "#2a78d6" },
 ];
+
+// Realizados / facturados: en qué área está detenido cada estudio (agrupa las causas del backend)
+interface Etapa { key: string; label: string; desc: string; causas: string[]; color: string; }
+const ETAPAS: Partial<Record<Bandeja, Etapa[]>> = {
+  realizados: [
+    { key: "admisiones",   label: "Admisiones",          color: "#b45309",
+      desc: "Hallazgos, documentos faltantes o devueltas por Cuentas Médicas",
+      causas: ["hallazgo_admisiones", "faltan_documentos", "devuelta_cm"] },
+    { key: "coordinacion", label: "Coordinación médica", color: "#c2410c",
+      desc: "Hallazgo en el resultado",
+      causas: ["hallazgo_resultado"] },
+    { key: "cuentas",      label: "Cuentas Médicas",     color: "#0369a1",
+      desc: "Pendiente de aprobación o de revisión manual",
+      causas: ["pendiente_cm", "antes_ia", "sin_revision_ia"] },
+    { key: "facturacion",  label: "Facturación",         color: "#15803d",
+      desc: "Aprobada: falta facturar o cargar la factura",
+      causas: ["aprobada_cm", "facturada_siesa"] },
+  ],
+  radicados: [
+    { key: "renombrar", label: "GE Documental", color: "#b45309",
+      desc: "Pendiente renombrar los documentos", causas: ["pendiente_renombrar"] },
+    { key: "radicar",   label: "Radicación",    color: "#0369a1",
+      desc: "Renombrada: falta radicar en Zeus", causas: ["renombrada_sin_radicar"] },
+  ],
+};
 
 const BANDEJAS_SIMPLES: Bandeja[] = ["realizados", "radicados", "devoluciones"];
 
@@ -88,6 +118,17 @@ const ESTADO_TEXT: Record<string, string> = {
   en_gestion: "#1e40af",
   resuelto:   "#166534",
 };
+
+// Antigüedad (días desde el ingreso): rangos del filtro y del semáforo
+const RANGOS_DIAS: { key: string; label: string; min: number; max: number }[] = [
+  { key: "0-7",   label: "Hasta 7 días",  min: 0,  max: 7 },
+  { key: "8-15",  label: "8 a 15 días",   min: 8,  max: 15 },
+  { key: "16-30", label: "16 a 30 días",  min: 16, max: 30 },
+  { key: "31+",   label: "Más de 30 días", min: 31, max: Infinity },
+];
+
+// Datos en memoria de una pestaña: pasado este tiempo se actualizan en segundo plano al volver a ella
+const MAX_EDAD_MS = 5 * 60 * 1000;
 
 function fmt(v: number) {
   return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(v);
@@ -122,26 +163,76 @@ export function GestionFacturacion() {
   const [causas, setCausas]                 = useState<CausaResumen[]>([]);
   const [usuarioFiltro, setUsuarioFiltro]   = useState<string>("Todos");
   const [contratoFiltro, setContratoFiltro] = useState<string>("Todos");
+  const [diasFiltro, setDiasFiltro]         = useState<string>("Todos");
+  const [orden, setOrden]                   = useState<"dias" | "valor">("dias");
+  const [masFiltros, setMasFiltros]         = useState(false);
+  const [etapaFiltro, setEtapaFiltro]       = useState<string>("Todas");
+  const [recargaResumen, setRecargaResumen] = useState(0);
 
-  const cargar = useCallback(async (bandeja: Bandeja, fi = fechaIni, ff = fechaFin) => {
-    setLoading(true);
+  // Datos de cada pestaña en memoria: al volver a una pestaña se muestran de inmediato (sin "Cargando...")
+  // y se actualizan en segundo plano si tienen más de MAX_EDAD_MS. El backend también guarda la respuesta.
+  const memoria = useRef<Partial<Record<Bandeja, { casos: Caso[]; causas: CausaResumen[]; t: number }>>>({});
+  const tabRef = useRef<Bandeja>(tab);
+  tabRef.current = tab;
+  const [actualizando, setActualizando] = useState(false);
+
+  const cargar = useCallback(async (bandeja: Bandeja, opciones: { refrescar?: boolean } = {}) => {
+    if (bandeja === "hallazgos") {   // la pestaña de hallazgos consulta su propio resumen
+      if (opciones.refrescar) setRecargaResumen(r => r + 1);
+      return;
+    }
+    const enMemoria = memoria.current[bandeja];
+    const esActual = () => tabRef.current === bandeja;
+    if (esActual()) {
+      if (enMemoria) setActualizando(true);
+      else { setCasos([]); setCausas([]); setLoading(true); }
+    }
     try {
       const params: Record<string, string> = {};
-      if (fi) params.fecha_inicio = fi;
-      if (ff) params.fecha_fin    = ff;
+      if (fechaIni) params.fecha_inicio = fechaIni;
+      if (fechaFin) params.fecha_fin    = fechaFin;
+      if (opciones.refrescar) params.refrescar = "1";
       const { data } = await axios.get(`${API}/${bandeja}/`, {
         headers: { Authorization: `Token ${getToken()}` }, params,
       });
-      setCasos(data.data || []);
-      setCausas(data.causas || []);
+      memoria.current[bandeja] = { casos: data.data || [], causas: data.causas || [], t: Date.now() };
+      if (esActual()) {
+        setCasos(data.data || []);
+        setCausas(data.causas || []);
+      }
     } catch {
-      setCasos([]);
+      if (esActual() && !enMemoria) setCasos([]);
     } finally {
-      setLoading(false);
+      if (esActual()) { setLoading(false); setActualizando(false); }
     }
   }, [fechaIni, fechaFin]);
 
-  useEffect(() => { cargar(tab); }, [tab]);
+  // Precarga en segundo plano las demás bandejas, para que cambiar de pestaña sea inmediato
+  const precargar = useCallback((excepto: Bandeja) => {
+    (["realizados", "radicados", "devoluciones"] as Bandeja[])
+      .filter(b => b !== excepto && !memoria.current[b])
+      .forEach(b => { cargar(b); });
+  }, [cargar]);
+
+  useEffect(() => {
+    const enMemoria = memoria.current[tab];
+    if (enMemoria) {
+      setCasos(enMemoria.casos);
+      setCausas(enMemoria.causas);
+      setLoading(false);
+      if (Date.now() - enMemoria.t > MAX_EDAD_MS) cargar(tab);
+    } else {
+      cargar(tab).then(() => precargar(tab));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  // Botón Buscar (o cambio de fechas): recalcula la pestaña actual y vuelve a precargar las demás
+  const buscar = () => {
+    memoria.current = {};
+    cargar(tab, { refrescar: true }).then(() => precargar(tab));
+    if (tab === "hallazgos") setRecargaResumen(r => r + 1);
+  };
 
   const cambiarEstado = async (caso: Caso, estado: string) => {
     await axios.post(
@@ -156,6 +247,10 @@ export function GestionFacturacion() {
   const vistaCausa = tab === "realizados" || tab === "radicados";
   const etiquetaCausa = tab === "radicados" ? "Etapa en GE Documental" : "Hallazgo / por qué sigue sin factura";
   const usuarioDe = (c: Caso) => c.usuario_cargue || "Sin usuario";
+  const rangoDias = RANGOS_DIAS.find(r => r.key === diasFiltro);
+  const enRango = (c: Caso) => !rangoDias || ((c.dias_pendiente ?? 0) >= rangoDias.min && (c.dias_pendiente ?? 0) <= rangoDias.max);
+  const conteoDias = (r: typeof RANGOS_DIAS[number]) =>
+    casos.filter(c => (c.dias_pendiente ?? 0) >= r.min && (c.dias_pendiente ?? 0) <= r.max).length;
   // Opciones de cada filtro con su cantidad de estudios (sobre todos los casos de la bandeja)
   const opciones = (valores: string[]) => {
     const cuenta: Record<string, number> = {};
@@ -165,16 +260,30 @@ export function GestionFacturacion() {
   const opcionesEps      = opciones(casos.map(c => c.eps || "Sin EPS"));
   const opcionesContrato = opciones(casos.map(c => c.contrato || "Sin contrato"));
   const opcionesUsuario  = opciones(casos.map(usuarioDe));
-  const casosEps = casos.filter(c =>
+  const etapas = ETAPAS[tab] || [];
+  const etapaDe = (c: Caso) => etapas.find(e => e.causas.includes(c.causa || ""))?.key || "Otras";
+  const etapaActual = etapas.find(e => e.key === etapaFiltro);
+  // Casos con los filtros generales (sin etapa ni causa): base de los conteos de las tarjetas de etapa
+  const casosBase = casos.filter(c =>
     (epsFiltro === "Todas" || (c.eps || "Sin EPS") === epsFiltro) &&
     (contratoFiltro === "Todos" || (c.contrato || "Sin contrato") === contratoFiltro) &&
-    (causaFiltro === "Todas" || c.causa === causaFiltro) &&
-    (usuarioFiltro === "Todos" || usuarioDe(c) === usuarioFiltro)
+    (usuarioFiltro === "Todos" || usuarioDe(c) === usuarioFiltro) &&
+    enRango(c)
   );
-  const hayFiltros = epsFiltro !== "Todas" || contratoFiltro !== "Todos" || causaFiltro !== "Todas"
-    || usuarioFiltro !== "Todos" || servicioFiltro !== "Todos" || !!busqueda;
+  const conteoEtapa = (key: string) => {
+    const g = casosBase.filter(c => etapaDe(c) === key);
+    return { n: g.length, valor: g.reduce((a, c) => a + c.valor_total, 0) };
+  };
+  const casosEps = casosBase.filter(c =>
+    (etapaFiltro === "Todas" || etapaDe(c) === etapaFiltro) &&
+    (causaFiltro === "Todas" || c.causa === causaFiltro)
+  );
+  const hayFiltros = epsFiltro !== "Todas" || contratoFiltro !== "Todos" || causaFiltro !== "Todas" || etapaFiltro !== "Todas"
+    || usuarioFiltro !== "Todos" || servicioFiltro !== "Todos" || diasFiltro !== "Todos" || !!busqueda;
+  const filtrosActivos = [epsFiltro !== "Todas", contratoFiltro !== "Todos",
+    usuarioFiltro !== "Todos", diasFiltro !== "Todos"].filter(Boolean).length;
   const limpiarFiltros = () => {
-    setEpsFiltro("Todas"); setContratoFiltro("Todos"); setCausaFiltro("Todas");
+    setEpsFiltro("Todas"); setContratoFiltro("Todos"); setCausaFiltro("Todas"); setDiasFiltro("Todos"); setEtapaFiltro("Todas");
     setUsuarioFiltro("Todos"); setServicioFiltro("Todos"); setBusqueda("");
   };
   const grupoDe = (c: Caso) => agrupar === "servicio" ? (c.servicio || "Sin servicio")
@@ -196,7 +305,9 @@ export function GestionFacturacion() {
       (c.procedimientos || "").toLowerCase().includes(q) ||
       c.documento.includes(q)
     );
-  });
+  }).sort((a, b) => orden === "valor"
+    ? b.valor_total - a.valor_total
+    : (b.dias_pendiente ?? 0) - (a.dias_pendiente ?? 0));
 
   const totales = {
     pendiente:  casos.filter(c => c.estado === "pendiente").length,
@@ -232,7 +343,7 @@ export function GestionFacturacion() {
         {TABS.map(t => (
           <button
             key={t.key}
-            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); setEpsFiltro("Todas"); setCausaFiltro("Todas"); setCausas([]); if (t.key !== "realizados") setAgrupar(g => g === "usuario" ? "servicio" : g); setUsuarioFiltro("Todos"); setContratoFiltro("Todos"); }}
+            onClick={() => { setTab(t.key); setBusqueda(""); setServicioFiltro("Todos"); setEpsFiltro("Todas"); setCausaFiltro("Todas"); setCausas([]); if (t.key !== "realizados") setAgrupar(g => g === "usuario" ? "servicio" : g); setUsuarioFiltro("Todos"); setContratoFiltro("Todos"); setDiasFiltro("Todos"); setEtapaFiltro("Todas"); }}
             style={{
               padding: "12px 20px", border: "none", cursor: "pointer",
               background: "transparent", fontWeight: 600, fontSize: 14,
@@ -254,6 +365,7 @@ export function GestionFacturacion() {
         {BANDEJAS_SIMPLES.includes(tab as any) ? (vistaCausa ? [
           { label: "Total casos",    val: casos.length,          bg: "#f8fafc", text: "#1e293b" },
           { label: tab === "realizados" ? "Valor sin facturar" : "Valor facturado sin radicar", val: fmt(casos.reduce((s, c) => s + c.valor_total, 0)), bg: "#fef2f2", text: "#991b1b" },
+          { label: "Más de 15 días", val: casos.filter(c => (c.dias_pendiente ?? 0) > 15).length, bg: "#fff7ed", text: "#9a3412" },
         ] : [
           { label: "Total casos",    val: casos.length,          bg: "#f8fafc", text: "#1e293b" },
           { label: "Pendientes",     val: totales.pendiente,     bg: "#fef3c7", text: "#92400e" },
@@ -294,9 +406,12 @@ export function GestionFacturacion() {
                 : " · sin rango: desde el inicio de la IA (20/10/2026)"}
             </span>
           </div>
-          <button onClick={() => cargar(tab)} style={btnStyle(tabActual.color)}>
+          <button onClick={buscar} style={btnStyle(tabActual.color)}>
             Buscar
           </button>
+          {actualizando && (
+            <span style={{ fontSize: 11, color: "#64748b" }}>Actualizando…</span>
+          )}
           {tab === "devoluciones" && (
             <button onClick={() => setShowDevModal(true)} style={btnStyle("#10b981")}>
               + Registrar devolución
@@ -305,80 +420,181 @@ export function GestionFacturacion() {
         </div>
       </div>
 
-      {/* Buscador + chips de servicio — solo en bandejas simples */}
-      {BANDEJAS_SIMPLES.includes(tab as any) && <>
-      {/* Filtros: búsqueda, usuario que cargó, EPS, contrato y (en realizados) causa */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-        <Filtro etiqueta="Buscar" flex="1 1 260px">
-          <input
-            placeholder="No. estudio, paciente, documento o CUPS..."
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-            style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
-          />
-        </Filtro>
-        {tab === "realizados" && (
-          <Filtro etiqueta="Usuario que cargó">
-            <select value={usuarioFiltro} onChange={e => { setUsuarioFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
-              <option value="Todos">Todos ({casos.length})</option>
-              {opcionesUsuario.map(o => <option key={o.valor} value={o.valor}>{o.valor} ({o.total})</option>)}
-            </select>
-          </Filtro>
-        )}
-        <Filtro etiqueta="EPS">
-          <select value={epsFiltro} onChange={e => { setEpsFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
-            <option value="Todas">Todas ({casos.length})</option>
-            {opcionesEps.map(o => <option key={o.valor} value={o.valor}>{o.valor} ({o.total})</option>)}
-          </select>
-        </Filtro>
-        <Filtro etiqueta="Contrato">
-          <select value={contratoFiltro} onChange={e => { setContratoFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
-            <option value="Todos">Todos ({casos.length})</option>
-            {opcionesContrato.map(o => <option key={o.valor} value={o.valor}>{o.valor} ({o.total})</option>)}
-          </select>
-        </Filtro>
-        {vistaCausa && causas.length > 0 && (
-          <Filtro etiqueta={etiquetaCausa}>
-            <select value={causaFiltro} onChange={e => { setCausaFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
-              <option value="Todas">Todas ({casos.length})</option>
-              {causas.map(c => <option key={c.causa} value={c.causa}>{c.texto} ({c.total})</option>)}
-            </select>
-          </Filtro>
-        )}
-        {hayFiltros && (
-          <button onClick={limpiarFiltros} style={{ ...btnSmall("#64748b"), padding: "8px 12px", marginBottom: 0 }}>
-            Limpiar filtros
-          </button>
-        )}
-      </div>
+      {/* Pestaña Hallazgos IA: resumen administrativo por responsable y por tipo (todas las admisiones) */}
+      {tab === "hallazgos" && (
+        <HallazgosPendientes fechaIni={fechaIni} fechaFin={fechaFin} recarga={recargaResumen} />
+      )}
 
-      {/* Agrupar los recuadros por servicio, contrato o (en realizados) usuario que cargó */}
-      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-          Agrupar por
-        </span>
-        {(tab === "realizados" ? ["servicio", "contrato", "usuario"] as const : ["servicio", "contrato"] as const).map(a => (
+      {/* ¿Dónde está detenido? Tarjetas por área responsable; la elegida filtra la tabla y muestra sus causas */}
+      {etapas.length > 0 && !loading && casos.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>
+            ¿Dónde está detenido?
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(190px, 1fr))`, gap: 8 }}>
+            {[{ key: "Todas", label: "Todas", desc: "Todos los estudios de la bandeja", causas: [], color: "#334155" } as Etapa, ...etapas]
+              .filter(e => e.key === "Todas" || conteoEtapa(e.key).n > 0)
+              .map(e => {
+                const activo = etapaFiltro === e.key;
+                const { n, valor } = e.key === "Todas"
+                  ? { n: casosBase.length, valor: casosBase.reduce((a, c) => a + c.valor_total, 0) }
+                  : conteoEtapa(e.key);
+                return (
+                  <button
+                    key={e.key}
+                    onClick={() => { setEtapaFiltro(e.key); setCausaFiltro("Todas"); setServicioFiltro("Todos"); }}
+                    aria-pressed={activo}
+                    style={{
+                      textAlign: "left", cursor: "pointer", borderRadius: 10, padding: "10px 12px",
+                      background: activo ? "#f8fafc" : "#fff",
+                      border: `1px solid ${activo ? e.color : "#e2e8f0"}`,
+                      borderTop: `4px solid ${e.color}`,
+                      boxShadow: activo ? "0 2px 6px rgba(15,23,42,0.10)" : "0 1px 2px rgba(15,23,42,0.04)",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{e.label}</div>
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 6, margin: "4px 0 2px" }}>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{n}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b" }}>{fmt(valor)}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.3 }}>{e.desc}</div>
+                  </button>
+                );
+              })}
+          </div>
+          {/* Causas de la etapa elegida */}
+          {etapaActual && etapaActual.causas.length > 1 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+              {["Todas", ...etapaActual.causas].filter(k => k === "Todas" || casosBase.some(c => c.causa === k)).map(k => {
+                const activo = causaFiltro === k;
+                const n = k === "Todas" ? conteoEtapa(etapaActual.key).n : casosBase.filter(c => c.causa === k).length;
+                const texto = k === "Todas" ? `Todas las de ${etapaActual.label}` : (causas.find(x => x.causa === k)?.texto || k);
+                return (
+                  <button key={k} onClick={() => { setCausaFiltro(k); setServicioFiltro("Todos"); }} aria-pressed={activo}
+                    style={{
+                      padding: "4px 12px", borderRadius: 14, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                      border: `1px solid ${activo ? etapaActual.color : "#e2e8f0"}`,
+                      background: activo ? etapaActual.color : "#fff", color: activo ? "#fff" : "#475569",
+                    }}>
+                    {texto} ({n})
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Buscador + filtros + distribución — solo en bandejas simples */}
+      {BANDEJAS_SIMPLES.includes(tab as any) && <>
+      {/* Barra de filtros: búsqueda y orden siempre visibles; el resto en "Más filtros" */}
+      <div style={{
+        background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "12px 16px", marginBottom: 12,
+        boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+      }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <Filtro etiqueta="Buscar" flex="1 1 320px">
+            <input
+              placeholder="No. estudio, paciente, documento, usuario o CUPS..."
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+            />
+          </Filtro>
+          <Filtro etiqueta="Ordenar por" flex="0 1 200px">
+            <select value={orden} onChange={e => setOrden(e.target.value as "dias" | "valor")} style={selectStyle}>
+              <option value="dias">Más antiguos primero</option>
+              <option value="valor">Mayor valor primero</option>
+            </select>
+          </Filtro>
           <button
-            key={a}
-            onClick={() => { setAgrupar(a); setServicioFiltro("Todos"); }}
+            onClick={() => setMasFiltros(m => !m)}
+            aria-expanded={masFiltros}
             style={{
-              padding: "5px 14px", borderRadius: 16, fontSize: 12, fontWeight: 700, cursor: "pointer",
-              border: `2px solid ${tabActual.color}`,
-              background: agrupar === a ? tabActual.color : "#fff",
-              color: agrupar === a ? "#fff" : tabActual.color,
+              padding: "7px 14px", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer",
+              border: "1px solid #c4b5fd", background: masFiltros ? "#f5f3ff" : "#fff", color: "#5b21b6",
             }}
           >
-            {a === "servicio" ? "Servicio" : a === "contrato" ? "Contrato" : "Usuario que cargó"}
+            {masFiltros ? "▲" : "▼"} Más filtros{filtrosActivos > 0 ? ` (${filtrosActivos})` : ""}
           </button>
-        ))}
+          {hayFiltros && (
+            <button onClick={limpiarFiltros} style={{ ...btnSmall("#64748b"), padding: "8px 12px", marginBottom: 0 }}>
+              Limpiar filtros
+            </button>
+          )}
+          <span style={{ marginLeft: "auto", fontSize: 12, color: "#64748b", alignSelf: "center" }}>
+            Mostrando <b style={{ color: "#0f172a" }}>{casosFiltered.length}</b> de {casos.length}
+          </span>
+        </div>
+        {masFiltros && (
+          <div style={{
+            display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10,
+            marginTop: 12, paddingTop: 12, borderTop: "1px solid #f1f5f9",
+          }}>
+            {tab === "realizados" && (
+              <Filtro etiqueta="Usuario que cargó" flex="1">
+                <select value={usuarioFiltro} onChange={e => { setUsuarioFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
+                  <option value="Todos">Todos ({casos.length})</option>
+                  {opcionesUsuario.map(o => <option key={o.valor} value={o.valor}>{o.valor} ({o.total})</option>)}
+                </select>
+              </Filtro>
+            )}
+            <Filtro etiqueta="EPS" flex="1">
+              <select value={epsFiltro} onChange={e => { setEpsFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
+                <option value="Todas">Todas ({casos.length})</option>
+                {opcionesEps.map(o => <option key={o.valor} value={o.valor}>{o.valor} ({o.total})</option>)}
+              </select>
+            </Filtro>
+            <Filtro etiqueta="Contrato" flex="1">
+              <select value={contratoFiltro} onChange={e => { setContratoFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
+                <option value="Todos">Todos ({casos.length})</option>
+                {opcionesContrato.map(o => <option key={o.valor} value={o.valor}>{o.valor} ({o.total})</option>)}
+              </select>
+            </Filtro>
+            {vistaCausa && (
+              <Filtro etiqueta="Antigüedad" flex="1">
+                <select value={diasFiltro} onChange={e => { setDiasFiltro(e.target.value); setServicioFiltro("Todos"); }} style={selectStyle}>
+                  <option value="Todos">Todas ({casos.length})</option>
+                  {RANGOS_DIAS.map(r => <option key={r.key} value={r.key}>{r.label} ({conteoDias(r)})</option>)}
+                </select>
+              </Filtro>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Recuadros por servicio o contrato (cantidad y valor) */}
+      {/* Distribución por servicio, contrato o (en realizados) usuario que cargó: los recuadros filtran la tabla */}
+      <Seccion
+        id={`distribucion-${tab}`}
+        titulo="Distribución"
+        resumen={<>
+          por {agrupar === "servicio" ? "servicio" : agrupar === "contrato" ? "contrato" : "usuario que cargó"}
+          {" · "}{serviciosDisponibles.length - 1} grupos
+          {servicioFiltro !== "Todos" && <> · <b style={{ color: "#0f172a" }}>filtrando: {servicioFiltro}</b></>}
+        </>}
+        acciones={
+          <div style={{ display: "flex", gap: 6 }}>
+            {(tab === "realizados" ? ["servicio", "contrato", "usuario"] as const : ["servicio", "contrato"] as const).map(a => (
+              <button
+                key={a}
+                onClick={() => { setAgrupar(a); setServicioFiltro("Todos"); }}
+                style={{
+                  padding: "4px 12px", borderRadius: 14, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                  border: `1px solid ${agrupar === a ? tabActual.color : "#e2e8f0"}`,
+                  background: agrupar === a ? tabActual.color : "#fff",
+                  color: agrupar === a ? "#fff" : "#475569",
+                }}
+              >
+                {a === "servicio" ? "Servicio" : a === "contrato" ? "Contrato" : "Usuario que cargó"}
+              </button>
+            ))}
+          </div>
+        }
+      >
       <div style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+        gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
         gap: 8,
-        marginBottom: 16,
       }}>
         {serviciosDisponibles.map(s => {
           const grupo = s === "Todos" ? casosEps : casosEps.filter(c => grupoDe(c) === s);
@@ -388,38 +604,33 @@ export function GestionFacturacion() {
             <button
               key={s}
               onClick={() => setServicioFiltro(s)}
+              aria-pressed={activo}
               style={{
-                padding: "10px 12px",
-                border: `2px solid ${activo ? tabActual.color : "#e2e8f0"}`,
-                borderRadius: 10,
+                padding: "8px 10px",
+                border: `1px solid ${activo ? tabActual.color : "#e2e8f0"}`,
+                borderLeft: `4px solid ${activo ? tabActual.color : "#cbd5e1"}`,
+                borderRadius: 8,
                 cursor: "pointer",
-                background: activo ? tabActual.color : "#fff",
-                color: activo ? "#fff" : "#334155",
-                transition: "all 0.15s",
+                background: activo ? "#fffbeb" : "#fff",
+                color: "#334155",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "flex-start",
                 gap: 4,
                 textAlign: "left",
-                boxShadow: activo ? `0 2px 8px ${tabActual.color}44` : "0 1px 3px rgba(0,0,0,0.06)",
               }}
             >
-              <span style={{
-                fontSize: 11, fontWeight: 700, textTransform: "uppercase",
-                letterSpacing: "0.04em",
-                color: activo ? "#fff" : "#64748b",
+              <span title={s} style={{
+                fontSize: 11, fontWeight: 600, color: "#475569", width: "100%",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
               }}>
                 {s === "Todos" ? "Todos" : s}
               </span>
               <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "baseline", gap: 4 }}>
-                <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1 }}>
+                <span style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, color: "#0f172a" }}>
                   {grupo.length}
                 </span>
-                <span style={{
-                  fontSize: 11, fontWeight: 600,
-                  color: activo ? "rgba(255,255,255,0.85)" : "#94a3b8",
-                  whiteSpace: "nowrap",
-                }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b", whiteSpace: "nowrap" }}>
                   {fmt(totalValor)}
                 </span>
               </div>
@@ -427,6 +638,7 @@ export function GestionFacturacion() {
           );
         })}
       </div>
+      </Seccion>
 
       {/* Tabla bandeja simple */}
       {loading ? (
@@ -594,7 +806,7 @@ export function GestionFacturacion() {
       {showDevModal && (
         <RegistrarDevolucionModal
           onClose={() => setShowDevModal(false)}
-          onGuardado={() => { setShowDevModal(false); cargar("devoluciones"); }}
+          onGuardado={() => { setShowDevModal(false); cargar("devoluciones", { refrescar: true }); }}
         />
       )}
       </div>{/* /padding wrapper */}
