@@ -6,7 +6,7 @@ import CONFIG from "../../config/api";
 const API = `${CONFIG.API_ENDPOINT}/gestion-facturacion/auditoria`;
 const auth = () => ({ headers: { Authorization: `Token ${getToken()}` } });
 
-type Vista = "medicos" | "lumier" | "sin_facturar" | "indicadores" | "tarifas";
+type Vista = "medicos" | "lumier" | "sin_facturar" | "indicadores" | "tarifas" | "errores_resultados";
 
 interface MedicoResumen {
   cod_medico: number; medico: string; especialidad: string; lineas: number; honorario: number;
@@ -141,6 +141,7 @@ export function AuditoriaHonorarios() {
           ["sin_facturar", "Sin facturar en SIESA"],
           ["indicadores", "Indicadores"],
           ["tarifas", "Tarifas"],
+          ["errores_resultados", "Errores en resultados"],
         ] as [Vista, string][]).map(([k, label]) => (
           <button key={k} onClick={() => { setVista(k); setMedicoSel(null); setMedicoLumier("Todos"); }} style={{
             padding: "12px 20px", border: "none", cursor: "pointer", background: "transparent", fontWeight: 600, fontSize: 14,
@@ -157,6 +158,7 @@ export function AuditoriaHonorarios() {
               <input type="month" value={periodo} onChange={e => { setPeriodo(e.target.value); setMedicoSel(null); }} style={inputStyle} />
             </Filtro>
             <div style={{ flex: 1 }} />
+            {vista !== "errores_resultados" && <>
             <input ref={lumierInput} type="file" accept=".xlsx,.xls" style={{ display: "none" }}
               onChange={e => e.target.files?.[0] && subirLumier(e.target.files[0])} />
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
@@ -167,6 +169,7 @@ export function AuditoriaHonorarios() {
                 {resumen?.lumier.cargado ? `Lumier de ${nombreMes(periodo)}: ${resumen.lumier.estudios} estudios` : `Sin Lumier para ${nombreMes(periodo)}`}
               </span>
             </div>
+            </>}
           </div>
         )}
 
@@ -187,6 +190,7 @@ export function AuditoriaHonorarios() {
         {vista === "sin_facturar" && <SinFacturar periodo={periodo} />}
         {vista === "indicadores" && <Indicadores />}
         {vista === "tarifas" && <Tarifas periodo={periodo} />}
+        {vista === "errores_resultados" && <ErroresResultados periodo={periodo} />}
       </div>
     </div>
   );
@@ -1255,6 +1259,213 @@ function Indicadores() {
           <TablaSimple filas={datos.cups.map(c => [`${c.cups} ${c.descripcion}`, String(c.glosas), fmt(c.glosado)])} columnas={["CUPS", "Glosas", "Valor"]} />
         </Tarjeta>
       </div>
+    </>
+  );
+}
+
+// ── Errores del médico en los resultados ────────────────────────────────────
+
+interface ErrorResultado {
+  id: number; admision: number; categoria: string; categoria_texto: string; descripcion: string;
+  estado: "PENDIENTE" | "CORREGIDO" | "ACEPTADO"; fecha_hallazgo: string; fecha: string | null;
+  paciente: string; documento: string; contrato: string; cod_medicos: number[]; medico: string; servicios: string;
+}
+interface ErroresDatos {
+  periodo: string;
+  medicos: { cod_medico: number; medico: string; especialidad: string; errores: number; pendientes: number;
+    admisiones: number; admisiones_error: number; pct: number; por_categoria: Record<string, number> }[];
+  errores: ErrorResultado[];
+  categorias: { clave: string; texto: string }[];
+}
+// Colores fijos por categoría (orden categórico validado; el color sigue a la categoría, no al puesto)
+const COLOR_ERROR: Record<string, string> = {
+  ESTUDIO: "#2a78d6", NOMBRE: "#eb6834", LATERALIDAD: "#1baf7a", DATOS: "#eda100", OTRO: "#e87ba4",
+};
+const ESTADO_ERROR: Record<string, { texto: string; color: [string, string] }> = {
+  PENDIENTE: { texto: "Pendiente", color: ["#fee2e2", "#991b1b"] },
+  CORREGIDO: { texto: "Corregido", color: ["#dcfce7", "#166534"] },
+  ACEPTADO:  { texto: "Aceptado",  color: ["#f1f5f9", "#475569"] },
+};
+
+function ErroresResultados({ periodo }: { periodo: string }) {
+  const [datos, setDatos] = useState<ErroresDatos | null>(null);
+  const [error, setError] = useState("");
+  const [medicoF, setMedicoF] = useState("Todos");
+  const [categoriaF, setCategoriaF] = useState("Todas");
+  const [estadoF, setEstadoF] = useState("Todos");
+  const [buscar, setBuscar] = useState("");
+  const [verTabla, setVerTabla] = useState(false);
+  const [hover, setHover] = useState<{ medico: string; cat: string; n: number; x: number; y: number } | null>(null);
+  useEffect(() => {
+    setDatos(null); setError(""); setMedicoF("Todos");
+    axios.get(`${API}/errores-resultados/`, { ...auth(), params: { periodo } })
+      .then(({ data }) => setDatos(data))
+      .catch(e => setError(errorDe(e, "No se pudieron consultar los errores en los resultados")));
+  }, [periodo]);
+  const filas = useMemo(() => {
+    if (!datos) return [];
+    const q = buscar.trim().toLowerCase();
+    return datos.errores.filter(e =>
+      (medicoF === "Todos" || e.cod_medicos.includes(Number(medicoF))) &&
+      (categoriaF === "Todas" || e.categoria === categoriaF) &&
+      (estadoF === "Todos" || e.estado === estadoF) &&
+      (!q || `${e.admision} ${e.paciente} ${e.documento} ${e.descripcion} ${e.servicios}`.toLowerCase().includes(q)));
+  }, [datos, medicoF, categoriaF, estadoF, buscar]);
+  if (error) return <Mensaje color="#991b1b" fondo="#fee2e2" texto={error} onCerrar={() => setError("")} />;
+  if (!datos) return <Cargando />;
+
+  const total = datos.errores.length;
+  const pendientes = datos.errores.filter(e => e.estado === "PENDIENTE").length;
+  const admisionesError = new Set(datos.errores.map(e => e.admision)).size;
+  const cats = datos.categorias.filter(c => datos.errores.some(e => e.categoria === c.clave));
+  const textoCat = (c: string) => datos.categorias.find(x => x.clave === c)?.texto || c;
+  const maxMedico = Math.max(1, ...datos.medicos.map(m => m.errores));
+  const porCategoria = cats.map(c => ({ ...c, n: datos.errores.filter(e => e.categoria === c.clave).length }));
+
+  return (
+    <>
+      <div style={{ fontSize: 13, color: "#475569", marginBottom: 12 }}>
+        Errores de lo que escribió el médico en el resultado, detectados por la revisión de resultados en las admisiones
+        de {nombreMes(periodo)}. Cuentan también los ya corregidos. No incluye resultados sin cargar, documentos de otro
+        paciente (error de cargue) ni datos que estaban mal en Zeus.
+      </div>
+      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+        <Kpi valor={total.toLocaleString("es-CO")} texto="Errores en resultados" fondo="#fee2e2" color="#991b1b" />
+        <Kpi valor={admisionesError.toLocaleString("es-CO")} texto="Admisiones con error" fondo="#fef3c7" color="#92400e" />
+        <Kpi valor={String(datos.medicos.length)} texto="Médicos con errores" fondo="#ede9fe" color="#5b21b6" />
+        <Kpi valor={pendientes.toLocaleString("es-CO")} texto="Sin corregir" fondo="#f8fafc" color="#1e293b" />
+      </div>
+
+      {!total && <Mensaje color="#475569" fondo="#f1f5f9" texto={`Sin errores del médico en los resultados de ${nombreMes(periodo)}.`} />}
+
+      {total > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 16, marginBottom: 16 }}>
+          <Tarjeta titulo="Errores por médico">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                {cats.map(c => (
+                  <span key={c.clave} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "#475569" }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 2, background: COLOR_ERROR[c.clave] || "#94a3b8" }} />{c.texto}
+                  </span>
+                ))}
+              </div>
+              <button onClick={() => setVerTabla(!verTabla)} style={{ ...btnSmall("#cbd5e1"), color: "#334155" }}>
+                {verTabla ? "Ver gráfica" : "Ver tabla"}
+              </button>
+            </div>
+            {verTabla ? (
+              <TablaSimple columnas={["Médico", "Errores", "Admisiones", "%", ...cats.map(c => c.texto)]}
+                filas={datos.medicos.map(m => [m.medico, String(m.errores), `${m.admisiones_error} de ${m.admisiones}`, `${m.pct}%`,
+                  ...cats.map(c => String(m.por_categoria[c.clave] || 0))])} />
+            ) : datos.medicos.map(m => (
+              <div key={m.cod_medico} style={{ marginBottom: 9, cursor: "pointer" }}
+                onClick={() => setMedicoF(medicoF === String(m.cod_medico) ? "Todos" : String(m.cod_medico))}
+                title="Filtrar el detalle por este médico">
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, gap: 8 }}>
+                  <span style={{ fontWeight: 600, color: medicoF === String(m.cod_medico) ? "#6d28d9" : "#1e293b" }}>{m.medico}</span>
+                  <span style={{ whiteSpace: "nowrap" }}>
+                    <b>{m.errores}</b>
+                    <span style={{ color: "#64748b" }}> · {m.pct}% de {m.admisiones} admisiones</span>
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 2, height: 10, marginTop: 3, width: `${(100 * m.errores) / maxMedico}%`, minWidth: 6 }}>
+                  {cats.filter(c => m.por_categoria[c.clave]).map((c, i, arr) => (
+                    <div key={c.clave}
+                      onMouseMove={ev => setHover({ medico: m.medico, cat: c.texto, n: m.por_categoria[c.clave], x: ev.clientX, y: ev.clientY })}
+                      onMouseLeave={() => setHover(null)}
+                      style={{ flex: m.por_categoria[c.clave], background: COLOR_ERROR[c.clave] || "#94a3b8",
+                        borderRadius: `${i === 0 ? 4 : 0}px ${i === arr.length - 1 ? 4 : 0}px ${i === arr.length - 1 ? 4 : 0}px ${i === 0 ? 4 : 0}px` }} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </Tarjeta>
+
+          <Tarjeta titulo="Tipo de error">
+            {porCategoria.sort((a, b) => b.n - a.n).map(c => (
+              <div key={c.clave} style={{ marginBottom: 10, cursor: "pointer" }}
+                onClick={() => setCategoriaF(categoriaF === c.clave ? "Todas" : c.clave)} title="Filtrar el detalle por este tipo">
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                  <span style={{ fontWeight: 600, color: categoriaF === c.clave ? "#6d28d9" : "#1e293b" }}>{c.texto}</span>
+                  <span><b>{c.n}</b> <span style={{ color: "#64748b" }}>({((100 * c.n) / total).toFixed(0)}%)</span></span>
+                </div>
+                <div style={{ background: "#f1f5f9", borderRadius: 4, height: 8, marginTop: 3 }}>
+                  <div style={{ width: `${(100 * c.n) / total}%`, height: 8, borderRadius: 4, background: COLOR_ERROR[c.clave] || "#94a3b8" }} />
+                </div>
+              </div>
+            ))}
+          </Tarjeta>
+        </div>
+      )}
+
+      {hover && (
+        <div style={{ position: "fixed", left: hover.x + 12, top: hover.y + 12, zIndex: 1400, background: "#1e293b", color: "#fff",
+          borderRadius: 6, padding: "6px 10px", fontSize: 12, pointerEvents: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+          <div style={{ fontWeight: 700 }}>{hover.medico}</div>
+          <div>{hover.cat}: {hover.n}</div>
+        </div>
+      )}
+
+      {total > 0 && (
+        <>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 12 }}>
+            <Filtro etiqueta="Médico">
+              <select value={medicoF} onChange={e => setMedicoF(e.target.value)} style={selectStyle}>
+                <option value="Todos">Todos</option>
+                {datos.medicos.map(m => <option key={m.cod_medico} value={m.cod_medico}>{m.medico} ({m.errores})</option>)}
+              </select>
+            </Filtro>
+            <Filtro etiqueta="Tipo de error">
+              <select value={categoriaF} onChange={e => setCategoriaF(e.target.value)} style={selectStyle}>
+                <option value="Todas">Todos</option>
+                {cats.map(c => <option key={c.clave} value={c.clave}>{c.texto}</option>)}
+              </select>
+            </Filtro>
+            <Filtro etiqueta="Estado" flex="0 1 160px">
+              <select value={estadoF} onChange={e => setEstadoF(e.target.value)} style={selectStyle}>
+                <option value="Todos">Todos</option>
+                {Object.entries(ESTADO_ERROR).map(([k, v]) => <option key={k} value={k}>{v.texto}</option>)}
+              </select>
+            </Filtro>
+            <Filtro etiqueta="Buscar">
+              <input value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Admisión, paciente o texto" style={inputStyle} />
+            </Filtro>
+            <span style={{ fontSize: 12, color: "#64748b", marginLeft: "auto" }}>{filas.length} de {total}</span>
+          </div>
+          <div style={tablaWrap}>
+            <table style={tabla}>
+              <thead>
+                <tr style={thRow}>
+                  {["Admisión", "Fecha", "Paciente", "Médico", "Servicio", "Tipo de error", "Detalle", "Estado"].map(c => <th key={c} style={th}>{c}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {filas.map(e => (
+                  <tr key={`${e.admision}-${e.categoria}`} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ ...td, fontWeight: 600 }}>{e.admision}</td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>{fecha(e.fecha)}</td>
+                    <td style={td}>
+                      <div>{e.paciente}</div>
+                      <div style={{ fontSize: 11, color: "#94a3b8" }}>{e.documento}</div>
+                    </td>
+                    <td style={{ ...td, fontSize: 12 }}>{e.medico}</td>
+                    <td style={{ ...td, fontSize: 12, maxWidth: 220 }}>{e.servicios}</td>
+                    <td style={td}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, whiteSpace: "nowrap" }}>
+                        <span style={{ width: 9, height: 9, borderRadius: 2, background: COLOR_ERROR[e.categoria] || "#94a3b8" }} />
+                        {textoCat(e.categoria)}
+                      </span>
+                    </td>
+                    <td style={{ ...td, fontSize: 12, maxWidth: 380 }}>{e.descripcion}</td>
+                    <td style={td}><Chip texto={ESTADO_ERROR[e.estado]?.texto || e.estado} color={ESTADO_ERROR[e.estado]?.color || ["#f1f5f9", "#475569"]} /></td>
+                  </tr>
+                ))}
+                {!filas.length && <tr><td colSpan={8} style={{ ...td, textAlign: "center", color: "#94a3b8" }}>Sin errores con estos filtros</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </>
   );
 }
