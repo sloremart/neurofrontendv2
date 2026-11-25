@@ -24,6 +24,7 @@ interface Linea {
   valor_ajustado: number | null; honorario: number; estado: "PENDIENTE" | "OK" | "GLOSA";
   observacion: string; auditado_por: string; alertas: string[]; sin_tarifa: boolean;
   lumier: { profesional: string; cups: string; examen: string } | null;
+  categoria?: string;
   tipo: "SERVICIO" | "AGENDA"; por_horas: boolean; valor_glosa: number | null; valor_glosado: number;
   bloques: { inicio: string; fin: string; horas: number }[] | null;
   cod_medico?: number | null; cod_medico_zeus?: number | null; medico_agenda?: string;
@@ -269,6 +270,11 @@ function TablaMedicos({ resumen, cargando, periodo, onAbrir, onVerLumier }: {
 
 // ── Detalle de un médico ────────────────────────────────────────────────────
 
+// Categorías del detalle del médico, en el orden del backend (services/honorarios.py CATEGORIAS)
+const CATEGORIAS = ["CONSULTAS", "RADIOGRAFÍA (RX)", "TOMOGRAFÍA (TAC)", "RESONANCIA", "ECOGRAFÍA", "DOPPLER",
+  "MAMOGRAFÍA", "PET-CT", "OTRAS IMÁGENES", "PROCEDIMIENTOS", "BLOQUEOS", "ESTUDIOS DEL SUEÑO"];
+const ordenCategoria = (c: string) => { const i = CATEGORIAS.indexOf(c); return i < 0 ? 99 : i; };
+
 function DetalleMedico({ periodo, codMedico, onVolver, onVerLumier }: {
   periodo: string; codMedico: number; onVolver: () => void; onVerLumier: () => void;
 }) {
@@ -280,6 +286,7 @@ function DetalleMedico({ periodo, codMedico, onVolver, onVerLumier }: {
   const [soloAlertas, setSoloAlertas] = useState(false);
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [editando, setEditando] = useState<Linea | null>(null);
+  const [plegadas, setPlegadas] = useState<Set<string>>(new Set());   // categorías ocultas en el detalle
 
   const cargar = useCallback(async () => {
     setCargando(true); setError("");
@@ -351,6 +358,12 @@ function DetalleMedico({ periodo, codMedico, onVolver, onVerLumier }: {
   const bloqueada = det.cerrada;
   const agenda = lineas.filter(l => l.tipo === "AGENDA");
   const servicios = lineas.filter(l => l.tipo !== "AGENDA");
+  // Servicios agrupados por categoría (RX, TAC, resonancia, consultas, bloqueos, estudios del sueño...)
+  const grupos: [string, Linea[]][] = Object.entries(servicios.reduce((acc, l) => {
+    const c = l.categoria || "PROCEDIMIENTOS";
+    (acc[c] = acc[c] || []).push(l);
+    return acc;
+  }, {} as Record<string, Linea[]>)).sort((a, b) => ordenCategoria(a[0]) - ordenCategoria(b[0]));
   const horasMes = det.lineas.filter(l => l.tipo === "AGENDA").reduce((s, l) => s + l.cantidad, 0);
   const pendientesIds = det.lineas.filter(l => l.estado === "PENDIENTE").map(l => l.sis_deta_id);
   const okTodas = async () => {
@@ -527,7 +540,40 @@ function DetalleMedico({ periodo, codMedico, onVolver, onVerLumier }: {
         <table style={tabla}>
           {encabezadoTabla(servicios)}
           <tbody>
-            {servicios.map(fila)}
+            {grupos.length > 1 ? grupos.map(([cat, ls]) => {
+              const plegada = plegadas.has(cat);
+              const todasGrupo = !bloqueada && ls.every(l => sel.has(l.sis_deta_id));
+              return (
+                <React.Fragment key={cat}>
+                  <tr style={{ background: "#f1f5f9", borderTop: "2px solid #e2e8f0" }}>
+                    <td style={td}>
+                      {!bloqueada && <input type="checkbox" checked={todasGrupo} title={`Seleccionar ${cat}`} onChange={() => {
+                        const n = new Set(sel);
+                        ls.forEach(l => todasGrupo ? n.delete(l.sis_deta_id) : n.add(l.sis_deta_id));
+                        setSel(n);
+                      }} />}
+                    </td>
+                    <td colSpan={10} style={{ ...td, padding: "8px 12px" }}>
+                      <button
+                        onClick={() => { const n = new Set(plegadas); plegada ? n.delete(cat) : n.add(cat); setPlegadas(n); }}
+                        aria-expanded={!plegada}
+                        style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left" }}
+                      >
+                        <span style={{ fontSize: 11, color: "#64748b", width: 12 }}>{plegada ? "▶" : "▼"}</span>
+                        <span style={{ fontWeight: 800, color: "#1e293b", fontSize: 13, letterSpacing: "0.03em" }}>{cat}</span>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>
+                          {ls.length} líneas · {ls.filter(l => l.estado === "PENDIENTE").length} pendientes
+                        </span>
+                        <span style={{ marginLeft: "auto", fontWeight: 700, color: "#5b21b6", fontSize: 13 }}>
+                          {fmt(ls.reduce((a, l) => a + l.honorario, 0))}
+                        </span>
+                      </button>
+                    </td>
+                  </tr>
+                  {!plegada && ls.map(fila)}
+                </React.Fragment>
+              );
+            }) : servicios.map(fila)}
             {!servicios.length && <tr><td colSpan={11} style={{ ...td, textAlign: "center", color: "#94a3b8" }}>Sin líneas con estos filtros</td></tr>}
           </tbody>
         </table>
